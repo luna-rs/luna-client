@@ -14,6 +14,7 @@ import com.jagex.runescape.definition.SpotAnimation;
 import com.jagex.runescape.definition.VarBit;
 import com.jagex.runescape.definition.Varp;
 import com.jagex.runescape.isaac.ISAACRandomGenerator;
+import com.jagex.runescape.scene.Camera;
 import com.jagex.runescape.scene.WorldController;
 import com.jagex.runescape.scene.object.GroundDecoration;
 import com.jagex.runescape.scene.object.Wall;
@@ -120,7 +121,7 @@ public final class Client extends RSApplet {
             signlink.startpriv(InetAddress.getLocalHost());
             final Client client1 = new Client();
             client1.createClientFrame(765, 503);
-            GlobalConfig.openFrame();
+            //GlobalConfig.openFrame();
         } catch (final Exception exception) {
             exception.printStackTrace();
         }
@@ -164,11 +165,12 @@ public final class Client extends RSApplet {
     private boolean effectsEnabled;
     private int hintIconType;
     private int openInterfaceId;
-    private int cameraPositionX;
-    private int cameraPositionZ;
-    private int cameraPositionY;
-    private int cameraVerticalRotation;
-    private int cameraHorizontalRotation;
+    private Camera camera;
+    //private int cameraPositionX;
+    //private int cameraPositionZ;
+    //private int cameraPositoinY;
+    //private int cameraVerticalRotation;
+    //private int cameraHorizontalRotation;
     private int playerRights;
     private final int[] skillExperience;
     private IndexedImage redStone1_3;
@@ -1741,13 +1743,13 @@ public final class Client extends RSApplet {
             return;
         }
         int z = this.getFloorDrawHeight(this.plane, y, x) - height;
-        x -= this.cameraPositionX;
-        z -= this.cameraPositionZ;
-        y -= this.cameraPositionY;
-        final int sineHorizontal = Model.SINE[this.cameraVerticalRotation];
-        final int cosineHorizontal = Model.COSINE[this.cameraVerticalRotation];
-        final int sineVertical = Model.SINE[this.cameraHorizontalRotation];
-        final int cosineVertical = Model.COSINE[this.cameraHorizontalRotation];
+        x -= this.camera.x;
+        z -= this.camera.z;
+        y -= this.camera.y;
+        final int sineHorizontal = Model.SINE[this.camera.yaw];
+        final int cosineHorizontal = Model.COSINE[this.camera.yaw];
+        final int sineVertical = Model.SINE[this.camera.pitch];
+        final int cosineVertical = Model.COSINE[this.camera.pitch];
         int temp = y * sineVertical + x * cosineVertical >> 16;
         y = y * cosineVertical - x * sineVertical >> 16;
         x = temp;
@@ -1803,6 +1805,7 @@ public final class Client extends RSApplet {
                 this.socket.close();
             }
         } catch (final Exception _ex) {
+        	_ex.printStackTrace();
         }
         this.socket = null;
         this.stopMidi();
@@ -2001,34 +2004,33 @@ public final class Client extends RSApplet {
         spawnRequest.face = face;
     }
 
-    private void connectServer() {
-        // TODO Jaggrab
-        /*
-         * int j = 5; expectedCRCs[8] = 0; int k = 0; while(expectedCRCs[8] == 0) {
-         * String s = "Unknown problem"; drawLoadingText(20, (byte)4,
-         * "Connecting to web server"); try { DataInputStream datainputstream =
-         * openJagGrabInputStream("crc" + (int)(Math.random() * 99999999D) + "-" + 317);
-         * Stream class30_sub2_sub2 = new Stream(new byte[40], 891);
-         * datainputstream.readFully(class30_sub2_sub2.buffer, 0, 40);
-         * datainputstream.close(); for(int i1 = 0; i1 < 9; i1++) expectedCRCs[i1] =
-         * class30_sub2_sub2.readDWord();
-         *
-         * int j1 = class30_sub2_sub2.readDWord(); int k1 = 1234; for(int l1 = 0; l1 <
-         * 9; l1++) k1 = (k1 << 1) + expectedCRCs[l1];
-         *
-         * if(j1 != k1) { s = "checksum problem"; expectedCRCs[8] = 0; } }
-         * catch(EOFException _ex) { s = "EOF problem"; expectedCRCs[8] = 0; }
-         * catch(IOException _ex) { s = "connection problem"; expectedCRCs[8] = 0; }
-         * catch(Exception _ex) { s = "logic problem"; expectedCRCs[8] = 0;
-         * if(!signlink.reporterror) return; } if(expectedCRCs[8] == 0) { k++; for(int l
-         * = j; l > 0; l--) { if(k >= 10) { drawLoadingText(10, (byte)4,
-         * "Game updated - please reload page"); l = 10; } else { drawLoadingText(10,
-         * (byte)4, s + " - Will retry in " + l + " secs."); } try {
-         * Thread.sleep(1000L); } catch(Exception _ex) { } }
-         *
-         * j *= 2; if(j > 60) j = 60; aBoolean872 = !aBoolean872; } }
-         */
-    }
+//    private void connectServer() {
+//        // TODO Jaggrab
+//        
+//          int j = 5; expectedCRCs[8] = 0; int k = 0; while(expectedCRCs[8] == 0) {
+//          String s = "Unknown problem"; drawLoadingText(20, (byte)4,
+//          "Connecting to web server"); try { DataInputStream datainputstream =
+//          openJagGrabInputStream("crc" + (int)(Math.random() * 99999999D) + "-" + 317);
+//          Stream class30_sub2_sub2 = new Stream(new byte[40], 891);
+//          datainputstream.readFully(class30_sub2_sub2.buffer, 0, 40);
+//          datainputstream.close(); for(int i1 = 0; i1 < 9; i1++) expectedCRCs[i1] =
+//          class30_sub2_sub2.readDWord();
+//         
+//          int j1 = class30_sub2_sub2.readDWord(); int k1 = 1234; for(int l1 = 0; l1 <
+//          9; l1++) k1 = (k1 << 1) + expectedCRCs[l1];
+//         
+//          if(j1 != k1) { s = "checksum problem"; expectedCRCs[8] = 0; } }
+//          catch(EOFException _ex) { s = "EOF problem"; expectedCRCs[8] = 0; }
+//          catch(IOException _ex) { s = "connection problem"; expectedCRCs[8] = 0; }
+//          catch(Exception _ex) { s = "logic problem"; expectedCRCs[8] = 0;
+//          if(!signlink.reporterror) return; } if(expectedCRCs[8] == 0) { k++; for(int l
+//          = j; l > 0; l--) { if(k >= 10) { drawLoadingText(10, (byte)4,
+//          "Game updated - please reload page"); l = 10; } else { drawLoadingText(10,
+//          (byte)4, s + " - Will retry in " + l + " secs."); } try {
+//          Thread.sleep(1000L); } catch(Exception _ex) { } }
+//         
+//          j *= 2; if(j > 60) j = 60; aBoolean872 = !aBoolean872; } 
+//    }
 
     private void createObjectSpawnRequest(final int delayUntilRespawn, final int id2, final int face2, final int type, final int y, final int type2, final int z,
                                           final int x, final int delayUntilSpawn) {
@@ -4462,9 +4464,9 @@ public final class Client extends RSApplet {
     }
 
     private int getCameraPlaneCutscene() {
-        final int terrainDrawHeight = this.getFloorDrawHeight(this.plane, this.cameraPositionY, this.cameraPositionX);
-        if (terrainDrawHeight - this.cameraPositionZ < 800
-                && (this.tileFlags[this.plane][this.cameraPositionX >> 7][this.cameraPositionY >> 7] & 4) != 0) {
+        final int terrainDrawHeight = this.getFloorDrawHeight(this.plane, this.camera.y, this.camera.x);
+        if (terrainDrawHeight - this.camera.z < 800
+                && (this.tileFlags[this.plane][this.camera.x >> 7][this.camera.y >> 7] & 4) != 0) {
             return this.plane;
         } else {
             return 3;
@@ -4540,9 +4542,9 @@ public final class Client extends RSApplet {
 
     private int getWorldDrawPlane() {
         int worldDrawPlane = 3;
-        if (this.cameraVerticalRotation < 310) {
-            int cameraX = this.cameraPositionX >> 7;
-            int cameraY = this.cameraPositionY >> 7;
+        if (this.camera.yaw < 310) {
+            int cameraX = this.camera.x >> 7;
+            int cameraY = this.camera.y >> 7;
             final int playerX = localPlayer.x >> 7;
             final int playerY = localPlayer.y >> 7;
             if ((this.tileFlags[this.plane][cameraX][cameraY] & 4) != 0) {
@@ -4776,9 +4778,9 @@ public final class Client extends RSApplet {
                 this.anInt1101 = this.inStream.getUnsignedByte();
                 this.anInt1102 = this.inStream.getUnsignedByte();
                 if (this.anInt1102 >= 100) {
-                    this.cameraPositionX = this.anInt1098 * 128 + 64;
-                    this.cameraPositionY = this.anInt1099 * 128 + 64;
-                    this.cameraPositionZ = this.getFloorDrawHeight(this.plane, this.cameraPositionY, this.cameraPositionX) - this.anInt1100;
+                    this.camera.x = this.anInt1098 * 128 + 64;
+                    this.camera.y = this.anInt1099 * 128 + 64;
+                    this.camera.z = this.getFloorDrawHeight(this.plane, this.camera.y, this.camera.x) - this.anInt1100;
                 }
                 this.packetOpcode = -1;
                 return true;
@@ -5559,18 +5561,18 @@ public final class Client extends RSApplet {
                     final int x = this.anInt995 * 128 + 64;
                     final int y = this.anInt996 * 128 + 64;
                     final int z = this.getFloorDrawHeight(this.plane, y, x) - this.cameraOffsetZ;
-                    final int distanceX = x - this.cameraPositionX;
-                    final int distanceZ = z - this.cameraPositionZ;
-                    final int distanceY = y - this.cameraPositionY;
+                    final int distanceX = x - this.camera.x;
+                    final int distanceZ = z - this.camera.z;
+                    final int distanceY = y - this.camera.y;
                     final int distanceScalar = (int) Math.sqrt(distanceX * distanceX + distanceY * distanceY);
-                    this.cameraVerticalRotation = (int) (Math.atan2(distanceZ, distanceScalar) * 325.94900000000001D)
+                    this.camera.yaw = (int) (Math.atan2(distanceZ, distanceScalar) * 325.94900000000001D)
                             & 0x7FF;
-                    this.cameraHorizontalRotation = (int) (Math.atan2(distanceX, distanceY) * -325.94900000000001D) & 0x7FF;
-                    if (this.cameraVerticalRotation < 128) {
-                        this.cameraVerticalRotation = 128;
+                    this.camera.pitch = (int) (Math.atan2(distanceX, distanceY) * -325.94900000000001D) & 0x7FF;
+                    if (this.camera.yaw < 128) {
+                        this.camera.yaw = 128;
                     }
-                    if (this.cameraVerticalRotation > 383) {
-                        this.cameraVerticalRotation = 383;
+                    if (this.camera.yaw > 383) {
+                        this.camera.yaw = 383;
                     }
                 }
                 this.packetOpcode = -1;
@@ -7230,10 +7232,11 @@ public final class Client extends RSApplet {
             try {
                 this.jaggrabSocket.close();
             } catch (final Exception _ex) {
+            	throw _ex;
             }
             this.jaggrabSocket = null;
         }
-        this.jaggrabSocket = this.openSocket(43595);
+        this.jaggrabSocket = this.openSocket(Constants.PORT);
         this.jaggrabSocket.setSoTimeout(10000);
         final java.io.InputStream inputstream = this.jaggrabSocket.getInputStream();
         final OutputStream outputstream = this.jaggrabSocket.getOutputStream();
@@ -8621,7 +8624,7 @@ public final class Client extends RSApplet {
                 vertical = this.cameraAmplitude[4] + 128;
             }
             final int horizontal = cameraHorizontal + this.cameraRandomisationA & 0x7FF;
-            this.setCameraPosition(this.currentCameraPositionH, this.currentCameraPositionV,
+            this.camera.setCameraPosition(this.currentCameraPositionH, this.currentCameraPositionV,
                     this.getFloorDrawHeight(this.plane, localPlayer.y, localPlayer.x) - 50, horizontal, vertical);
         }
         final int cameraPlane;
@@ -8630,34 +8633,34 @@ public final class Client extends RSApplet {
         } else {
             cameraPlane = this.getCameraPlaneCutscene();
         }
-        final int x = this.cameraPositionX;
-        final int y = this.cameraPositionZ;
-        final int z = this.cameraPositionY;
-        final int curveY = this.cameraVerticalRotation;
-        final int curveZ = this.cameraHorizontalRotation;
+        final int x = this.camera.x;
+        final int y = this.camera.z;
+        final int z = this.camera.y;
+        final int curveY = this.camera.yaw;
+        final int curveZ = this.camera.pitch;
         for (int i = 0; i < 5; i++) {
             if (this.customCameraActive[i]) {
                 final int randomisation = (int) ((Math.random() * (this.cameraJitter[i] * 2 + 1) - this.cameraJitter[i])
                         + Math.sin(this.unknownCameraVariable[i] * (this.cameraFrequency[i] / 100D)) * this.cameraAmplitude[i]);
                 if (i == 0) {
-                    this.cameraPositionX += randomisation;
+                    this.camera.x += randomisation;
                 }
                 if (i == 1) {
-                    this.cameraPositionZ += randomisation;
+                    this.camera.z += randomisation;
                 }
                 if (i == 2) {
-                    this.cameraPositionY += randomisation;
+                    this.camera.y += randomisation;
                 }
                 if (i == 3) {
-                    this.cameraHorizontalRotation = this.cameraHorizontalRotation + randomisation & 0x7FF;
+                    this.camera.pitch = this.camera.pitch + randomisation & 0x7FF;
                 }
                 if (i == 4) {
-                    this.cameraVerticalRotation += randomisation;
-                    if (this.cameraVerticalRotation < 128) {
-                        this.cameraVerticalRotation = 128;
+                    this.camera.yaw += randomisation;
+                    if (this.camera.yaw < 128) {
+                        this.camera.yaw = 128;
                     }
-                    if (this.cameraVerticalRotation > 383) {
-                        this.cameraVerticalRotation = 383;
+                    if (this.camera.yaw > 383) {
+                        this.camera.yaw = 383;
                     }
                 }
             }
@@ -8669,19 +8672,19 @@ public final class Client extends RSApplet {
         Model.cursorX = super.mouseX - 4;
         Model.cursorY = super.mouseY - 4;
         DrawingArea.clear();
-        this.worldController.render(this.cameraPositionX, this.cameraPositionY, this.cameraHorizontalRotation, this.cameraPositionZ, cameraPlane,
-                this.cameraVerticalRotation);
+        this.worldController.render(this.camera.x, this.camera.y, this.camera.pitch, this.camera.z, cameraPlane,
+                this.camera.yaw);
         this.worldController.clearInteractiveObjectCache();
         this.updateEntities();
         this.drawHeadIcon();
         this.animateTexture(textureId);
         this.draw3dScreen();
         this.gameScreenImageProducer.drawGraphics(4, super.gameGraphics, 4);
-        this.cameraPositionX = x;
-        this.cameraPositionZ = y;
-        this.cameraPositionY = z;
-        this.cameraVerticalRotation = curveY;
-        this.cameraHorizontalRotation = curveZ;
+        this.camera.x = x;
+        this.camera.z = y;
+        this.camera.y = z;
+        this.camera.yaw = curveY;
+        this.camera.pitch = curveZ;
     }
 
     private void renderNPCs(final boolean flag) {
@@ -8824,6 +8827,7 @@ public final class Client extends RSApplet {
                 abyte0 = this.caches[0].decompress(i);
             }
         } catch (final Exception _ex) {
+        	throw _ex;
         }
         if (abyte0 != null) {
             // aCRC32_930.reset();
@@ -8874,6 +8878,7 @@ public final class Client extends RSApplet {
                     }
                 } catch (final Exception _ex) {
                     this.caches[0] = null;
+                    throw _ex;
                 }
                 /*
                  * if(abyte0 != null) { aCRC32_930.reset(); aCRC32_930.update(abyte0); int i3 =
@@ -8885,24 +8890,28 @@ public final class Client extends RSApplet {
                     s2 = "Connection error";
                 }
                 abyte0 = null;
+                ioexception.printStackTrace();
             } catch (final NullPointerException _ex) {
                 s2 = "Null error";
                 abyte0 = null;
                 if (!signlink.reporterror) {
                     return null;
                 }
+                throw _ex;
             } catch (final ArrayIndexOutOfBoundsException _ex) {
                 s2 = "Bounds error";
                 abyte0 = null;
                 if (!signlink.reporterror) {
                     return null;
                 }
+                throw _ex;
             } catch (final Exception _ex) {
                 s2 = "Unexpected error";
                 abyte0 = null;
                 if (!signlink.reporterror) {
                     return null;
                 }
+                throw _ex;
             }
             if (abyte0 == null) {
                 for (int l1 = l; l1 > 0; l1--) {
@@ -8914,7 +8923,8 @@ public final class Client extends RSApplet {
                     }
                     try {
                         Thread.sleep(1000L);
-                    } catch (final Exception _ex) {
+                    } catch (final InterruptedException _ex) {
+                    	_ex.printStackTrace();
                     }
                 }
 
@@ -9030,79 +9040,52 @@ public final class Client extends RSApplet {
         }
     }
 
-    private void setCameraPosition(final int x, final int y, final int z, final int horizontal, final int vertical) {
-        final int verticalDifference = 2048 - vertical & 0x7FF;
-        final int horizontalDifference = 2048 - horizontal & 0x7FF;
-        int offsetX = 0;
-        int offsetZ = 0;
-        int offsetY = 600 + vertical * 3;
-        if (verticalDifference != 0) {
-            final int sine = Model.SINE[verticalDifference];
-            final int cos = Model.COSINE[verticalDifference];
-            final int tmp = offsetZ * cos - offsetY * sine >> 16;
-            offsetY = offsetZ * sine + offsetY * cos >> 16;
-            offsetZ = tmp;
-        }
-        if (horizontalDifference != 0) {
-            final int sin = Model.SINE[horizontalDifference];
-            final int cos = Model.COSINE[horizontalDifference];
-            final int tmp = offsetY * sin + offsetX * cos >> 16;
-            offsetY = offsetY * cos - offsetX * sin >> 16;
-            offsetX = tmp;
-        }
-        this.cameraPositionX = x - offsetX;
-        this.cameraPositionZ = z - offsetZ;
-        this.cameraPositionY = y - offsetY;
-        this.cameraVerticalRotation = vertical;
-        this.cameraHorizontalRotation = horizontal;
-    }
-
     private void setCutsceneCamera() {
         int x = this.anInt1098 * 128 + 64;
         int y = this.anInt1099 * 128 + 64;
         int z = this.getFloorDrawHeight(this.plane, y, x) - this.anInt1100;
-        if (this.cameraPositionX < x) {
-            this.cameraPositionX += this.anInt1101 + ((x - this.cameraPositionX) * this.anInt1102) / 1000;
-            if (this.cameraPositionX > x) {
-                this.cameraPositionX = x;
+        if (this.camera.x < x) {
+            this.camera.x += this.anInt1101 + ((x - this.camera.x) * this.anInt1102) / 1000;
+            if (this.camera.x > x) {
+                this.camera.x = x;
             }
         }
-        if (this.cameraPositionX > x) {
-            this.cameraPositionX -= this.anInt1101 + ((this.cameraPositionX - x) * this.anInt1102) / 1000;
-            if (this.cameraPositionX < x) {
-                this.cameraPositionX = x;
+        if (this.camera.x > x) {
+            this.camera.x -= this.anInt1101 + ((this.camera.x - x) * this.anInt1102) / 1000;
+            if (this.camera.x < x) {
+                this.camera.x = x;
             }
         }
-        if (this.cameraPositionZ < z) {
-            this.cameraPositionZ += this.anInt1101 + ((z - this.cameraPositionZ) * this.anInt1102) / 1000;
-            if (this.cameraPositionZ > z) {
-                this.cameraPositionZ = z;
+        if (this.camera.z < z) {
+            this.camera.z += this.anInt1101 + ((z - this.camera.z) * this.anInt1102) / 1000;
+            if (this.camera.z > z) {
+                this.camera.z = z;
             }
         }
-        if (this.cameraPositionZ > z) {
-            this.cameraPositionZ -= this.anInt1101 + ((this.cameraPositionZ - z) * this.anInt1102) / 1000;
-            if (this.cameraPositionZ < z) {
-                this.cameraPositionZ = z;
+        if (this.camera.z > z) {
+            this.camera.z -= this.anInt1101 + ((this.camera.z - z) * this.anInt1102) / 1000;
+            if (this.camera.z < z) {
+                this.camera.z = z;
             }
         }
-        if (this.cameraPositionY < y) {
-            this.cameraPositionY += this.anInt1101 + ((y - this.cameraPositionY) * this.anInt1102) / 1000;
-            if (this.cameraPositionY > y) {
-                this.cameraPositionY = y;
+        if (this.camera.y < y) {
+            this.camera.y += this.anInt1101 + ((y - this.camera.y) * this.anInt1102) / 1000;
+            if (this.camera.y > y) {
+                this.camera.y = y;
             }
         }
-        if (this.cameraPositionY > y) {
-            this.cameraPositionY -= this.anInt1101 + ((this.cameraPositionY - y) * this.anInt1102) / 1000;
-            if (this.cameraPositionY < y) {
-                this.cameraPositionY = y;
+        if (this.camera.y > y) {
+            this.camera.y -= this.anInt1101 + ((this.camera.y - y) * this.anInt1102) / 1000;
+            if (this.camera.y < y) {
+                this.camera.y = y;
             }
         }
         x = this.anInt995 * 128 + 64;
         y = this.anInt996 * 128 + 64;
         z = this.getFloorDrawHeight(this.plane, y, x) - this.cameraOffsetZ;
-        final int distanceX = x - this.cameraPositionX;
-        final int distanceZ = z - this.cameraPositionZ;
-        final int distanceY = y - this.cameraPositionY;
+        final int distanceX = x - this.camera.x;
+        final int distanceZ = z - this.camera.z;
+        final int distanceY = y - this.camera.y;
         final int distanceScalar = (int) Math.sqrt(distanceX * distanceX + distanceY * distanceY);
         int curveHorizontal = (int) (Math.atan2(distanceZ, distanceScalar) * 325.94900000000001D) & 0x7FF;
         final int curveVertical = (int) (Math.atan2(distanceX, distanceY) * -325.94900000000001D) & 0x7FF;
@@ -9112,19 +9095,19 @@ public final class Client extends RSApplet {
         if (curveHorizontal > 383) {
             curveHorizontal = 383;
         }
-        if (this.cameraVerticalRotation < curveHorizontal) {
-            this.cameraVerticalRotation += this.anInt998 + ((curveHorizontal - this.cameraVerticalRotation) * this.anInt999) / 1000;
-            if (this.cameraVerticalRotation > curveHorizontal) {
-                this.cameraVerticalRotation = curveHorizontal;
+        if (this.camera.yaw < curveHorizontal) {
+            this.camera.yaw += this.anInt998 + ((curveHorizontal - this.camera.yaw) * this.anInt999) / 1000;
+            if (this.camera.yaw > curveHorizontal) {
+                this.camera.yaw = curveHorizontal;
             }
         }
-        if (this.cameraVerticalRotation > curveHorizontal) {
-            this.cameraVerticalRotation -= this.anInt998 + ((this.cameraVerticalRotation - curveHorizontal) * this.anInt999) / 1000;
-            if (this.cameraVerticalRotation < curveHorizontal) {
-                this.cameraVerticalRotation = curveHorizontal;
+        if (this.camera.yaw > curveHorizontal) {
+            this.camera.yaw -= this.anInt998 + ((this.camera.yaw - curveHorizontal) * this.anInt999) / 1000;
+            if (this.camera.yaw < curveHorizontal) {
+                this.camera.yaw = curveHorizontal;
             }
         }
-        int _vertical1 = curveVertical - this.cameraHorizontalRotation;
+        int _vertical1 = curveVertical - this.camera.pitch;
         if (_vertical1 > 1024) {
             _vertical1 -= 2048;
         }
@@ -9132,14 +9115,14 @@ public final class Client extends RSApplet {
             _vertical1 += 2048;
         }
         if (_vertical1 > 0) {
-            this.cameraHorizontalRotation += this.anInt998 + (_vertical1 * this.anInt999) / 1000;
-            this.cameraHorizontalRotation &= 0x7FF;
+            this.camera.pitch += this.anInt998 + (_vertical1 * this.anInt999) / 1000;
+            this.camera.pitch &= 0x7FF;
         }
         if (_vertical1 < 0) {
-            this.cameraHorizontalRotation -= this.anInt998 + (-_vertical1 * this.anInt999) / 1000;
-            this.cameraHorizontalRotation &= 0x7FF;
+            this.camera.pitch -= this.anInt998 + (-_vertical1 * this.anInt999) / 1000;
+            this.camera.pitch &= 0x7FF;
         }
-        int _vertical2 = curveVertical - this.cameraHorizontalRotation;
+        int _vertical2 = curveVertical - this.camera.pitch;
         if (_vertical2 > 1024) {
             _vertical2 -= 2048;
         }
@@ -9147,7 +9130,7 @@ public final class Client extends RSApplet {
             _vertical2 += 2048;
         }
         if (_vertical2 < 0 && _vertical1 > 0 || _vertical2 > 0 && _vertical1 < 0) {
-            this.cameraHorizontalRotation = curveVertical;
+            this.camera.pitch = curveVertical;
         }
     }
 
@@ -9422,7 +9405,7 @@ public final class Client extends RSApplet {
 
         }
         try {
-            this.connectServer();
+            //this.connectServer();
             this.archiveTitle = this.requestArchive(1, "title screen", "title", this.expectedCRCs[1], 25);
             this.fontSmall = new GameFont("p11_full", this.archiveTitle, false);
             this.fontPlain = new GameFont("p12_full", this.archiveTitle, false);
@@ -9456,6 +9439,7 @@ public final class Client extends RSApplet {
                 try {
                     this.nextSong = Integer.parseInt(this.getParameter("music"));
                 } catch (final Exception _ex) {
+                	throw _ex;
                 }
                 this.songChanging = true;
                 this.onDemandFetcher.request(2, this.nextSong);
@@ -9464,6 +9448,7 @@ public final class Client extends RSApplet {
                     try {
                         Thread.sleep(100L);
                     } catch (final Exception _ex) {
+                    	throw _ex;
                     }
                     if (this.onDemandFetcher.failedRequests > 3) {
                         this.loadError();
@@ -9486,6 +9471,7 @@ public final class Client extends RSApplet {
                 try {
                     Thread.sleep(100L);
                 } catch (final Exception _ex) {
+                	throw _ex;
                 }
                 if (this.onDemandFetcher.failedRequests > 3) {
                     this.loadError();
@@ -9537,6 +9523,7 @@ public final class Client extends RSApplet {
                     try {
                         Thread.sleep(100L);
                     } catch (final Exception _ex) {
+                    	throw _ex;
                     }
                 }
             }
@@ -9833,6 +9820,7 @@ public final class Client extends RSApplet {
                                     30 - percentage, 5, 0xFF0000);
                         }
                     } catch (final Exception e) {
+                    	throw e;
                     }
                 }
                 for (int hit = 0; hit < 4; hit++) {
@@ -9973,6 +9961,7 @@ public final class Client extends RSApplet {
                 }
             }
         } catch (final Exception e) {
+        	throw e;
         }
 
     }
@@ -10456,6 +10445,7 @@ public final class Client extends RSApplet {
                         }
                     } catch (final Exception exception) {
                         signlink.reporterror("cde2");
+                        exception.printStackTrace();
                     }
                 }
             }

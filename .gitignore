@@ -4,3 +4,9 @@
 /.idea
 /.vscode
 /out
+
+# Eclipse
+/bin
+.classpath
+.project
+.settings
