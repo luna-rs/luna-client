@@ -7233,7 +7233,7 @@ public final class Client extends RSApplet {
             }
             this.jaggrabSocket = null;
         }
-        this.jaggrabSocket = this.openSocket(43595);
+        this.jaggrabSocket = this.openSocket(Constants.PORT);
         this.jaggrabSocket.setSoTimeout(10000);
         final java.io.InputStream inputstream = this.jaggrabSocket.getInputStream();
         final OutputStream outputstream = this.jaggrabSocket.getOutputStream();
