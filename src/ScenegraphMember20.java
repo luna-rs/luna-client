@@ -2,10 +2,10 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class20 {
+public class ScenegraphMember20 {
 
-	public Class20(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2, int j2, int k2, int l2, int i3,
-			int j3, int k3, int l3, int i4, int j4, int k4, int l4) {
+	public ScenegraphMember20(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2, int j2, int k2, int l2, int i3,
+							  int j3, int k3, int l3, int i4, int j4, int k4, int l4) {
 		aBoolean413 = true;
 		if (l != j3 || l != k || l != i)
 			aBoolean413 = false;

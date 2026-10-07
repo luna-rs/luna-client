@@ -2,7 +2,25 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class29 {
+public class SoundRelated29 {
+
+	public boolean aBoolean573;
+	public int anInt574;
+	public int anIntArray575[];
+	public int anIntArray576[];
+	public int anInt577;
+	public int anInt578;
+	public int waveType;
+	public int anInt580;
+	public int anInt581;
+	public int anInt582;
+	public int anInt583;
+	public int anInt584;
+	public static int anInt585;
+
+	public SoundRelated29() {
+		aBoolean573 = true;
+	}
 
 	public void method308(byte byte0, JagBuffer buf) {
 		waveType = buf.getByte();
@@ -57,22 +75,4 @@ public class Class29 {
 		anInt584++;
 		return anInt583 - anInt582 >> 15;
 	}
-
-	public Class29() {
-		aBoolean573 = true;
-	}
-
-	public boolean aBoolean573;
-	public int anInt574;
-	public int anIntArray575[];
-	public int anIntArray576[];
-	public int anInt577;
-	public int anInt578;
-	public int waveType;
-	public int anInt580;
-	public int anInt581;
-	public int anInt582;
-	public int anInt583;
-	public int anInt584;
-	public static int anInt585;
 }

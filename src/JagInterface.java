@@ -4,6 +4,87 @@
 
 public class JagInterface {
 
+	public int id;
+	public static int anInt210;
+	public String aString211;
+	public RgbSprite aClass50_Sub1_Sub1_Sub1_212;
+	public int anIntArray213[];
+	public static Archive aClass2_214;
+	public static JagInterface interfaces[];
+	public boolean aBoolean217;
+	public int anInt218;
+	public boolean aBoolean219;
+	public byte aByte220;
+	public int anIntArray221[];
+	public int anInt222;
+	public static JagFont aClass50_Sub1_Sub1_Sub2Array223[];
+	public int itemAmounts[];
+	public int anInt225;
+	public int anInt226;
+	public int anInt227;
+	public int anInt228;
+	public boolean aBoolean229;
+	public String aString230;
+	public int anInt231;
+	public int anIntArray232[];
+	public boolean aBoolean233;
+	public int anIntArrayArray234[][];
+	public int anInt235;
+	public int type;
+	public JagFont aClass50_Sub1_Sub1_Sub2_237;
+	public int height;
+	public int width;
+	public boolean visible;
+	public int anInt240;
+	public int anInt242;
+	public static int anInt243;
+	public int anInt244;
+	public RgbSprite aClass50_Sub1_Sub1_Sub1_245;
+	public static int anInt246 = -1;
+	public boolean aBoolean247;
+	public int anInt248;
+	public String aString249;
+	public static LruHashTable aClass33_250;
+	public int anInt251;
+	public int anInt252;
+	public int anInt253;
+	public int anInt254;
+	public static int anInt255 = -1;
+	public int anIntArray256[];
+	public static boolean aBoolean257;
+	public int anIntArray258[];
+	public int anInt259;
+	public int anInt260;
+	public int anInt261;
+	public String options[];
+	public int anInt263;
+	public static LruHashTable lruModelTable = new LruHashTable(30);
+	public RgbSprite aClass50_Sub1_Sub1_Sub1Array265[];
+	public int anInt266;
+	public int anInt267;
+	public String tooltip;
+	public int itemIds[];
+	public int anInt270;
+	public boolean aBoolean271;
+	public boolean aBoolean272;
+	public int anIntArray273[];
+	public boolean aBoolean274;
+	public static int anInt275 = -291;
+	public int anIntArray276[];
+	public static int anInt277 = -1;
+	public static boolean aBoolean278 = true;
+	public static int anInt279 = 373;
+	public static int anInt280;
+	public String aString281;
+	public static byte data[][];
+	public int anInt283;
+	public int anInt284;
+	public int anInt285;
+	public int anInt286;
+	public int anInt287;
+	public boolean aBoolean288;
+	public int anInt289;
+
 	public static RgbSprite method194(int i, String s, int j) {
 		long l = (StringUtils.hash(s) << 8) + i;
 		if (j <= 0)
@@ -69,11 +150,11 @@ public class JagInterface {
 		JagInterface inter = new JagInterface();
 		inter.id = id;
 		inter.anInt248 = i;
-		inter.anInt236 = buf.getByte();
+		inter.type = buf.getByte();
 		inter.anInt289 = buf.getByte();
 		inter.anInt242 = buf.getShort();
-		inter.anInt241 = buf.getShort();
-		inter.anInt238 = buf.getShort();
+		inter.width = buf.getShort();
+		inter.height = buf.getShort();
 		inter.aByte220 = (byte) buf.getByte();
 		inter.anInt254 = buf.getByte();
 		if (inter.anInt254 != 0)
@@ -108,7 +189,7 @@ public class JagInterface {
 			}
 
 		}
-		if (inter.anInt236 == 0) {
+		if (inter.type == 0) {
 			inter.anInt285 = buf.getShort();
 			inter.aBoolean219 = buf.getByte() == 1;
 			int l1 = buf.getShort();
@@ -122,13 +203,13 @@ public class JagInterface {
 			}
 
 		}
-		if (inter.anInt236 == 1) {
+		if (inter.type == 1) {
 			inter.anInt225 = buf.getShort();
 			inter.aBoolean233 = buf.getByte() == 1;
 		}
-		if (inter.anInt236 == 2) {
-			inter.itemIds = new int[inter.anInt241 * inter.anInt238];
-			inter.itemAmounts = new int[inter.anInt241 * inter.anInt238];
+		if (inter.type == 2) {
+			inter.itemIds = new int[inter.width * inter.height];
+			inter.itemAmounts = new int[inter.width * inter.height];
 			inter.aBoolean274 = buf.getByte() == 1;
 			inter.aBoolean229 = buf.getByte() == 1;
 			inter.aBoolean288 = buf.getByte() == 1;
@@ -160,27 +241,27 @@ public class JagInterface {
 			}
 
 		}
-		if (inter.anInt236 == 3)
-			inter.aBoolean239 = buf.getByte() == 1;
-		if (inter.anInt236 == 4 || inter.anInt236 == 1) {
+		if (inter.type == 3)
+			inter.visible = buf.getByte() == 1;
+		if (inter.type == 4 || inter.type == 1) {
 			inter.aBoolean272 = buf.getByte() == 1;
 			int j2 = buf.getByte();
 			if (aClass50_Sub1_Sub1_Sub2Array223 != null)
 				inter.aClass50_Sub1_Sub1_Sub2_237 = aClass50_Sub1_Sub1_Sub2Array223[j2];
 			inter.aBoolean247 = buf.getByte() == 1;
 		}
-		if (inter.anInt236 == 4) {
+		if (inter.type == 4) {
 			inter.aString230 = buf.getString();
 			inter.aString249 = buf.getString();
 		}
-		if (inter.anInt236 == 1 || inter.anInt236 == 3 || inter.anInt236 == 4)
+		if (inter.type == 1 || inter.type == 3 || inter.type == 4)
 			inter.anInt240 = buf.getInt();
-		if (inter.anInt236 == 3 || inter.anInt236 == 4) {
+		if (inter.type == 3 || inter.type == 4) {
 			inter.anInt260 = buf.getInt();
 			inter.anInt261 = buf.getInt();
 			inter.anInt226 = buf.getInt();
 		}
-		if (inter.anInt236 == 5) {
+		if (inter.type == 5) {
 			String s = buf.getString();
 			if (s.length() > 0) {
 				int l3 = s.lastIndexOf(",");
@@ -194,7 +275,7 @@ public class JagInterface {
 						i4), 373);
 			}
 		}
-		if (inter.anInt236 == 6) {
+		if (inter.type == 6) {
 			id = buf.getByte();
 			if (id != 0) {
 				inter.anInt283 = 1;
@@ -219,9 +300,9 @@ public class JagInterface {
 			inter.anInt252 = buf.getShort();
 			inter.anInt253 = buf.getShort();
 		}
-		if (inter.anInt236 == 7) {
-			inter.itemIds = new int[inter.anInt241 * inter.anInt238];
-			inter.itemAmounts = new int[inter.anInt241 * inter.anInt238];
+		if (inter.type == 7) {
+			inter.itemIds = new int[inter.width * inter.height];
+			inter.itemAmounts = new int[inter.width * inter.height];
 			inter.aBoolean272 = buf.getByte() == 1;
 			int k2 = buf.getByte();
 			if (aClass50_Sub1_Sub1_Sub2Array223 != null)
@@ -239,9 +320,9 @@ public class JagInterface {
 			}
 
 		}
-		if (inter.anInt236 == 8)
+		if (inter.type == 8)
 			inter.aString230 = buf.getString();
-		if (inter.anInt289 == 2 || inter.anInt236 == 2) {
+		if (inter.anInt289 == 2 || inter.type == 2) {
 			inter.aString281 = buf.getString();
 			inter.aString211 = buf.getString();
 			inter.anInt222 = buf.getShort();
@@ -291,13 +372,11 @@ public class JagInterface {
 			anInt210 = 391;
 	}
 
-	public static void method200(boolean flag, int i) {
-		if (!flag)
-			aBoolean257 = !aBoolean257;
+	public static void method200(int i) {
 		if (i == -1)
 			return;
 		for (int j = 0; j < interfaces.length; j++)
-			if (interfaces[j] != null && interfaces[j].anInt248 == i && interfaces[j].anInt236 != 2)
+			if (interfaces[j] != null && interfaces[j].anInt248 == i && interfaces[j].type != 2)
 				interfaces[j] = null;
 
 	}
@@ -314,123 +393,43 @@ public class JagInterface {
 	public static void method202(boolean flag) {
 		interfaces = null;
 		aClass2_214 = null;
-		if (flag)
-			aBoolean257 = !aBoolean257;
 		aClass33_250 = null;
 		aClass50_Sub1_Sub1_Sub2Array223 = null;
 		data = null;
 	}
 
-	public Model method203(int i, int j, int k, boolean flag) {
+	public Model method203(int i, int j, boolean flag) {
 		anInt280 = 64;
 		anInt243 = 768;
 		Model model;
-		if (flag)
-			model = method197(anInt266, anInt267);
-		else
-			model = method197(anInt283, anInt284);
-		if (model == null)
-			return null;
-		if (i == -1 && j == -1 && model.colors == null)
-			return model;
-		Model class50_sub1_sub4_sub4_1 = new Model(false, false, true,
+		if (flag) {
+            model = method197(anInt266, anInt267);
+        } else {
+            model = method197(anInt283, anInt284);
+        }
+		if (model == null) {
+            return null;
+        }
+		if (i == -1 && j == -1 && model.colors == null) {
+            return model;
+        }
+		Model model2 = new Model(false, false, true,
 				model, AnimationFrame.isFrameTransparent(i) & AnimationFrame.isFrameTransparent(j));
-		if (k != 0)
-			aBoolean271 = !aBoolean271;
-		if (i != -1 || j != -1)
-			class50_sub1_sub4_sub4_1.groupIndicesByTransform();
-		if (i != -1)
-			class50_sub1_sub4_sub4_1.applyAnimation(i, (byte) 6);
-		if (j != -1)
-			class50_sub1_sub4_sub4_1.applyAnimation(j, (byte) 6);
-		class50_sub1_sub4_sub4_1.initLighting(anInt280, anInt243, -50, -10, -50, true);
-		return class50_sub1_sub4_sub4_1;
+		if (i != -1 || j != -1) {
+            model2.groupIndicesByTransform();
+        }
+		if (i != -1) {
+            model2.applyAnimation(i, (byte) 6);
+        }
+		if (j != -1) {
+            model2.applyAnimation(j, (byte) 6);
+        }
+		model2.initLighting(anInt280, anInt243, -50, -10, -50, true);
+		return model2;
 	}
 
 	public JagInterface() {
 		anInt270 = -68;
 		aBoolean271 = true;
 	}
-
-	public static int anInt210;
-	public String aString211;
-	public RgbSprite aClass50_Sub1_Sub1_Sub1_212;
-	public int anIntArray213[];
-	public static Archive aClass2_214;
-	public int id;
-	public static JagInterface interfaces[];
-	public boolean aBoolean217;
-	public int anInt218;
-	public boolean aBoolean219;
-	public byte aByte220;
-	public int anIntArray221[];
-	public int anInt222;
-	public static JagFont aClass50_Sub1_Sub1_Sub2Array223[];
-	public int itemAmounts[];
-	public int anInt225;
-	public int anInt226;
-	public int anInt227;
-	public int anInt228;
-	public boolean aBoolean229;
-	public String aString230;
-	public int anInt231;
-	public int anIntArray232[];
-	public boolean aBoolean233;
-	public int anIntArrayArray234[][];
-	public int anInt235;
-	public int anInt236;
-	public JagFont aClass50_Sub1_Sub1_Sub2_237;
-	public int anInt238;
-	public boolean aBoolean239;
-	public int anInt240;
-	public int anInt241;
-	public int anInt242;
-	public static int anInt243;
-	public int anInt244;
-	public RgbSprite aClass50_Sub1_Sub1_Sub1_245;
-	public static int anInt246 = -1;
-	public boolean aBoolean247;
-	public int anInt248;
-	public String aString249;
-	public static LruHashTable aClass33_250;
-	public int anInt251;
-	public int anInt252;
-	public int anInt253;
-	public int anInt254;
-	public static int anInt255 = -1;
-	public int anIntArray256[];
-	public static boolean aBoolean257;
-	public int anIntArray258[];
-	public int anInt259;
-	public int anInt260;
-	public int anInt261;
-	public String options[];
-	public int anInt263;
-	public static LruHashTable lruModelTable = new LruHashTable(30);
-	public RgbSprite aClass50_Sub1_Sub1_Sub1Array265[];
-	public int anInt266;
-	public int anInt267;
-	public String tooltip;
-	public int itemIds[];
-	public int anInt270;
-	public boolean aBoolean271;
-	public boolean aBoolean272;
-	public int anIntArray273[];
-	public boolean aBoolean274;
-	public static int anInt275 = -291;
-	public int anIntArray276[];
-	public static int anInt277 = -1;
-	public static boolean aBoolean278 = true;
-	public static int anInt279 = 373;
-	public static int anInt280;
-	public String aString281;
-	public static byte data[][];
-	public int anInt283;
-	public int anInt284;
-	public int anInt285;
-	public int anInt286;
-	public int anInt287;
-	public boolean aBoolean288;
-	public int anInt289;
-
 }

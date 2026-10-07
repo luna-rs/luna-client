@@ -10,7 +10,6 @@ public final class Constants {
     public static final int NPC_BITS = 14;
     public static final boolean DEBUG = true;
 
-
     private Constants() {
     }
 }

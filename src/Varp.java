@@ -4,19 +4,10 @@
 
 public class Varp {
 
-	public Varp() {
-		aBoolean710 = false;
-		aBoolean711 = true;
-		aBoolean713 = false;
-		aBoolean716 = false;
-		anInt717 = -1;
-		aBoolean718 = true;
-	}
-
 	public static int count;
 	public static Varp varpTable[];
-	public static int anInt705;
-	public static int[] anIntArray706;
+	public static int index_705;
+	public static int anIntArray706[];
 	public String aString707;
 	public int anInt708;
 	public int anInt709;
@@ -30,9 +21,18 @@ public class Varp {
 	public int anInt717;
 	public boolean aBoolean718;
 
+	public Varp() {
+		aBoolean710 = false;
+		aBoolean711 = true;
+		aBoolean713 = false;
+		aBoolean716 = false;
+		anInt717 = -1;
+		aBoolean718 = true;
+	}
+
 	public static void unpack(Archive archive) {
 		JagBuffer buf = new JagBuffer(archive.get("varp.dat"));
-		anInt705 = 0;
+		index_705 = 0;
 		count = buf.getShort();
 
 		if (varpTable == null)
@@ -51,42 +51,42 @@ public class Varp {
 			System.out.println("varptype load mismatch");
 	}
 
-	public void init(int j, JagBuffer buf) {
+	public void init(int index, JagBuffer buf) {
 		do {
-			int attribute = buf.getByte();
-			if (attribute == 0)
+			int opcode = buf.getByte();
+			if (opcode == 0)
 				return;
-			if (attribute == 1)
+			if (opcode == 1)
 				anInt708 = buf.getByte();
-			else if (attribute == 2)
+			else if (opcode == 2)
 				anInt709 = buf.getByte();
-			else if (attribute == 3) {
+			else if (opcode == 3) {
 				aBoolean710 = true;
-				anIntArray706[anInt705++] = j;
-			} else if (attribute == 4)
+				anIntArray706[index_705++] = index;
+			} else if (opcode == 4)
 				aBoolean711 = false;
-			else if (attribute == 5)
+			else if (opcode == 5)
 				type = buf.getShort();
-			else if (attribute == 6)
+			else if (opcode == 6)
 				aBoolean713 = true;
-			else if (attribute == 7)
+			else if (opcode == 7)
 				anInt714 = buf.getInt();
-			else if (attribute == 8) {
+			else if (opcode == 8) {
 				anInt715 = 1;
 				aBoolean716 = true;
-			} else if (attribute == 10)
+			} else if (opcode == 10)
 				aString707 = buf.getString();
-			else if (attribute == 11)
+			else if (opcode == 11)
 				aBoolean716 = true;
-			else if (attribute == 12)
+			else if (opcode == 12)
 				anInt717 = buf.getInt();
-			else if (attribute == 13) {
+			else if (opcode == 13) {
 				anInt715 = 2;
 				aBoolean716 = true;
-			} else if (attribute == 14)
+			} else if (opcode == 14)
 				aBoolean718 = false;
 			else
-				System.out.println("Error unrecognised config code: " + attribute);
+				System.out.println("Error unrecognised config code: " + opcode);
 		} while (true);
 	}
 }

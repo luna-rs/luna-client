@@ -4,15 +4,15 @@
 
 public class GroundItem extends Entity {
 
+	public int id;
+	public int amount;
+
+	public GroundItem() {
+	}
+
 	@Override
 	public Model getModel() {
 		ItemDefinition def = ItemDefinition.forId(id);
 		return def.getModel(amount);
 	}
-
-	public GroundItem() {
-	}
-
-	public int id;
-	public int amount;
 }

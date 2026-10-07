@@ -300,7 +300,7 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 					anInt1353 = 0;
 					aString1347 = "";
 				}
-				if (_client.aBoolean1137 && aSocket1355 != null && anOutputStream1349 != null
+				if (_client.isLoggedIn && aSocket1355 != null && anOutputStream1349 != null
 						&& (anInt1341 > 0 || _client.stores[0] == null)) {
 					anInt1375++;
 					if (anInt1375 > 500) {
@@ -506,9 +506,7 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 		aBoolean1339 = false;
 	}
 
-	public int method340(int i, int j) {
-		if (j != -31140)
-			aBoolean1380 = !aBoolean1380;
+	public int method340(int i) {
 		return anIntArrayArray1377[i].length;
 	}
 
@@ -549,7 +547,7 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 			tmpBuf[2] = (byte) file.id;
 			if (file.immediate)
 				tmpBuf[3] = 2;
-			else if (!_client.aBoolean1137)
+			else if (!_client.isLoggedIn)
 				tmpBuf[3] = 1;
 			else
 				tmpBuf[3] = 0;

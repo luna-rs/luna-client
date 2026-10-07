@@ -4,6 +4,9 @@
 
 public class HashTable {
 
+	public int size;
+	public Node buckets[];
+
 	public HashTable(int _size) {
 		size = _size;
 		buckets = new Node[_size];
@@ -16,24 +19,23 @@ public class HashTable {
 
 	public Node get(long id) {
 		Node bucket = buckets[(int) (id & (size - 1))];
-		for (Node node = bucket.next; node != bucket; node = node.next)
-			if (node.id == id)
-				return node;
+		for (Node node = bucket.next; node != bucket; node = node.next) {
+            if (node.id == id) {
+                return node;
+            }
+        }
 		return null;
 	}
 
 	public void put(Node node, long id) {
-		if (node.previous != null)
-			node.unlink();
+		if (node.previous != null) {
+            node.unlink();
+        }
 		Node bucket = buckets[(int) (id & (size - 1))];
 		node.previous = bucket.previous;
 		node.next = bucket;
 		node.previous.next = node;
 		node.next.previous = node;
 		node.id = id;
-		return;
 	}
-
-	public int size;
-	public Node buckets[];
 }

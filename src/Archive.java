@@ -4,6 +4,14 @@
 
 public class Archive {
 
+	public byte data[];
+	public int entries;
+	public int hashes[];
+	public int extractedSizes[];
+	public int sizes[];
+	public int offsets[];
+	public boolean extracted;
+
 	public Archive(byte _data[]) {
 		init(_data);
 	}
@@ -62,12 +70,4 @@ public class Archive {
 		}
 		return null;
 	}
-	
-	public byte data[];
-	public int entries;
-	public int hashes[];
-	public int extractedSizes[];
-	public int sizes[];
-	public int offsets[];
-	public boolean extracted;
 }

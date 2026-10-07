@@ -2,11 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class50_Sub2 extends Node {
-
-	public Class50_Sub2() {
-		anInt1390 = -1;
-	}
+public class GameObjectSpawnRequest extends Node {
 
 	public int anInt1384;
 	public int anInt1385;
@@ -14,10 +10,14 @@ public class Class50_Sub2 extends Node {
 	public int anInt1387;
 	public int anInt1388;
 	public int anInt1389;
-	public int anInt1390;
+	public int delayUntilRespawn;
 	public int anInt1391;
 	public int anInt1392;
 	public int anInt1393;
 	public int anInt1394;
 	public int anInt1395;
+
+	public GameObjectSpawnRequest() {
+		delayUntilRespawn = -1;
+	}
 }

@@ -9,58 +9,227 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
 
 @SuppressWarnings("serial")
 public class JagApplet extends Applet implements Runnable, MouseListener, MouseMotionListener, KeyListener,
 		FocusListener, WindowListener {
 
-	public void start(int _width, int _height) {
-		width = _width;
-		height = _height;
-		frame = new JagFrame(width, height, this);
-		graphics = getParentComponent().getGraphics();
-		imageProducer = new JagImageProducer(width, height, getParentComponent());
-		startThread(this, 1);
+	public JagFrame frame;
+
+	/** Smallest drawable area allowed for the resizable window (the fixed-mode size). */
+	public static final int MIN_CONTENT_WIDTH = 765, MIN_CONTENT_HEIGHT = 503;
+
+	/**
+	 * Latest drawable size reported by the AWT thread when the frame was resized, or -1 if no resize is pending.
+	 * The game thread reads these (see client.checkSize) so buffers are only rebuilt on the game thread.
+	 */
+	public volatile int resizedWidth = -1, resizedHeight = -1;
+
+	public int width;
+	public int height;
+	/**
+	 * Everything the game draws goes to this Graphics, which belongs to the back buffer, not to the screen.
+	 * The back buffer is copied to the window once per frame by presentBackBuffer().
+	 */
+	public volatile Graphics graphics;
+
+	/** Graphics of the window itself, only used by presentBackBuffer(). */
+	private volatile Graphics screenGraphics;
+	private volatile BufferedImage backBuffer;
+	private final Object presentLock = new Object();
+
+	public int mouseX;
+	public int mouseY;
+	public int keyStatus[];
+	public int inputBuffer[];
+
+	public boolean aBoolean2;
+	public boolean aBoolean3;
+	public int anInt5;
+	public int gameState;
+	public int delayTime;
+	public int minDelay;
+	public long otims[];
+	public int fps;
+	public boolean aBoolean11;
+	public JagImageProducer imageProducer;
+	public boolean clearBackground;
+	public boolean awtFocus;
+	public int anInt20;
+	public int anInt21;
+	public int anInt24;
+	public int anInt25;
+	public int anInt26;
+	public long aLong27;
+	public int anInt28;
+	public int anInt29;
+	public int anInt30;
+	public long aLong31;
+	public int anInt34;
+	public int anInt35;
+
+	public JagApplet() {
+		aBoolean2 = false;
+		aBoolean3 = false;
+		aBoolean11 = false;
+		delayTime = 20;
+		minDelay = 1;
+		otims = new long[10];
+		clearBackground = true;
+		awtFocus = true;
+		keyStatus = new int[128];
+		inputBuffer = new int[128];
 	}
 
-	public void method2(int i, int j, int k) {
-		width = i;
-		if (k != 2) {
-			return;
+	/**
+	 * Resizes / reconfigures the existing frame instead of disposing it and creating a new one.
+	 * The width and height fields keep the classic game size (765x503), which the login screen is laid out for.
+	 */
+	public void rebuildFrame(int width, int height, boolean resizable) {
+		if (frame == null) {
+			frame = new JagFrame(width, height, this, resizable);
+			frame.addWindowListener(this);
+			installFrameResizeListener();
+			addInputListeners();
 		} else {
-			height = j;
-			graphics = getParentComponent().getGraphics();
-			imageProducer = new JagImageProducer(width, height, getParentComponent());
-			startThread(this, 1);
-			return;
+			frame.setResizable(resizable);
+			frame.setContentSize(width, height);
+		}
+		frame.setMinimumContentSize(MIN_CONTENT_WIDTH, MIN_CONTENT_HEIGHT);
+		// discard resize events from before this rebuild; the size we just set is the current one
+		resizedWidth = resizedHeight = -1;
+		screenGraphics = frame.getGraphics();
+		ensureBackBuffer();
+	}
+
+	/**
+	 * Makes sure there is a back buffer matching the drawable area of the window. Called at the start of every
+	 * frame on the game thread. A new buffer is blank, so everything is flagged to be drawn again.
+	 */
+	public void ensureBackBuffer() {
+		synchronized (presentLock) {
+			if (screenGraphics == null) {
+				screenGraphics = getParentComponent().getGraphics();
+			}
+			int w = getContentWidth();
+			int h = getContentHeight();
+			if (w <= 0 || h <= 0) {
+				w = width;
+				h = height;
+			}
+			BufferedImage old = backBuffer;
+			if (old != null && old.getWidth() == w && old.getHeight() == h) {
+				return;
+			}
+			// the old Graphics is not disposed: other threads may still be drawing with it
+			BufferedImage buffer = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+			Graphics g = buffer.createGraphics();
+			backBuffer = buffer;
+			graphics = g;
+			if (old != null) {
+				needsUIRedraw();
+			}
 		}
 	}
 
-	public void run() {
+	/**
+	 * Copies the back buffer to the window. This is the only place the game output reaches the screen.
+	 */
+	public void presentBackBuffer() {
+		synchronized (presentLock) {
+			BufferedImage buffer = backBuffer;
+			Graphics screen = screenGraphics;
+			if (buffer != null && screen != null) {
+				screen.drawImage(buffer, 0, 0, null);
+			}
+		}
+	}
+
+	private void addInputListeners() {
 		getParentComponent().addMouseListener(this);
 		getParentComponent().addMouseMotionListener(this);
 		getParentComponent().addKeyListener(this);
 		getParentComponent().addFocusListener(this);
-		if (frame != null)
+	}
+
+	/**
+	 * The drawable area of the frame changes whenever it is resized, maximised or restored. The cached Graphics
+	 * has a fixed clip, so it must be fetched again, and everything has to be repainted.
+	 */
+	private void installFrameResizeListener() {
+		frame.addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentResized(ComponentEvent e) {
+				screenGraphics = frame.getGraphics();
+				resizedWidth = frame.getContentWidth();
+				resizedHeight = frame.getContentHeight();
+				clearBackground = true;
+				needsUIRedraw();
+			}
+		});
+	}
+
+	/**
+	 * Width of the drawable area of the window, excluding borders and title bar.
+	 */
+	public int getContentWidth() {
+		return frame != null ? frame.getContentWidth() : getParentComponent().getWidth();
+	}
+
+	/**
+	 * Height of the drawable area of the window, excluding borders and title bar.
+	 */
+	public int getContentHeight() {
+		return frame != null ? frame.getContentHeight() : getParentComponent().getHeight();
+	}
+
+	/**
+	 * Where the origin of the game is inside the drawable area. Mouse positions are reported relative to it.
+	 * Overridden when the game is drawn centred in the window (the login screen in the resizable mode).
+	 */
+	public int inputOffsetX() {
+		return 0;
+	}
+
+	public int inputOffsetY() {
+		return 0;
+	}
+
+	private int insetLeft() {
+		return frame != null ? frame.getInsets().left : 0;
+	}
+
+	private int insetTop() {
+		return frame != null ? frame.getInsets().top : 0;
+	}
+
+	public void start(int _width, int _height) {
+		width = _width;
+		height = _height;
+		frame = new JagFrame(width, height, this, false);
+		screenGraphics = getParentComponent().getGraphics();
+		ensureBackBuffer();
+		imageProducer = new JagImageProducer(width, height, getParentComponent());
+		startThread(this, 1);
+	}
+
+	public void run() {
+		addInputListeners();
+		if (frame != null) {
 			frame.addWindowListener(this);
+			installFrameResizeListener();
+		}
 		drawLoadingText(0, "Loading...");
-		method6();
+		load();
 		int i = 0;
 		int j = 256;
 		int k = 1;
 		int i1 = 0;
 		int j1 = 0;
 		for (int k1 = 0; k1 < 10; k1++)
-			aLongArray9[k1] = System.currentTimeMillis();
+			otims[k1] = System.currentTimeMillis();
 
 		while (gameState >= 0) {
 			if (gameState > 0) {
@@ -75,29 +244,29 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			j = 300;
 			k = 1;
 			long l1 = System.currentTimeMillis();
-			if (aLongArray9[i] == 0L) {
+			if (otims[i] == 0L) {
 				j = i2;
 				k = j2;
-			} else if (l1 > aLongArray9[i])
-				j = (int) ((2560 * anInt7) / (l1 - aLongArray9[i]));
+			} else if (l1 > otims[i])
+				j = (int) ((2560 * delayTime) / (l1 - otims[i]));
 			if (j < 25)
 				j = 25;
 			if (j > 256) {
 				j = 256;
-				k = (int) (anInt7 - (l1 - aLongArray9[i]) / 10L);
+				k = (int) (delayTime - (l1 - otims[i]) / 10L);
 			}
-			if (k > anInt7)
-				k = anInt7;
-			aLongArray9[i] = l1;
+			if (k > delayTime)
+				k = delayTime;
+			otims[i] = l1;
 			i = (i + 1) % 10;
 			if (k > 1) {
 				for (int k2 = 0; k2 < 10; k2++)
-					if (aLongArray9[k2] != 0L)
-						aLongArray9[k2] += k;
+					if (otims[k2] != 0L)
+						otims[k2] += k;
 
 			}
-			if (k < anInt8)
-				k = anInt8;
+			if (k < minDelay)
+				k = minDelay;
 			try {
 				Thread.sleep(k);
 			} catch (InterruptedException _ex) {
@@ -114,18 +283,20 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			}
 
 			i1 &= 0xff;
-			if (anInt7 > 0)
-				fps = (1000 * j) / (anInt7 * 256);
-			repaintGame(818);
+			if (delayTime > 0)
+				fps = (1000 * j) / (delayTime * 256);
+			ensureBackBuffer();
+			repaintGame();
+			presentBackBuffer();
 			if (aBoolean11) {
 				System.out.println("ntime:" + l1);
 				for (int l2 = 0; l2 < 10; l2++) {
 					int i3 = ((i - l2 - 1) + 20) % 10;
-					System.out.println("otim" + i3 + ":" + aLongArray9[i3]);
+					System.out.println("otim" + i3 + ":" + otims[i3]);
 				}
 
 				System.out.println("fps:" + fps + " ratio:" + j + " count:" + i1);
-				System.out.println("del:" + k + " deltime:" + anInt7 + " mindel:" + anInt8);
+				System.out.println("del:" + k + " deltime:" + delayTime + " mindel:" + minDelay);
 				System.out.println("intex:" + j1 + " opos:" + i);
 				aBoolean11 = false;
 				j1 = 0;
@@ -137,7 +308,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	public void exit(boolean flag) {
 		gameState = -2;
-		method8(277);
+		cleanupShutdown();
 		if (flag)
 			return;
 		if (frame != null) {
@@ -153,8 +324,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		}
 	}
 
-	public void method4(int i) {
-		anInt7 = 1000 / i;
+	public void setFramerate(int newFramerate) {
+		delayTime = 1000 / newFramerate;
 	}
 
 	@Override
@@ -166,7 +337,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	@Override
 	public void stop() {
 		if (gameState >= 0)
-			gameState = 4000 / anInt7;
+			gameState = 4000 / delayTime;
 	}
 
 	@Override
@@ -182,27 +353,25 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	@Override
 	public void update(Graphics g) {
-		if (graphics == null)
-			graphics = g;
+		if (screenGraphics == null)
+			screenGraphics = g;
 		clearBackground = true;
-		method10((byte) -99);
+		needsUIRedraw();
 	}
 
 	@Override
 	public void paint(Graphics g) {
-		if (graphics == null)
-			graphics = g;
+		if (screenGraphics == null)
+			screenGraphics = g;
 		clearBackground = true;
-		method10((byte) -99);
+		needsUIRedraw();
 	}
 
 	public void mousePressed(MouseEvent mouseevent) {
 		int i = mouseevent.getX();
 		int j = mouseevent.getY();
-		if (frame != null) {
-			i -= 4;
-			j -= 22;
-		}
+		i -= insetLeft() + inputOffsetX();
+		j -= insetTop() + inputOffsetY();
 		anInt20 = 0;
 		anInt25 = i;
 		anInt26 = j;
@@ -238,10 +407,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public void mouseDragged(MouseEvent mouseevent) {
 		int i = mouseevent.getX();
 		int j = mouseevent.getY();
-		if (frame != null) {
-			i -= 4;
-			j -= 22;
-		}
+		i -= insetLeft() + inputOffsetX();
+		j -= insetTop() + inputOffsetY();
 		anInt20 = 0;
 		mouseX = i;
 		mouseY = j;
@@ -250,10 +417,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public void mouseMoved(MouseEvent mouseevent) {
 		int i = mouseevent.getX();
 		int j = mouseevent.getY();
-		if (frame != null) {
-			i -= 4;
-			j -= 22;
-		}
+		i -= insetLeft() + inputOffsetX();
+		j -= insetTop() + inputOffsetY();
 		anInt20 = 0;
 		mouseX = i;
 		mouseY = j;
@@ -261,42 +426,42 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	public void keyPressed(KeyEvent keyevent) {
 		anInt20 = 0;
-		int i = keyevent.getKeyCode();
-		int j = keyevent.getKeyChar();
-		if (j < 30)
-			j = 0;
-		if (i == 37)
-			j = 1;
-		if (i == 39)
-			j = 2;
-		if (i == 38)
-			j = 3;
-		if (i == 40)
-			j = 4;
-		if (i == 17)
-			j = 5;
-		if (i == 8)
-			j = 8;
-		if (i == 127)
-			j = 8;
-		if (i == 9)
-			j = 9;
-		if (i == 10)
-			j = 10;
-		if (i >= 112 && i <= 123)
-			j = (1008 + i) - 112;
-		if (i == 36)
-			j = 1000;
-		if (i == 35)
-			j = 1001;
-		if (i == 33)
-			j = 1002;
-		if (i == 34)
-			j = 1003;
-		if (j > 0 && j < 128)
-			anIntArray32[j] = 1;
-		if (j > 4) {
-			anIntArray33[anInt35] = j;
+		int keycode = keyevent.getKeyCode();
+		int keychar = keyevent.getKeyChar();
+		if (keychar < 30)
+			keychar = 0;
+		if (keycode == 37)
+			keychar = 1;
+		if (keycode == 39)
+			keychar = 2;
+		if (keycode == 38)
+			keychar = 3;
+		if (keycode == 40)
+			keychar = 4;
+		if (keycode == 17)
+			keychar = 5;
+		if (keycode == 8)
+			keychar = 8;
+		if (keycode == 127)
+			keychar = 8;
+		if (keycode == 9)
+			keychar = 9;
+		if (keycode == 10)
+			keychar = 10;
+		if (keycode >= 112 && keycode <= 123)
+			keychar = (1008 + keycode) - 112;
+		if (keycode == 36)
+			keychar = 1000;
+		if (keycode == 35)
+			keychar = 1001;
+		if (keycode == 33)
+			keychar = 1002;
+		if (keycode == 34)
+			keychar = 1003;
+		if (keychar > 0 && keychar < 128)
+			keyStatus[keychar] = 1;
+		if (keychar > 4) {
+			inputBuffer[anInt35] = keychar;
 			anInt35 = anInt35 + 1 & 0x7f;
 		}
 	}
@@ -326,33 +491,31 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		if (i == 10)
 			c = '\n';
 		if (c > 0 && c < '\200')
-			anIntArray32[c] = 0;
+			keyStatus[c] = 0;
 	}
 
 	public void keyTyped(KeyEvent keyevent) {
 	}
 
-	public int method5(int i) {
-		while (i >= 0)
-			anInt5 = -9;
+	public int readCharFromChatbox() {
 		int j = -1;
 		if (anInt35 != anInt34) {
-			j = anIntArray33[anInt34];
+			j = inputBuffer[anInt34];
 			anInt34 = anInt34 + 1 & 0x7f;
 		}
 		return j;
 	}
 
 	public void focusGained(FocusEvent focusevent) {
-		aBoolean19 = true;
+		awtFocus = true;
 		clearBackground = true;
-		method10((byte) -99);
+		needsUIRedraw();
 	}
 
 	public void focusLost(FocusEvent focusevent) {
-		aBoolean19 = false;
+		awtFocus = false;
 		for (int i = 0; i < 128; i++)
-			anIntArray32[i] = 0;
+			keyStatus[i] = 0;
 
 	}
 
@@ -378,7 +541,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public void windowOpened(WindowEvent windowevent) {
 	}
 
-	public void method6() {
+	public void load() {
 	}
 
 	public void method7(byte byte0) {
@@ -386,19 +549,13 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			anInt5 = -400;
 	}
 
-	public void method8(int i) {
-		i = 41 / i;
+	public void cleanupShutdown() {
 	}
 
-	public void repaintGame(int i) {
-		if (i > 0)
-			;
+	public void repaintGame() {
 	}
 
-	public void method10(byte byte0) {
-		if (byte0 == -99)
-			;
-	}
+	public void needsUIRedraw() {}
 
 	public Component getParentComponent() {
 		if (frame != null)
@@ -413,18 +570,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		thread.setPriority(priority);
 	}
 
-	public void drawLoadingText(int percent, String desc) {
-		while (graphics == null) {
-			graphics = getParentComponent().getGraphics();
-			try {
-				getParentComponent().repaint();
-			} catch (Exception _ex) {
-			}
-			try {
-				Thread.sleep(1000L);
-			} catch (Exception _ex) {
-			}
-		}
+	public void drawLoadingText(int percent, String text) {
+		ensureBackBuffer();
 		Font font = new Font("Helvetica", 1, 13);
 		FontMetrics fontmetrics = getParentComponent().getFontMetrics(font);
 		Font font1 = new Font("Helvetica", 0, 13);
@@ -443,57 +590,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		graphics.fillRect((width / 2 - 150) + percent * 3, j + 2, 300 - percent * 3, 30);
 		graphics.setFont(font);
 		graphics.setColor(Color.white);
-		graphics.drawString(desc, (width - fontmetrics.stringWidth(desc)) / 2, j + 22);
+		graphics.drawString(text, (width - fontmetrics.stringWidth(text)) / 2, j + 22);
+		presentBackBuffer();
 	}
-
-	public JagApplet() {
-		aBoolean2 = false;
-		aBoolean3 = false;
-		anInt4 = 3;
-		anInt7 = 20;
-		anInt8 = 1;
-		aLongArray9 = new long[10];
-		aBoolean11 = false;
-		aClass50_Sub1_Sub1_Sub1Array16 = new RgbSprite[6];
-		clearBackground = true;
-		aBoolean19 = true;
-		anIntArray32 = new int[128];
-		anIntArray33 = new int[128];
-	}
-
-	public boolean aBoolean2;
-	public boolean aBoolean3;
-	public int anInt4;
-	public int anInt5;
-	public int gameState;
-	public int anInt7;
-	public int anInt8;
-	public long aLongArray9[];
-	public int fps;
-	public boolean aBoolean11;
-	public int width;
-	public int height;
-	public Graphics graphics;
-	public JagImageProducer imageProducer;
-	public RgbSprite aClass50_Sub1_Sub1_Sub1Array16[];
-	public JagFrame frame;
-	public boolean clearBackground;
-	public boolean aBoolean19;
-	public int anInt20;
-	public int anInt21;
-	public int mouseX;
-	public int mouseY;
-	public int anInt24;
-	public int anInt25;
-	public int anInt26;
-	public long aLong27;
-	public int anInt28;
-	public int anInt29;
-	public int anInt30;
-	public long aLong31;
-	public int anIntArray32[];
-	public int anIntArray33[];
-	public int anInt34;
-	public int anInt35;
-	public static int anInt36;
 }

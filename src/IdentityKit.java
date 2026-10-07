@@ -4,6 +4,22 @@
 
 public class IdentityKit {
 
+	public static int count;
+	public static IdentityKit identityKits[];
+	public int part;
+	public int bodyModelIds[];
+	public int srcColors[];
+	public int destColours[];
+	public int headModelIds[] = { -1, -1, -1, -1, -1 };
+	public boolean notSelectable;
+
+	public IdentityKit() {
+		part = -1;
+		srcColors = new int[6];
+		destColours = new int[6];
+		notSelectable = false;
+	}
+
 	public static void unpack(Archive archive) {
 		JagBuffer buf = new JagBuffer(archive.get("idk.dat"));
 		count = buf.getShort();
@@ -17,28 +33,28 @@ public class IdentityKit {
 	}
 
 	public void decode(JagBuffer buf) {
-		do {
-			int attribute = buf.getByte();
-			if (attribute == 0)
-				return;
-			if (attribute == 1)
-				part = buf.getByte();
-			else if (attribute == 2) {
-				int count = buf.getByte();
-				bodyModelIds = new int[count];
-				for (int k = 0; k < count; k++)
-					bodyModelIds[k] = buf.getShort();
-			} else if (attribute == 3)
-				notSelectable = true;
-			else if (attribute >= 40 && attribute < 50)
-				srcColors[attribute - 40] = buf.getShort();
-			else if (attribute >= 50 && attribute < 60)
-				destColours[attribute - 50] = buf.getShort();
-			else if (attribute >= 60 && attribute < 70)
-				headModelIds[attribute - 60] = buf.getShort();
-			else
-				System.out.println("Error unrecognised config code: " + attribute);
-		} while (true);
+        while (true) {
+            int opcode = buf.getByte();
+            if (opcode == 0)
+                return;
+            if (opcode == 1)
+                part = buf.getByte();
+            else if (opcode == 2) {
+                int count = buf.getByte();
+                bodyModelIds = new int[count];
+                for (int k = 0; k < count; k++)
+                    bodyModelIds[k] = buf.getShort();
+            } else if (opcode == 3)
+                notSelectable = true;
+            else if (opcode >= 40 && opcode < 50)
+                srcColors[opcode - 40] = buf.getShort();
+            else if (opcode >= 50 && opcode < 60)
+                destColours[opcode - 50] = buf.getShort();
+            else if (opcode >= 60 && opcode < 70)
+                headModelIds[opcode - 60] = buf.getShort();
+            else
+                System.out.println("Error unrecognised config code: " + opcode);
+        }
 	}
 
 	public boolean isBodyDownloaded() {
@@ -102,21 +118,4 @@ public class IdentityKit {
 
 		return model;
 	}
-
-	public IdentityKit() {
-		part = -1;
-		srcColors = new int[6];
-		destColours = new int[6];
-		notSelectable = false;
-	}
-
-	public static int count;
-	public static IdentityKit identityKits[];
-	public int part;
-	public int bodyModelIds[];
-	public int srcColors[];
-	public int destColours[];
-	public int headModelIds[] = { -1, -1, -1, -1, -1 };
-	public boolean notSelectable;
-
 }

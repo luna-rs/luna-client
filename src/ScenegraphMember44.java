@@ -2,10 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class44 {
-
-	public Class44() {
-	}
+public class ScenegraphMember44 {
 
 	public int anInt719;
 	public int anInt720;
@@ -16,4 +13,7 @@ public class Class44 {
 	public Entity aClass50_Sub1_Sub4_725;
 	public int uid;
 	public byte aByte727;
+
+	public ScenegraphMember44() {
+	}
 }

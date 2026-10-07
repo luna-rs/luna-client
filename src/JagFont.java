@@ -6,171 +6,172 @@ import java.util.Random;
 
 public class JagFont extends Drawable {
 
-	public JagFont(boolean flag, Archive archive, int i, String name) {
-		aBoolean1496 = true;
-		aBoolean1497 = true;
+	public int anInt1498;
+	public int anInt1499;
+	public byte glyphData[][];
+	public int glyphWidth[];
+	public int glyphHeight[];
+	public int glyphAttribute1_1503[];
+	public int glyphAttribute2_1504[];
+	public int anIntArray1505[];
+	public int anInt1506;
+	public Random random_7;
+	public boolean strikethrough;
+
+	public JagFont(Archive archive, String name, boolean flag) {
 		anInt1498 = 3;
 		anInt1499 = 3;
-		aByteArrayArray1500 = new byte[256][];
-		anIntArray1501 = new int[256];
-		anIntArray1502 = new int[256];
-		anIntArray1503 = new int[256];
-		anIntArray1504 = new int[256];
+		glyphData = new byte[256][];
+		glyphWidth = new int[256];
+		glyphHeight = new int[256];
+		glyphAttribute1_1503 = new int[256];
+		glyphAttribute2_1504 = new int[256];
 		anIntArray1505 = new int[256];
-		aRandom1507 = new Random();
+		random_7 = new Random();
 		strikethrough = false;
 		JagBuffer buf = new JagBuffer(archive.get(name + ".dat"));
 		JagBuffer indexBuf = new JagBuffer(archive.get("index.dat"));
 		indexBuf.position = buf.getShort() + 4;
-		while (i >= 0)
-			aBoolean1496 = !aBoolean1496;
 		int k = indexBuf.getByte();
-		if (k > 0)
-			indexBuf.position += 3 * (k - 1);
+		if (k > 0) {
+            indexBuf.position += 3 * (k - 1);
+        }
 		for (int l = 0; l < 256; l++) {
-			anIntArray1503[l] = indexBuf.getByte();
-			anIntArray1504[l] = indexBuf.getByte();
-			int i1 = anIntArray1501[l] = indexBuf.getShort();
-			int j1 = anIntArray1502[l] = indexBuf.getShort();
-			int k1 = indexBuf.getByte();
-			int l1 = i1 * j1;
-			aByteArrayArray1500[l] = new byte[l1];
-			if (k1 == 0) {
-				for (int i2 = 0; i2 < l1; i2++)
-					aByteArrayArray1500[l][i2] = buf.getSignedByte();
-
-			} else if (k1 == 1) {
-				for (int j2 = 0; j2 < i1; j2++) {
-					for (int l2 = 0; l2 < j1; l2++)
-						aByteArrayArray1500[l][j2 + l2 * i1] = buf.getSignedByte();
-
+			glyphAttribute1_1503[l] = indexBuf.getByte();
+			glyphAttribute2_1504[l] = indexBuf.getByte();
+			int width_i1 = glyphWidth[l] = indexBuf.getShort();
+			int height_j1 = glyphHeight[l] = indexBuf.getShort();
+			int dataType = indexBuf.getByte();
+			int dataLength = width_i1 * height_j1;
+			glyphData[l] = new byte[dataLength];
+			if (dataType == 0) {
+				for (int i2 = 0; i2 < dataLength; i2++) {
+                    glyphData[l][i2] = buf.getSignedByte();
+                }
+			} else if (dataType == 1) {
+				for (int j2 = 0; j2 < width_i1; j2++) {
+					for (int l2 = 0; l2 < height_j1; l2++) {
+                        glyphData[l][j2 + l2 * width_i1] = buf.getSignedByte();
+                    }
 				}
-
 			}
-			if (j1 > anInt1506 && l < 128)
-				anInt1506 = j1;
-			anIntArray1503[l] = 1;
-			anIntArray1505[l] = i1 + 2;
+			if (height_j1 > anInt1506 && l < 128) {
+                anInt1506 = height_j1;
+            }
+			glyphAttribute1_1503[l] = 1;
+			anIntArray1505[l] = width_i1 + 2;
 			int k2 = 0;
-			for (int i3 = j1 / 7; i3 < j1; i3++)
-				k2 += aByteArrayArray1500[l][i3 * i1];
-
-			if (k2 <= j1 / 7) {
+			for (int i3 = height_j1 / 7; i3 < height_j1; i3++) {
+                k2 += glyphData[l][i3 * width_i1];
+            }
+			if (k2 <= height_j1 / 7) {
 				anIntArray1505[l]--;
-				anIntArray1503[l] = 0;
+				glyphAttribute1_1503[l] = 0;
 			}
 			k2 = 0;
-			for (int j3 = j1 / 7; j3 < j1; j3++)
-				k2 += aByteArrayArray1500[l][(i1 - 1) + j3 * i1];
-
-			if (k2 <= j1 / 7)
-				anIntArray1505[l]--;
+			for (int j3 = height_j1 / 7; j3 < height_j1; j3++) {
+                k2 += glyphData[l][(width_i1 - 1) + j3 * width_i1];
+            }
+			if (k2 <= height_j1 / 7) {
+                anIntArray1505[l]--;
+            }
 		}
 
 		if (flag) {
 			anIntArray1505[32] = anIntArray1505[73];
-			return;
 		} else {
 			anIntArray1505[32] = anIntArray1505[105];
-			return;
 		}
 	}
 
 	public void method469(boolean flag, String s, int i, int j, int k) {
-		method474(2245, j - method473(s, (byte) -53), i, k, s);
-		if (flag)
-			;
+		drawString_474(s, 2245, j - method473(s, (byte) -53), i, k);
 	}
 
-	public void method470(int i, int j, int k, int l, String s) {
-		method474(2245, i - method473(s, (byte) -53) / 2, l, k, s);
+	public void drawHorizontallyCenteredString(int i, int k, int l, String s) {
+		drawString_474(s, 2245, i - method473(s, (byte) -53) / 2, l, k);
 	}
 
-	public void method471(boolean flag, int i, int j, int k, int l, String s) {
-		if (i < anInt1498 || i > anInt1498) {
-			return;
-		} else {
-			method478(j, l - method472((byte) 35, s) / 2, k, flag, s, -39629);
-			return;
-		}
-	}
+	public void drawString(String text, int x, int y, boolean flag, int j) {
+		this.drawString(text, j, x - method472((byte) 35, text) / 2, y, flag);
+    }
 
-	public int method472(byte byte0, String s) {
-		if (s == null)
+	public int method472(byte byte0, String input) {
+		if (input == null)
 			return 0;
 		int i = 0;
-		for (int j = 0; j < s.length(); j++)
-			if (s.charAt(j) == '@' && j + 4 < s.length() && s.charAt(j + 4) == '@')
-				j += 4;
-			else
-				i += anIntArray1505[s.charAt(j)];
-
+		for (int j = 0; j < input.length(); j++) {
+            if (input.charAt(j) == '@' && j + 4 < input.length() && input.charAt(j + 4) == '@') {
+                j += 4;
+            } else {
+                i += anIntArray1505[input.charAt(j)];
+            }
+        }
 		if (byte0 != 35) {
 			for (int k = 1; k > 0; k++);
 		}
 		return i;
 	}
 
-	public int method473(String s, byte byte0) {
-		if (s == null)
-			return 0;
+	public int method473(String input, byte byte0) {
+		if (input == null) {
+            return 0;
+        }
 		int i = 0;
-		if (byte0 != -53) {
-			for (int j = 1; j > 0; j++);
-		}
-		for (int k = 0; k < s.length(); k++)
-			i += anIntArray1505[s.charAt(k)];
-
+		for (int k = 0; k < input.length(); k++) {
+            i += anIntArray1505[input.charAt(k)];
+        }
 		return i;
 	}
 
-	public void method474(int i, int j, int k, int l, String s) {
-		if (s == null)
-			return;
+	public void drawString_474(String input, int i, int j, int k, int l) {
+		if (input == null) {
+            return;
+        }
 		l -= anInt1506;
-		for (int j1 = 0; j1 < s.length(); j1++) {
-			char c = s.charAt(j1);
-			if (c != ' ')
-				method481(aByteArrayArray1500[c], j + anIntArray1503[c], l + anIntArray1504[c], anIntArray1501[c],
-						anIntArray1502[c], k);
+		for (int inputIterator = 0; inputIterator < input.length(); inputIterator++) {
+			char c = input.charAt(inputIterator);
+			if (c != ' ') {
+                drawGlyph_481(glyphData[c], j + glyphAttribute1_1503[c], l + glyphAttribute2_1504[c], glyphWidth[c],
+                        glyphHeight[c], k);
+            }
 			j += anIntArray1505[c];
 		}
 
 	}
 
-	public void method475(int i, byte byte0, int j, String s, int k, int l) {
-		if (s == null)
+	public void method475(int i, int j, String string, int k, int l) {
+		if (string == null)
 			return;
-		k -= method473(s, (byte) -53) / 2;
-		if (byte0 == 4)
-			byte0 = 0;
-		else
-			aBoolean1497 = !aBoolean1497;
+		k -= method473(string, (byte) -53) / 2;
 		i -= anInt1506;
-		for (int i1 = 0; i1 < s.length(); i1++) {
-			char c = s.charAt(i1);
-			if (c != ' ')
-				method481(aByteArrayArray1500[c], k + anIntArray1503[c], i + anIntArray1504[c]
-						+ (int) (Math.sin(i1 / 2D + j / 5D) * 5D), anIntArray1501[c], anIntArray1502[c], l);
+		for (int i1 = 0; i1 < string.length(); i1++) {
+			char c = string.charAt(i1);
+			if (c != ' ') {
+                drawGlyph_481(glyphData[c], k + glyphAttribute1_1503[c], i + glyphAttribute2_1504[c]
+                        + (int) (Math.sin(i1 / 2D + j / 5D) * 5D), glyphWidth[c], glyphHeight[c], l);
+            }
 			k += anIntArray1505[c];
 		}
 
 	}
 
-	public void method476(int i, int j, byte byte0, String s, int k, int l) {
-		if (s == null)
-			return;
-		k -= method473(s, (byte) -53) / 2;
+	public void drawString_476(String input, int i, int j, byte byte0, int k, int l) {
+		if (input == null) {
+            return;
+        }
+		k -= method473(input, (byte) -53) / 2;
 		if (byte0 != 1) {
 			for (int i1 = 1; i1 > 0; i1++);
 		}
 		i -= anInt1506;
-		for (int j1 = 0; j1 < s.length(); j1++) {
-			char c = s.charAt(j1);
-			if (c != ' ')
-				method481(aByteArrayArray1500[c], k + anIntArray1503[c] + (int) (Math.sin(j1 / 5D + l / 5D) * 5D), i
-						+ anIntArray1504[c] + (int) (Math.sin(j1 / 3D + l / 5D) * 5D), anIntArray1501[c],
-						anIntArray1502[c], j);
+		for (int j1 = 0; j1 < input.length(); j1++) {
+			char c = input.charAt(j1);
+			if (c != ' ') {
+                drawGlyph_481(glyphData[c], k + glyphAttribute1_1503[c] + (int) (Math.sin(j1 / 5D + l / 5D) * 5D), i
+                        + glyphAttribute2_1504[c] + (int) (Math.sin(j1 / 3D + l / 5D) * 5D), glyphWidth[c],
+                        glyphHeight[c], j);
+            }
 			k += anIntArray1505[c];
 		}
 
@@ -190,54 +191,52 @@ public class JagFont extends Drawable {
 		for (int l1 = 0; l1 < s.length(); l1++) {
 			char c = s.charAt(l1);
 			if (c != ' ')
-				method481(aByteArrayArray1500[c], k + anIntArray1503[c], l + anIntArray1504[c]
-						+ (int) (Math.sin(l1 / 1.5D + j1) * d), anIntArray1501[c], anIntArray1502[c], j);
+				drawGlyph_481(glyphData[c], k + glyphAttribute1_1503[c], l + glyphAttribute2_1504[c]
+						+ (int) (Math.sin(l1 / 1.5D + j1) * d), glyphWidth[c], glyphHeight[c], j);
 			k += anIntArray1505[c];
 		}
 
 	}
 
-	public void method478(int i, int j, int k, boolean flag, String s, int l) {
+	public void drawString(String text, int i, int j, int k, boolean flag) {
 		strikethrough = false;
-		if (l != -39629)
-			return;
 		int i1 = j;
-		if (s == null)
+		if (text == null)
 			return;
 		k -= anInt1506;
-		for (int j1 = 0; j1 < s.length(); j1++)
-			if (s.charAt(j1) == '@' && j1 + 4 < s.length() && s.charAt(j1 + 4) == '@') {
-				int k1 = processFormattingCode(anInt1499, s.substring(j1 + 1, j1 + 4));
+		for (int j1 = 0; j1 < text.length(); j1++)
+			if (text.charAt(j1) == '@' && j1 + 4 < text.length() && text.charAt(j1 + 4) == '@') {
+				int k1 = processFormattingCode(text.substring(j1 + 1, j1 + 4));
 				if (k1 != -1)
 					i = k1;
 				j1 += 4;
 			} else {
-				char c = s.charAt(j1);
+				char c = text.charAt(j1);
 				if (c != ' ') {
 					if (flag)
-						method481(aByteArrayArray1500[c], j + anIntArray1503[c] + 1, k + anIntArray1504[c] + 1,
-								anIntArray1501[c], anIntArray1502[c], 0);
-					method481(aByteArrayArray1500[c], j + anIntArray1503[c], k + anIntArray1504[c], anIntArray1501[c],
-							anIntArray1502[c], i);
+						drawGlyph_481(glyphData[c], j + glyphAttribute1_1503[c] + 1, k + glyphAttribute2_1504[c] + 1,
+								glyphWidth[c], glyphHeight[c], 0);
+					drawGlyph_481(glyphData[c], j + glyphAttribute1_1503[c], k + glyphAttribute2_1504[c], glyphWidth[c],
+							glyphHeight[c], i);
 				}
 				j += anIntArray1505[c];
 			}
 
 		if (strikethrough)
-			Drawable.method452(i1, 0x800000, k + (int) (anInt1506 * 0.69999999999999996D), j - i1, true);
+			Drawable.drawHorizontalLine(0x800000, i1, k + (int) (anInt1506 * 0.69999999999999996D), j - i1);
 	}
 
 	public void method479(boolean flag, int i, int j, int k, int l, String s, int i1) {
 		if (s == null)
 			return;
-		aRandom1507.setSeed(i);
-		int j1 = 192 + (aRandom1507.nextInt() & 0x1f);
+		random_7.setSeed(i);
+		int j1 = 192 + (random_7.nextInt() & 0x1f);
 		l -= anInt1506;
 		if (i1 != 0)
 			anInt1499 = 489;
 		for (int k1 = 0; k1 < s.length(); k1++)
 			if (s.charAt(k1) == '@' && k1 + 4 < s.length() && s.charAt(k1 + 4) == '@') {
-				int l1 = processFormattingCode(anInt1499, s.substring(k1 + 1, k1 + 4));
+				int l1 = processFormattingCode(s.substring(k1 + 1, k1 + 4));
 				if (l1 != -1)
 					k = l1;
 				k1 += 4;
@@ -245,88 +244,89 @@ public class JagFont extends Drawable {
 				char c = s.charAt(k1);
 				if (c != ' ') {
 					if (flag)
-						method483(j + anIntArray1503[c] + 1, true, 0, aByteArrayArray1500[c],
-								l + anIntArray1504[c] + 1, anIntArray1502[c], anIntArray1501[c], 192);
-					method483(j + anIntArray1503[c], true, k, aByteArrayArray1500[c], l + anIntArray1504[c],
-							anIntArray1502[c], anIntArray1501[c], j1);
+						method483(j + glyphAttribute1_1503[c] + 1, true, 0, glyphData[c],
+								l + glyphAttribute2_1504[c] + 1, glyphHeight[c], glyphWidth[c], 192);
+					method483(j + glyphAttribute1_1503[c], true, k, glyphData[c], l + glyphAttribute2_1504[c],
+							glyphHeight[c], glyphWidth[c], j1);
 				}
 				j += anIntArray1505[c];
-				if ((aRandom1507.nextInt() & 3) == 0)
+				if ((random_7.nextInt() & 3) == 0)
 					j++;
 			}
 
 	}
 
-	public int processFormattingCode(int i, String code) {
-		if (i != anInt1499) {
-			for (int j = 1; j > 0; j++);
-		}
-		if (code.equals("red"))
-			return 0xff0000;
-		if (code.equals("gre"))
-			return 65280;
-		if (code.equals("blu"))
-			return 255;
-		if (code.equals("yel"))
-			return 0xffff00;
-		if (code.equals("cya"))
-			return 65535;
-		if (code.equals("mag"))
-			return 0xff00ff;
-		if (code.equals("whi"))
-			return 0xffffff;
-		if (code.equals("bla"))
-			return 0;
-		if (code.equals("lre"))
-			return 0xff9040;
-		if (code.equals("dre"))
-			return 0x800000;
-		if (code.equals("dbl"))
-			return 128;
-		if (code.equals("or1"))
-			return 0xffb000;
-		if (code.equals("or2"))
-			return 0xff7000;
-		if (code.equals("or3"))
-			return 0xff3000;
-		if (code.equals("gr1"))
-			return 0xc0ff00;
-		if (code.equals("gr2"))
-			return 0x80ff00;
-		if (code.equals("gr3"))
-			return 0x40ff00;
-		if (code.equals("str"))
-			strikethrough = true;
-		if (code.equals("end"))
-			strikethrough = false;
+	public int processFormattingCode(String code) {
+        switch (code) {
+            case "red":
+                return 0xff0000;
+            case "gre":
+                return 65280;
+            case "blu":
+                return 255;
+            case "yel":
+                return 0xffff00;
+            case "cya":
+                return 65535;
+            case "mag":
+                return 0xff00ff;
+            case "whi":
+                return 0xffffff;
+            case "bla":
+                return 0;
+            case "lre":
+                return 0xff9040;
+            case "dre":
+                return 0x800000;
+            case "dbl":
+                return 128;
+            case "or1":
+                return 0xffb000;
+            case "or2":
+                return 0xff7000;
+            case "or3":
+                return 0xff3000;
+            case "gr1":
+                return 0xc0ff00;
+            case "gr2":
+                return 0x80ff00;
+            case "gr3":
+                return 0x40ff00;
+            case "str":
+                strikethrough = true;
+                break;
+			case "end":
+				strikethrough = false;
+				break;
+        }
 		return -1;
 	}
 
-	public void method481(byte abyte0[], int x, int y, int width, int height, int i1) {
+	public void drawGlyph_481(byte[] abyte0, int x, int y, int width, int height, int i1) {
 		int graphicsPixel = x + y * Drawable.width;
 		int remainingWidth = Drawable.width - width;
 		int characterPixelOffset = 0;
 		int characterPixel = 0;
-		if (y < Drawable.anInt1427) {
-			int offsetY = Drawable.anInt1427 - y;
+		if (y < Drawable.startY) {
+			int offsetY = Drawable.startY - y;
 			height -= offsetY;
-			y = Drawable.anInt1427;
+			y = Drawable.startY;
 			characterPixel += offsetY * width;
 			graphicsPixel += offsetY * Drawable.width;
 		}
-		if (y + height >= Drawable.anInt1428)
-			height -= ((y + height) - Drawable.anInt1428) + 1;
-		if (x < Drawable.anInt1429) {
-			int offsetX = Drawable.anInt1429 - x;
+		if (y + height >= Drawable.endY)
+			height -= ((y + height) - Drawable.endY) + 1;
+		if (x < Drawable.startX) {
+			int offsetX = Drawable.startX - x;
 			width -= offsetX;
-			x = Drawable.anInt1429;
+			x = Drawable.startX;
 			characterPixel += offsetX;
 			graphicsPixel += offsetX;
 			characterPixelOffset += offsetX;
 			remainingWidth += offsetX;
 		}
-		if (x + width >= Drawable.anInt1430) {
-			int l2 = ((x + width) - Drawable.anInt1430) + 1;
+		if (x + width >= Drawable.endX) {
+			int l2 = ((x + width) - Drawable.endX) + 1;
 			width -= l2;
 			characterPixelOffset += l2;
 			remainingWidth += l2;
@@ -334,37 +334,37 @@ public class JagFont extends Drawable {
 		if (width <= 0 || height <= 0) {
 			return;
 		} else {
-			method482(Drawable.anIntArray1424, abyte0, i1, characterPixel, graphicsPixel, width, height, remainingWidth, characterPixelOffset);
+			method482(Drawable.pixels, abyte0, i1, characterPixel, graphicsPixel, width, height, remainingWidth, characterPixelOffset);
 			return;
 		}
 	}
 
-	public void method482(int ai[], byte abyte0[], int i, int j, int k, int width, int i1, int j1, int k1) {
+	public void method482(int dest[], byte abyte0[], int i, int j, int k, int width, int i1, int j1, int k1) {
 		int negativeQuarterWidth = -(width >> 2);
 		width = -(width & 3);
 		for (int heightCounter = -i1; heightCounter < 0; heightCounter++) {
 			for (int widthCounter = negativeQuarterWidth; widthCounter < 0; widthCounter++) {
 				if (abyte0[j++] != 0)
-					ai[k++] = i;
+					dest[k++] = i;
 				else
 					k++;
 				if (abyte0[j++] != 0)
-					ai[k++] = i;
+					dest[k++] = i;
 				else
 					k++;
 				if (abyte0[j++] != 0)
-					ai[k++] = i;
+					dest[k++] = i;
 				else
 					k++;
 				if (abyte0[j++] != 0)
-					ai[k++] = i;
+					dest[k++] = i;
 				else
 					k++;
 			}
 
 			for (int k2 = width; k2 < 0; k2++)
 				if (abyte0[j++] != 0)
-					ai[k++] = i;
+					dest[k++] = i;
 				else
 					k++;
 
@@ -381,26 +381,26 @@ public class JagFont extends Drawable {
 		int j2 = 0;
 		if (!flag)
 			return;
-		if (k < Drawable.anInt1427) {
-			int k2 = Drawable.anInt1427 - k;
+		if (k < Drawable.startY) {
+			int k2 = Drawable.startY - k;
 			l -= k2;
-			k = Drawable.anInt1427;
+			k = Drawable.startY;
 			j2 += k2 * i1;
 			k1 += k2 * Drawable.width;
 		}
-		if (k + l >= Drawable.anInt1428)
-			l -= ((k + l) - Drawable.anInt1428) + 1;
-		if (i < Drawable.anInt1429) {
-			int l2 = Drawable.anInt1429 - i;
+		if (k + l >= Drawable.endY)
+			l -= ((k + l) - Drawable.endY) + 1;
+		if (i < Drawable.startX) {
+			int l2 = Drawable.startX - i;
 			i1 -= l2;
-			i = Drawable.anInt1429;
+			i = Drawable.startX;
 			j2 += l2;
 			k1 += l2;
 			i2 += l2;
 			l1 += l2;
 		}
-		if (i + i1 >= Drawable.anInt1430) {
-			int i3 = ((i + i1) - Drawable.anInt1430) + 1;
+		if (i + i1 >= Drawable.endX) {
+			int i3 = ((i + i1) - Drawable.endX) + 1;
 			i1 -= i3;
 			i2 += i3;
 			l1 += i3;
@@ -408,42 +408,26 @@ public class JagFont extends Drawable {
 		if (i1 <= 0 || l <= 0) {
 			return;
 		} else {
-			method484(j2, l1, i2, k1, j1, Drawable.anIntArray1424, j, 2, l, i1, abyte0);
+			applyOpacityOnGlyph(j2, l1, i2, k1, j1, Drawable.pixels, j, 2, l, i1, abyte0);
 			return;
 		}
 	}
 
-	public void method484(int i, int j, int k, int l, int i1, int ai[], int j1, int k1, int l1, int i2, byte abyte0[]) {
-		if (k1 < 2 || k1 > 2)
-			aBoolean1496 = !aBoolean1496;
-		j1 = ((j1 & 0xff00ff) * i1 & 0xff00ff00) + ((j1 & 0xff00) * i1 & 0xff0000) >> 8;
-		i1 = 256 - i1;
+	public void applyOpacityOnGlyph(int i, int j, int k, int l, int opacity, int dest[], int color, int k1, int l1, int i2, byte abyte0[]) {
+		color = ((color & 0xff00ff) * opacity & 0xff00ff00) + ((color & 0xff00) * opacity & 0xff0000) >> 8;
+		opacity = 256 - opacity;
 		for (int j2 = -l1; j2 < 0; j2++) {
-			for (int k2 = -i2; k2 < 0; k2++)
-				if (abyte0[i++] != 0) {
-					int l2 = ai[l];
-					ai[l++] = (((l2 & 0xff00ff) * i1 & 0xff00ff00) + ((l2 & 0xff00) * i1 & 0xff0000) >> 8) + j1;
-				} else {
-					l++;
-				}
-
+			for (int k2 = -i2; k2 < 0; k2++) {
+                if (abyte0[i++] != 0) {
+                    int l2 = dest[l];
+                    dest[l++] = (((l2 & 0xff00ff) * opacity & 0xff00ff00) + ((l2 & 0xff00) * opacity & 0xff0000) >> 8) + color;
+                } else {
+                    l++;
+                }
+            }
 			l += j;
 			i += k;
 		}
 
 	}
-
-	public boolean aBoolean1496;
-	public boolean aBoolean1497;
-	public int anInt1498;
-	public int anInt1499;
-	public byte aByteArrayArray1500[][];
-	public int anIntArray1501[];
-	public int anIntArray1502[];
-	public int anIntArray1503[];
-	public int anIntArray1504[];
-	public int anIntArray1505[];
-	public int anInt1506;
-	public Random aRandom1507;
-	public boolean strikethrough;
 }

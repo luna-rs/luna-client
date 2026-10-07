@@ -6,7 +6,7 @@ public class Tile extends Node {
 
 	public Tile(int i, int j, int k) { // was parameterized as (int plane, int x, int y)
 		aBoolean1396 = false;
-		class5 = new Class5[5];
+		class5 = new ScenegraphRelated5[5];
 		anIntArray1409 = new int[5];
 		anInt1400 = anInt1397 = i;
 		anInt1398 = j;
@@ -18,14 +18,14 @@ public class Tile extends Node {
 	public int anInt1398;
 	public int anInt1399;
 	public int anInt1400;
-	public Class3 class3;
-	public Class20 class20;
-	public Class44 aClass44_1403;
-	public Class35 aClass35_1404;
-	public Class28 aClass28_1405;
-	public Class10 aClass10_1406;
+	public ScenegraphMember3 class3;
+	public ScenegraphMember20 class20;
+	public ScenegraphMember44 aClass44_1403;
+	public ScenegraphMember35 aClass35_1404;
+	public ScenegraphMember28 aClass28_1405;
+	public ScenegraphMember10 aClass10_1406;
 	public int anInt1407;
-	public Class5[] class5;
+	public ScenegraphRelated5 class5[];
 	public int anIntArray1409[];
 	public int anInt1410;
 	public int anInt1411;

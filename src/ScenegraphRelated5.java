@@ -2,10 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class5 {
-
-	public Class5() {
-	}
+public class ScenegraphRelated5 {
 
 	public int anInt113;
 	public int anInt114;
@@ -21,4 +18,7 @@ public class Class5 {
 	public int anInt124;
 	public int anInt125;
 	public byte aByte126;
+
+	public ScenegraphRelated5() {
+	}
 }

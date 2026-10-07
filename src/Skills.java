@@ -2,7 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class42 {
+public class Skills {
 
 	public static int anInt700 = 25;
 	public static String aStringArray701[] = { "attack", "defence", "strength", "hitpoints", "ranged", "prayer",

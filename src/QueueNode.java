@@ -4,6 +4,12 @@
 
 public class QueueNode extends Node {
 
+	public QueueNode next;
+	public QueueNode prev;
+
+	public QueueNode() {
+	}
+
 	public void unlinkFromQueue() {
 		if (prev == null) {
 			return;
@@ -16,9 +22,4 @@ public class QueueNode extends Node {
 		}
 	}
 
-	public QueueNode() {
-	}
-
-	public QueueNode next;
-	public QueueNode prev;
 }

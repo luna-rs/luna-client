@@ -2,7 +2,11 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class34 {
+public class RegionRelated34 {
+
+	public static int anInt600;
+	public static boolean aBoolean601 = true;
+	public static boolean aBoolean602 = true;
 
 	public static int method348(byte byte0, int i, int j, int k) {
 		if (byte0 == 7)
@@ -73,9 +77,5 @@ public class Class34 {
 		else
 			return l;
 	}
-
-	public static int anInt600;
-	public static boolean aBoolean601 = true;
-	public static boolean aBoolean602 = true;
 
 }

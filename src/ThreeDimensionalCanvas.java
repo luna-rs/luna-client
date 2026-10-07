@@ -4,136 +4,126 @@
 
 public class ThreeDimensionalCanvas extends Drawable {
 
-	public static int anInt1524 = -20714;
-	public static int anInt1525;
-	public static boolean aBoolean1526;
 	public static boolean lowMemory = true;
-	public static boolean requiresBoundsCheck;
+	public static boolean jagged = true;
+	public static boolean hClip;
 	public static boolean aBoolean1529;
-	public static boolean aBoolean1530 = true;
-	public static int currentFaceAlpha;
-	public static int centerX;
-	public static int centerY;
-	public static int[] anIntArray1534;
-	public static int[] reciprocalTable;
-	public static int[] sineTable;
-	public static int[] cosineTable;
-	public static int[] anIntArray1538;
-	public static int anInt1539;
-	public static IndexedSprite[] indexedSprites = new IndexedSprite[50];
-	public static boolean[] aBooleanArray1541 = new boolean[50];
-	public static int[] anIntArray1542 = new int[50];
-	public static int anInt1543;
-	public static int[][] anIntArrayArray1544;
-	public static int[][] anIntArrayArray1545 = new int[50][];
-	public static int[] anIntArray1546 = new int[50];
+	public static int anInt1531;
+	public static int halfParentWidth;
+	public static int halfParentHeight;
+	public static int divTable[];
+	public static int divTable2[];
+	public static int sineTable[];
+	public static int cosineTable[];
+	public static int lineOffsets[];
+	public static int loadedTextures;
+	public static IndexedSprite textures[] = new IndexedSprite[50];
+	public static boolean aBooleanArray1541[] = new boolean[50];
+	public static int anIntArray1542[] = new int[50];
+	public static int textureBufferSize;
+	public static int texelPool[][];
+	public static int activeTexels[][] = new int[50][];
+	public static int anIntArray1546[] = new int[50];
 	public static int anInt1547;
-	public static int[] hslToRgbTable = new int[0x10000];
-	public static int[][] anIntArrayArray1549 = new int[50][];
+	public static int anIntArray1548[] = new int[0x10000];
+	public static int anIntArrayArray1549[][] = new int[50][];
 
 	static {
-		anIntArray1534 = new int[512];
-		reciprocalTable = new int[2048];
+		divTable = new int[512];
+		divTable2 = new int[2048];
 		sineTable = new int[2048];
 		cosineTable = new int[2048];
-		for (int i = 1; i < 512; i++)
-			anIntArray1534[i] = 32768 / i;
+		for (int i = 1; i < 512; i++) {
+            divTable[i] = 32768 / i;
+        }
 
-		for (int j = 1; j < 2048; j++)
-			reciprocalTable[j] = 0x10000 / j;
+		for (int j = 1; j < 2048; j++) {
+            divTable2[j] = 0x10000 / j;
+        }
 
 		for (int k = 0; k < 2048; k++) {
 			sineTable[k] = (int) (65536D * Math.sin(k * 0.0030679614999999999D));
 			cosineTable[k] = (int) (65536D * Math.cos(k * 0.0030679614999999999D));
 		}
-
 	}
 
-	public static void method492(boolean flag) {
-		anIntArray1534 = null;
+	public static void unload() {
+		divTable = null;
+		divTable = null;
 		sineTable = null;
 		cosineTable = null;
-		anIntArray1538 = null;
-		indexedSprites = null;
+		lineOffsets = null;
+		textures = null;
 		aBooleanArray1541 = null;
 		anIntArray1542 = null;
-		anIntArrayArray1544 = null;
-		if (flag) {
-			for (int i = 1; i > 0; i++);
-		}
-		anIntArrayArray1545 = null;
+		texelPool = null;
+		activeTexels = null;
 		anIntArray1546 = null;
-		hslToRgbTable = null;
+		anIntArray1548 = null;
 		anIntArrayArray1549 = null;
 	}
 
-	public static void method493(int i) {
-		i = 19 / i;
-		anIntArray1538 = new int[Drawable.height];
-		for (int j = 0; j < Drawable.height; j++)
-			anIntArray1538[j] = Drawable.width * j;
+	public static void setup493() {
+		lineOffsets = new int[Drawable.height];
+		for (int j = 0; j < Drawable.height; j++) {
+            lineOffsets[j] = Drawable.width * j;
+        }
 
-		centerX = Drawable.width / 2;
-		centerY = Drawable.height / 2;
+		halfParentWidth = Drawable.width / 2;
+		halfParentHeight = Drawable.height / 2;
 	}
 
-	public static void method494(int i, int j, int k) {
-		if (j != 7)
-			aBoolean1526 = !aBoolean1526;
-		anIntArray1538 = new int[i];
-		for (int l = 0; l < i; l++)
-			anIntArray1538[l] = k * l;
-
-		centerX = k / 2;
-		centerY = i / 2;
+	public static void init3D(int width, int height) {
+		lineOffsets = new int[height];
+		for (int l = 0; l < height; l++) {
+            lineOffsets[l] = width * l;
+        }
+		halfParentWidth = width / 2;
+		halfParentHeight = height / 2;
 	}
 
-	public static void method495(byte byte0) {
-		if (byte0 != 71)
-			return;
-		anIntArrayArray1544 = null;
-		for (int i = 0; i < 50; i++)
-			anIntArrayArray1545[i] = null;
-
+	public static void clearTexels() {
+		texelPool = null;
+		for (int i = 0; i < 50; i++) {
+            activeTexels[i] = null;
+        }
 	}
 
-	public static void method496(byte byte0, int i) {
-		if (byte0 != 7) {
-			for (int j = 1; j > 0; j++);
-		}
-		if (anIntArrayArray1544 == null) {
-			anInt1543 = i;
-			if (lowMemory)
-				anIntArrayArray1544 = new int[anInt1543][16384];
-			else
-				anIntArrayArray1544 = new int[anInt1543][0x10000];
-			for (int k = 0; k < 50; k++)
-				anIntArrayArray1545[k] = null;
-
+	public static void initTextureBufferPool(int i) {
+		if (texelPool == null) {
+			textureBufferSize = i;
+			if (lowMemory) {
+                texelPool = new int[textureBufferSize][16384];
+            } else {
+                texelPool = new int[textureBufferSize][0x10000];
+            }
+			for (int k = 0; k < 50; k++) {
+                activeTexels[k] = null;
+            }
 		}
 	}
 
-	public static void method497(Archive class2, int i) {
-		if (i != -17551) {
-			for (int j = 1; j > 0; j++);
-		}
-		anInt1539 = 0;
-		for (int k = 0; k < 50; k++)
-			try {
-				indexedSprites[k] = new IndexedSprite(class2, String.valueOf(k), 0);
-				if (lowMemory && indexedSprites[k].anInt1522 == 128)
-					indexedSprites[k].method485(0);
-				else
-					indexedSprites[k].method486(true);
-				anInt1539++;
-			} catch (Exception _ex) {
-			}
+	public static void unpackTextures(Archive archive) {
+		loadedTextures = 0;
+		for (int k = 0; k < 50; k++) {
+            try {
+                textures[k] = new IndexedSprite(archive, String.valueOf(k), 0);
+                if (lowMemory && textures[k].width_1522 == 128) {
+                    textures[k].method485(0);
+                } else {
+                    textures[k].method486(true);
+                }
+                loadedTextures++;
+            } catch (Exception _ex) {
+            }
+        }
 
 	}
 
-	public static int method498(int i, int j) {
-		if (anIntArray1542[i] != 0)
-			return anIntArray1542[i];
+	public static int getTextureAverageColor(int i) {
+		if (anIntArray1542[i] != 0) {
+            return anIntArray1542[i];
+        }
 		int k = 0;
 		int l = 0;
 		int i1 = 0;
@@ -143,74 +133,65 @@ public class ThreeDimensionalCanvas extends Drawable {
 			l += anIntArrayArray1549[i][k1] >> 8 & 0xff;
 			i1 += anIntArrayArray1549[i][k1] & 0xff;
 		}
-
-		if (j != 0)
-			return anInt1525;
 		int l1 = (k / j1 << 16) + (l / j1 << 8) + i1 / j1;
-		l1 = method502(l1, 1.3999999999999999D);
-		if (l1 == 0)
-			l1 = 1;
+		l1 = gammaCorrect(l1, 1.3999999999999999D);
+		if (l1 == 0) {
+            l1 = 1;
+        }
 		anIntArray1542[i] = l1;
 		return l1;
 	}
 
-	public static void method499(int i, int j) {
-		if (j != 9)
-			anInt1524 = -48;
-		if (anIntArrayArray1545[i] == null) {
-			return;
-		} else {
-			anIntArrayArray1544[anInt1543++] = anIntArrayArray1545[i];
-			anIntArrayArray1545[i] = null;
-			return;
-		}
-	}
+	public static void pushTexture(int i) {
+        if (activeTexels[i] != null) {
+            texelPool[textureBufferSize++] = activeTexels[i];
+            activeTexels[i] = null;
+        }
+    }
 
-	public static int[] method500(int i) {
+	public static int[] getTexels(int i) {
 		anIntArray1546[i] = anInt1547++;
-		if (anIntArrayArray1545[i] != null)
-			return anIntArrayArray1545[i];
+		if (activeTexels[i] != null)
+			return activeTexels[i];
 		int ai[];
-		if (anInt1543 > 0) {
-			ai = anIntArrayArray1544[--anInt1543];
-			anIntArrayArray1544[anInt1543] = null;
+		if (textureBufferSize > 0) {
+			ai = texelPool[--textureBufferSize];
+			texelPool[textureBufferSize] = null;
 		} else {
 			int j = 0;
 			int k = -1;
-			for (int l = 0; l < anInt1539; l++)
-				if (anIntArrayArray1545[l] != null && (anIntArray1546[l] < j || k == -1)) {
+			for (int l = 0; l < loadedTextures; l++)
+				if (activeTexels[l] != null && (anIntArray1546[l] < j || k == -1)) {
 					j = anIntArray1546[l];
 					k = l;
 				}
 
-			ai = anIntArrayArray1545[k];
-			anIntArrayArray1545[k] = null;
+			ai = activeTexels[k];
+			activeTexels[k] = null;
 		}
-		anIntArrayArray1545[i] = ai;
-		IndexedSprite class50_sub1_sub1_sub3 = indexedSprites[i];
+		activeTexels[i] = ai;
+		IndexedSprite texture = textures[i];
 		int ai1[] = anIntArrayArray1549[i];
 		if (lowMemory) {
 			aBooleanArray1541[i] = false;
 			for (int i1 = 0; i1 < 4096; i1++) {
-				int i2 = ai[i1] = ai1[class50_sub1_sub1_sub3.aByteArray1516[i1]] & 0xf8f8ff;
+				int i2 = ai[i1] = ai1[texture.pixels_1516[i1]] & 0xf8f8ff;
 				if (i2 == 0)
 					aBooleanArray1541[i] = true;
 				ai[4096 + i1] = i2 - (i2 >>> 3) & 0xf8f8ff;
 				ai[8192 + i1] = i2 - (i2 >>> 2) & 0xf8f8ff;
 				ai[12288 + i1] = i2 - (i2 >>> 2) - (i2 >>> 3) & 0xf8f8ff;
 			}
-
 		} else {
-			if (class50_sub1_sub1_sub3.anInt1518 == 64) {
+			if (texture.width_1518 == 64) {
 				for (int j1 = 0; j1 < 128; j1++) {
 					for (int j2 = 0; j2 < 128; j2++)
-						ai[j2 + (j1 << 7)] = ai1[class50_sub1_sub1_sub3.aByteArray1516[(j2 >> 1) + ((j1 >> 1) << 6)]];
+						ai[j2 + (j1 << 7)] = ai1[texture.pixels_1516[(j2 >> 1) + ((j1 >> 1) << 6)]];
 
 				}
-
 			} else {
 				for (int k1 = 0; k1 < 16384; k1++)
-					ai[k1] = ai1[class50_sub1_sub1_sub3.aByteArray1516[k1]];
+					ai[k1] = ai1[texture.pixels_1516[k1]];
 
 			}
 			aBooleanArray1541[i] = false;
@@ -228,7 +209,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 		return ai;
 	}
 
-	public static void method501(double d, byte byte0) {
+	public static void initColorTable(double d, byte byte0) {
 		d += Math.random() * 0.029999999999999999D - 0.014999999999999999D;
 		int i = 0;
 		for (int j = 0; j < 512; j++) {
@@ -282,20 +263,20 @@ public class ThreeDimensionalCanvas extends Drawable {
 				int l1 = (int) (d5 * 256D);
 				int i2 = (int) (d6 * 256D);
 				int j2 = (k1 << 16) + (l1 << 8) + i2;
-				j2 = method502(j2, d);
+				j2 = gammaCorrect(j2, d);
 				if (j2 == 0)
 					j2 = 1;
-				hslToRgbTable[i++] = j2;
+				anIntArray1548[i++] = j2;
 			}
 
 		}
 
 		for (int k = 0; k < 50; k++)
-			if (indexedSprites[k] != null) {
-				int ai[] = indexedSprites[k].anIntArray1517;
+			if (textures[k] != null) {
+				int ai[] = textures[k].pixelColours_1517;
 				anIntArrayArray1549[k] = new int[ai.length];
 				for (int i1 = 0; i1 < ai.length; i1++) {
-					anIntArrayArray1549[k][i1] = method502(ai[i1], d);
+					anIntArrayArray1549[k][i1] = gammaCorrect(ai[i1], d);
 					if ((anIntArrayArray1549[k][i1] & 0xf8f8ff) == 0 && i1 != 0)
 						anIntArrayArray1549[k][i1] = 1;
 				}
@@ -306,12 +287,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			byte0 = 0;
 		else
 			return;
-		for (int l = 0; l < 50; l++)
-			method499(l, 9);
-
+		for (int l = 0; l < 50; l++) {
+            pushTexture(l);
+        }
 	}
 
-	public static int method502(int i, double d) {
+	public static int gammaCorrect(int i, double d) {
 		double d1 = (i >> 16) / 256D;
 		double d2 = (i >> 8 & 0xff) / 256D;
 		double d3 = (i & 0xff) / 256D;
@@ -324,7 +305,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 		return (j << 16) + (k << 8) + l;
 	}
 
-	public static void drawGouraudTriangle(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2) {
+	public static void gouraudTriangle(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2) {
 		int j2 = 0;
 		int k2 = 0;
 		if (j != i) {
@@ -344,12 +325,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			k3 = (k1 - i2 << 15) / (i - k);
 		}
 		if (i <= j && i <= k) {
-			if (i >= Drawable.anInt1428)
+			if (i >= Drawable.endY)
 				return;
-			if (j > Drawable.anInt1428)
-				j = Drawable.anInt1428;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
+			if (j > Drawable.endY)
+				j = Drawable.endY;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
 			if (j < k) {
 				j1 = l <<= 16;
 				i2 = k1 <<= 15;
@@ -370,8 +351,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 				if (i != j && j3 < j2 || i == j && j3 > l2) {
 					k -= j;
 					j -= i;
-					for (i = anIntArray1538[i]; --j >= 0; i += Drawable.width) {
-						method504(Drawable.anIntArray1424, i, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
+					for (i = lineOffsets[i]; --j >= 0; i += Drawable.width) {
+						gouraudRaster(Drawable.pixels, i, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
 						j1 += j3;
 						l += j2;
 						i2 += k3;
@@ -379,7 +360,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					}
 
 					while (--k >= 0) {
-						method504(Drawable.anIntArray1424, i, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
+						gouraudRaster(Drawable.pixels, i, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
 						j1 += j3;
 						i1 += l2;
 						i2 += k3;
@@ -390,8 +371,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				k -= j;
 				j -= i;
-				for (i = anIntArray1538[i]; --j >= 0; i += Drawable.width) {
-					method504(Drawable.anIntArray1424, i, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
+				for (i = lineOffsets[i]; --j >= 0; i += Drawable.width) {
+					gouraudRaster(Drawable.pixels, i, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
 					j1 += j3;
 					l += j2;
 					i2 += k3;
@@ -399,7 +380,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 
 				while (--k >= 0) {
-					method504(Drawable.anIntArray1424, i, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
+					gouraudRaster(Drawable.pixels, i, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
 					j1 += j3;
 					i1 += l2;
 					i2 += k3;
@@ -427,8 +408,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (i != k && j3 < j2 || i == k && l2 > j2) {
 				j -= k;
 				k -= i;
-				for (i = anIntArray1538[i]; --k >= 0; i += Drawable.width) {
-					method504(Drawable.anIntArray1424, i, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
+				for (i = lineOffsets[i]; --k >= 0; i += Drawable.width) {
+					gouraudRaster(Drawable.pixels, i, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
 					i1 += j3;
 					l += j2;
 					l1 += k3;
@@ -436,7 +417,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 
 				while (--j >= 0) {
-					method504(Drawable.anIntArray1424, i, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
+					gouraudRaster(Drawable.pixels, i, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
 					j1 += l2;
 					l += j2;
 					i2 += i3;
@@ -447,8 +428,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= k;
 			k -= i;
-			for (i = anIntArray1538[i]; --k >= 0; i += Drawable.width) {
-				method504(Drawable.anIntArray1424, i, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
+			for (i = lineOffsets[i]; --k >= 0; i += Drawable.width) {
+				gouraudRaster(Drawable.pixels, i, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
 				i1 += j3;
 				l += j2;
 				l1 += k3;
@@ -456,7 +437,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 
 			while (--j >= 0) {
-				method504(Drawable.anIntArray1424, i, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
+				gouraudRaster(Drawable.pixels, i, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
 				j1 += l2;
 				l += j2;
 				i2 += i3;
@@ -466,12 +447,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			return;
 		}
 		if (j <= k) {
-			if (j >= Drawable.anInt1428)
+			if (j >= Drawable.endY)
 				return;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
-			if (i > Drawable.anInt1428)
-				i = Drawable.anInt1428;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
+			if (i > Drawable.endY)
+				i = Drawable.endY;
 			if (k < i) {
 				l = i1 <<= 16;
 				k1 = l1 <<= 15;
@@ -492,8 +473,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 				if (j != k && j2 < l2 || j == k && j2 > j3) {
 					i -= k;
 					k -= j;
-					for (j = anIntArray1538[j]; --k >= 0; j += Drawable.width) {
-						method504(Drawable.anIntArray1424, j, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
+					for (j = lineOffsets[j]; --k >= 0; j += Drawable.width) {
+						gouraudRaster(Drawable.pixels, j, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
 						l += j2;
 						i1 += l2;
 						k1 += k2;
@@ -501,7 +482,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					}
 
 					while (--i >= 0) {
-						method504(Drawable.anIntArray1424, j, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
+						gouraudRaster(Drawable.pixels, j, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
 						l += j2;
 						j1 += j3;
 						k1 += k2;
@@ -512,8 +493,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				i -= k;
 				k -= j;
-				for (j = anIntArray1538[j]; --k >= 0; j += Drawable.width) {
-					method504(Drawable.anIntArray1424, j, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
+				for (j = lineOffsets[j]; --k >= 0; j += Drawable.width) {
+					gouraudRaster(Drawable.pixels, j, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
 					l += j2;
 					i1 += l2;
 					k1 += k2;
@@ -521,7 +502,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 
 				while (--i >= 0) {
-					method504(Drawable.anIntArray1424, j, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
+					gouraudRaster(Drawable.pixels, j, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
 					l += j2;
 					j1 += j3;
 					k1 += k2;
@@ -549,8 +530,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (j2 < l2) {
 				k -= i;
 				i -= j;
-				for (j = anIntArray1538[j]; --i >= 0; j += Drawable.width) {
-					method504(Drawable.anIntArray1424, j, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
+				for (j = lineOffsets[j]; --i >= 0; j += Drawable.width) {
+					gouraudRaster(Drawable.pixels, j, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
 					j1 += j2;
 					i1 += l2;
 					i2 += k2;
@@ -558,7 +539,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 
 				while (--k >= 0) {
-					method504(Drawable.anIntArray1424, j, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
+					gouraudRaster(Drawable.pixels, j, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
 					l += j3;
 					i1 += l2;
 					k1 += k3;
@@ -569,8 +550,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			k -= i;
 			i -= j;
-			for (j = anIntArray1538[j]; --i >= 0; j += Drawable.width) {
-				method504(Drawable.anIntArray1424, j, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
+			for (j = lineOffsets[j]; --i >= 0; j += Drawable.width) {
+				gouraudRaster(Drawable.pixels, j, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
 				j1 += j2;
 				i1 += l2;
 				i2 += k2;
@@ -578,7 +559,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 
 			while (--k >= 0) {
-				method504(Drawable.anIntArray1424, j, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
+				gouraudRaster(Drawable.pixels, j, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
 				l += j3;
 				i1 += l2;
 				k1 += k3;
@@ -587,12 +568,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			return;
 		}
-		if (k >= Drawable.anInt1428)
+		if (k >= Drawable.endY)
 			return;
-		if (i > Drawable.anInt1428)
-			i = Drawable.anInt1428;
-		if (j > Drawable.anInt1428)
-			j = Drawable.anInt1428;
+		if (i > Drawable.endY)
+			i = Drawable.endY;
+		if (j > Drawable.endY)
+			j = Drawable.endY;
 		if (i < j) {
 			i1 = j1 <<= 16;
 			l1 = i2 <<= 15;
@@ -613,8 +594,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (l2 < j3) {
 				j -= i;
 				i -= k;
-				for (k = anIntArray1538[k]; --i >= 0; k += Drawable.width) {
-					method504(Drawable.anIntArray1424, k, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
+				for (k = lineOffsets[k]; --i >= 0; k += Drawable.width) {
+					gouraudRaster(Drawable.pixels, k, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
 					i1 += l2;
 					j1 += j3;
 					l1 += i3;
@@ -622,7 +603,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 
 				while (--j >= 0) {
-					method504(Drawable.anIntArray1424, k, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
+					gouraudRaster(Drawable.pixels, k, 0, 0, i1 >> 16, l >> 16, l1 >> 7, k1 >> 7);
 					i1 += l2;
 					l += j2;
 					l1 += i3;
@@ -633,8 +614,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= i;
 			i -= k;
-			for (k = anIntArray1538[k]; --i >= 0; k += Drawable.width) {
-				method504(Drawable.anIntArray1424, k, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
+			for (k = lineOffsets[k]; --i >= 0; k += Drawable.width) {
+				gouraudRaster(Drawable.pixels, k, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
 				i1 += l2;
 				j1 += j3;
 				l1 += i3;
@@ -642,7 +623,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 
 			while (--j >= 0) {
-				method504(Drawable.anIntArray1424, k, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
+				gouraudRaster(Drawable.pixels, k, 0, 0, l >> 16, i1 >> 16, k1 >> 7, l1 >> 7);
 				i1 += l2;
 				l += j2;
 				l1 += i3;
@@ -670,8 +651,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 		if (l2 < j3) {
 			i -= j;
 			j -= k;
-			for (k = anIntArray1538[k]; --j >= 0; k += Drawable.width) {
-				method504(Drawable.anIntArray1424, k, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
+			for (k = lineOffsets[k]; --j >= 0; k += Drawable.width) {
+				gouraudRaster(Drawable.pixels, k, 0, 0, l >> 16, j1 >> 16, k1 >> 7, i2 >> 7);
 				l += l2;
 				j1 += j3;
 				k1 += i3;
@@ -679,7 +660,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 
 			while (--i >= 0) {
-				method504(Drawable.anIntArray1424, k, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
+				gouraudRaster(Drawable.pixels, k, 0, 0, i1 >> 16, j1 >> 16, l1 >> 7, i2 >> 7);
 				i1 += j2;
 				j1 += j3;
 				l1 += k2;
@@ -690,8 +671,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 		i -= j;
 		j -= k;
-		for (k = anIntArray1538[k]; --j >= 0; k += Drawable.width) {
-			method504(Drawable.anIntArray1424, k, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
+		for (k = lineOffsets[k]; --j >= 0; k += Drawable.width) {
+			gouraudRaster(Drawable.pixels, k, 0, 0, j1 >> 16, l >> 16, i2 >> 7, k1 >> 7);
 			l += l2;
 			j1 += j3;
 			k1 += i3;
@@ -699,7 +680,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 
 		while (--i >= 0) {
-			method504(Drawable.anIntArray1424, k, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
+			gouraudRaster(Drawable.pixels, k, 0, 0, j1 >> 16, i1 >> 16, i2 >> 7, l1 >> 7);
 			i1 += j2;
 			j1 += j3;
 			l1 += k2;
@@ -708,16 +689,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 	}
 
-	public static void method504(int ai[], int i, int j, int k, int l, int i1, int j1, int k1) {
-		if (aBoolean1530) {
+	public static void gouraudRaster(int ai[], int i, int j, int k, int l, int i1, int j1, int k1) {
+		if (jagged) {
 			int l1;
-			if (requiresBoundsCheck) {
+			if (hClip) {
 				if (i1 - l > 3)
 					l1 = (k1 - j1) / (i1 - l);
 				else
 					l1 = 0;
-				if (i1 > Drawable.viewportRightBoundary)
-					i1 = Drawable.viewportRightBoundary;
+				if (i1 > Drawable.lastPixelX)
+					i1 = Drawable.lastPixelX;
 				if (l < 0) {
 					j1 -= l * l1;
 					l = 0;
@@ -733,13 +714,13 @@ public class ThreeDimensionalCanvas extends Drawable {
 				i += l;
 				k = i1 - l >> 2;
 				if (k > 0)
-					l1 = (k1 - j1) * anIntArray1534[k] >> 15;
+					l1 = (k1 - j1) * divTable[k] >> 15;
 				else
 					l1 = 0;
 			}
-			if (currentFaceAlpha == 0) {
+			if (anInt1531 == 0) {
 				while (--k >= 0) {
-					j = hslToRgbTable[j1 >> 8];
+					j = anIntArray1548[j1 >> 8];
 					j1 += l1;
 					ai[i++] = j;
 					ai[i++] = j;
@@ -748,17 +729,17 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				k = i1 - l & 3;
 				if (k > 0) {
-					j = hslToRgbTable[j1 >> 8];
+					j = anIntArray1548[j1 >> 8];
 					do
 						ai[i++] = j;
 					while (--k > 0);
 					return;
 				}
 			} else {
-				int j2 = currentFaceAlpha;
-				int l2 = 256 - currentFaceAlpha;
+				int j2 = anInt1531;
+				int l2 = 256 - anInt1531;
 				while (--k >= 0) {
-					j = hslToRgbTable[j1 >> 8];
+					j = anIntArray1548[j1 >> 8];
 					j1 += l1;
 					j = ((j & 0xff00ff) * l2 >> 8 & 0xff00ff) + ((j & 0xff00) * l2 >> 8 & 0xff00);
 					ai[i++] = j + ((ai[i] & 0xff00ff) * j2 >> 8 & 0xff00ff) + ((ai[i] & 0xff00) * j2 >> 8 & 0xff00);
@@ -768,7 +749,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				k = i1 - l & 3;
 				if (k > 0) {
-					j = hslToRgbTable[j1 >> 8];
+					j = anIntArray1548[j1 >> 8];
 					j = ((j & 0xff00ff) * l2 >> 8 & 0xff00ff) + ((j & 0xff00) * l2 >> 8 & 0xff00);
 					do
 						ai[i++] = j + ((ai[i] & 0xff00ff) * j2 >> 8 & 0xff00ff) + ((ai[i] & 0xff00) * j2 >> 8 & 0xff00);
@@ -777,12 +758,13 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			return;
 		}
-		if (l >= i1)
-			return;
+		if (l >= i1) {
+            return;
+        }
 		int i2 = (k1 - j1) / (i1 - l);
-		if (requiresBoundsCheck) {
-			if (i1 > Drawable.viewportRightBoundary)
-				i1 = Drawable.viewportRightBoundary;
+		if (hClip) {
+			if (i1 > Drawable.lastPixelX)
+				i1 = Drawable.lastPixelX;
 			if (l < 0) {
 				j1 -= l * i2;
 				l = 0;
@@ -792,24 +774,24 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 		i += l;
 		k = i1 - l;
-		if (currentFaceAlpha == 0) {
+		if (anInt1531 == 0) {
 			do {
-				ai[i++] = hslToRgbTable[j1 >> 8];
+				ai[i++] = anIntArray1548[j1 >> 8];
 				j1 += i2;
 			} while (--k > 0);
 			return;
 		}
-		int k2 = currentFaceAlpha;
-		int i3 = 256 - currentFaceAlpha;
+		int k2 = anInt1531;
+		int i3 = 256 - anInt1531;
 		do {
-			j = hslToRgbTable[j1 >> 8];
+			j = anIntArray1548[j1 >> 8];
 			j1 += i2;
 			j = ((j & 0xff00ff) * i3 >> 8 & 0xff00ff) + ((j & 0xff00) * i3 >> 8 & 0xff00);
 			ai[i++] = j + ((ai[i] & 0xff00ff) * k2 >> 8 & 0xff00ff) + ((ai[i] & 0xff00) * k2 >> 8 & 0xff00);
 		} while (--k > 0);
 	}
 
-	public static void drawFlatTriangle(int i, int j, int k, int l, int i1, int j1, int k1) {
+	public static void flatTriangle(int i, int j, int k, int l, int i1, int j1, int k1) {
 		int l1 = 0;
 		if (j != i)
 			l1 = (i1 - l << 16) / (j - i);
@@ -820,12 +802,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 		if (k != i)
 			j2 = (l - j1 << 16) / (i - k);
 		if (i <= j && i <= k) {
-			if (i >= Drawable.anInt1428)
+			if (i >= Drawable.endY)
 				return;
-			if (j > Drawable.anInt1428)
-				j = Drawable.anInt1428;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
+			if (j > Drawable.endY)
+				j = Drawable.endY;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
 			if (j < k) {
 				j1 = l <<= 16;
 				if (i < 0) {
@@ -841,14 +823,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 				if (i != j && j2 < l1 || i == j && j2 > i2) {
 					k -= j;
 					j -= i;
-					for (i = anIntArray1538[i]; --j >= 0; i += Drawable.width) {
-						method506(Drawable.anIntArray1424, i, k1, 0, j1 >> 16, l >> 16);
+					for (i = lineOffsets[i]; --j >= 0; i += Drawable.width) {
+						flatRaster(Drawable.pixels, i, k1, 0, j1 >> 16, l >> 16);
 						j1 += j2;
 						l += l1;
 					}
 
 					while (--k >= 0) {
-						method506(Drawable.anIntArray1424, i, k1, 0, j1 >> 16, i1 >> 16);
+						flatRaster(Drawable.pixels, i, k1, 0, j1 >> 16, i1 >> 16);
 						j1 += j2;
 						i1 += i2;
 						i += Drawable.width;
@@ -857,14 +839,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				k -= j;
 				j -= i;
-				for (i = anIntArray1538[i]; --j >= 0; i += Drawable.width) {
-					method506(Drawable.anIntArray1424, i, k1, 0, l >> 16, j1 >> 16);
+				for (i = lineOffsets[i]; --j >= 0; i += Drawable.width) {
+					flatRaster(Drawable.pixels, i, k1, 0, l >> 16, j1 >> 16);
 					j1 += j2;
 					l += l1;
 				}
 
 				while (--k >= 0) {
-					method506(Drawable.anIntArray1424, i, k1, 0, i1 >> 16, j1 >> 16);
+					flatRaster(Drawable.pixels, i, k1, 0, i1 >> 16, j1 >> 16);
 					j1 += j2;
 					i1 += i2;
 					i += Drawable.width;
@@ -885,14 +867,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (i != k && j2 < l1 || i == k && i2 > l1) {
 				j -= k;
 				k -= i;
-				for (i = anIntArray1538[i]; --k >= 0; i += Drawable.width) {
-					method506(Drawable.anIntArray1424, i, k1, 0, i1 >> 16, l >> 16);
+				for (i = lineOffsets[i]; --k >= 0; i += Drawable.width) {
+					flatRaster(Drawable.pixels, i, k1, 0, i1 >> 16, l >> 16);
 					i1 += j2;
 					l += l1;
 				}
 
 				while (--j >= 0) {
-					method506(Drawable.anIntArray1424, i, k1, 0, j1 >> 16, l >> 16);
+					flatRaster(Drawable.pixels, i, k1, 0, j1 >> 16, l >> 16);
 					j1 += i2;
 					l += l1;
 					i += Drawable.width;
@@ -901,14 +883,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= k;
 			k -= i;
-			for (i = anIntArray1538[i]; --k >= 0; i += Drawable.width) {
-				method506(Drawable.anIntArray1424, i, k1, 0, l >> 16, i1 >> 16);
+			for (i = lineOffsets[i]; --k >= 0; i += Drawable.width) {
+				flatRaster(Drawable.pixels, i, k1, 0, l >> 16, i1 >> 16);
 				i1 += j2;
 				l += l1;
 			}
 
 			while (--j >= 0) {
-				method506(Drawable.anIntArray1424, i, k1, 0, l >> 16, j1 >> 16);
+				flatRaster(Drawable.pixels, i, k1, 0, l >> 16, j1 >> 16);
 				j1 += i2;
 				l += l1;
 				i += Drawable.width;
@@ -916,12 +898,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			return;
 		}
 		if (j <= k) {
-			if (j >= Drawable.anInt1428)
+			if (j >= Drawable.endY)
 				return;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
-			if (i > Drawable.anInt1428)
-				i = Drawable.anInt1428;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
+			if (i > Drawable.endY)
+				i = Drawable.endY;
 			if (k < i) {
 				l = i1 <<= 16;
 				if (j < 0) {
@@ -937,14 +919,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 				if (j != k && l1 < i2 || j == k && l1 > j2) {
 					i -= k;
 					k -= j;
-					for (j = anIntArray1538[j]; --k >= 0; j += Drawable.width) {
-						method506(Drawable.anIntArray1424, j, k1, 0, l >> 16, i1 >> 16);
+					for (j = lineOffsets[j]; --k >= 0; j += Drawable.width) {
+						flatRaster(Drawable.pixels, j, k1, 0, l >> 16, i1 >> 16);
 						l += l1;
 						i1 += i2;
 					}
 
 					while (--i >= 0) {
-						method506(Drawable.anIntArray1424, j, k1, 0, l >> 16, j1 >> 16);
+						flatRaster(Drawable.pixels, j, k1, 0, l >> 16, j1 >> 16);
 						l += l1;
 						j1 += j2;
 						j += Drawable.width;
@@ -953,14 +935,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				i -= k;
 				k -= j;
-				for (j = anIntArray1538[j]; --k >= 0; j += Drawable.width) {
-					method506(Drawable.anIntArray1424, j, k1, 0, i1 >> 16, l >> 16);
+				for (j = lineOffsets[j]; --k >= 0; j += Drawable.width) {
+					flatRaster(Drawable.pixels, j, k1, 0, i1 >> 16, l >> 16);
 					l += l1;
 					i1 += i2;
 				}
 
 				while (--i >= 0) {
-					method506(Drawable.anIntArray1424, j, k1, 0, j1 >> 16, l >> 16);
+					flatRaster(Drawable.pixels, j, k1, 0, j1 >> 16, l >> 16);
 					l += l1;
 					j1 += j2;
 					j += Drawable.width;
@@ -981,14 +963,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (l1 < i2) {
 				k -= i;
 				i -= j;
-				for (j = anIntArray1538[j]; --i >= 0; j += Drawable.width) {
-					method506(Drawable.anIntArray1424, j, k1, 0, j1 >> 16, i1 >> 16);
+				for (j = lineOffsets[j]; --i >= 0; j += Drawable.width) {
+					flatRaster(Drawable.pixels, j, k1, 0, j1 >> 16, i1 >> 16);
 					j1 += l1;
 					i1 += i2;
 				}
 
 				while (--k >= 0) {
-					method506(Drawable.anIntArray1424, j, k1, 0, l >> 16, i1 >> 16);
+					flatRaster(Drawable.pixels, j, k1, 0, l >> 16, i1 >> 16);
 					l += j2;
 					i1 += i2;
 					j += Drawable.width;
@@ -997,26 +979,26 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			k -= i;
 			i -= j;
-			for (j = anIntArray1538[j]; --i >= 0; j += Drawable.width) {
-				method506(Drawable.anIntArray1424, j, k1, 0, i1 >> 16, j1 >> 16);
+			for (j = lineOffsets[j]; --i >= 0; j += Drawable.width) {
+				flatRaster(Drawable.pixels, j, k1, 0, i1 >> 16, j1 >> 16);
 				j1 += l1;
 				i1 += i2;
 			}
 
 			while (--k >= 0) {
-				method506(Drawable.anIntArray1424, j, k1, 0, i1 >> 16, l >> 16);
+				flatRaster(Drawable.pixels, j, k1, 0, i1 >> 16, l >> 16);
 				l += j2;
 				i1 += i2;
 				j += Drawable.width;
 			}
 			return;
 		}
-		if (k >= Drawable.anInt1428)
+		if (k >= Drawable.endY)
 			return;
-		if (i > Drawable.anInt1428)
-			i = Drawable.anInt1428;
-		if (j > Drawable.anInt1428)
-			j = Drawable.anInt1428;
+		if (i > Drawable.endY)
+			i = Drawable.endY;
+		if (j > Drawable.endY)
+			j = Drawable.endY;
 		if (i < j) {
 			i1 = j1 <<= 16;
 			if (k < 0) {
@@ -1032,14 +1014,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 			if (i2 < j2) {
 				j -= i;
 				i -= k;
-				for (k = anIntArray1538[k]; --i >= 0; k += Drawable.width) {
-					method506(Drawable.anIntArray1424, k, k1, 0, i1 >> 16, j1 >> 16);
+				for (k = lineOffsets[k]; --i >= 0; k += Drawable.width) {
+					flatRaster(Drawable.pixels, k, k1, 0, i1 >> 16, j1 >> 16);
 					i1 += i2;
 					j1 += j2;
 				}
 
 				while (--j >= 0) {
-					method506(Drawable.anIntArray1424, k, k1, 0, i1 >> 16, l >> 16);
+					flatRaster(Drawable.pixels, k, k1, 0, i1 >> 16, l >> 16);
 					i1 += i2;
 					l += l1;
 					k += Drawable.width;
@@ -1048,14 +1030,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= i;
 			i -= k;
-			for (k = anIntArray1538[k]; --i >= 0; k += Drawable.width) {
-				method506(Drawable.anIntArray1424, k, k1, 0, j1 >> 16, i1 >> 16);
+			for (k = lineOffsets[k]; --i >= 0; k += Drawable.width) {
+				flatRaster(Drawable.pixels, k, k1, 0, j1 >> 16, i1 >> 16);
 				i1 += i2;
 				j1 += j2;
 			}
 
 			while (--j >= 0) {
-				method506(Drawable.anIntArray1424, k, k1, 0, l >> 16, i1 >> 16);
+				flatRaster(Drawable.pixels, k, k1, 0, l >> 16, i1 >> 16);
 				i1 += i2;
 				l += l1;
 				k += Drawable.width;
@@ -1076,14 +1058,14 @@ public class ThreeDimensionalCanvas extends Drawable {
 		if (i2 < j2) {
 			i -= j;
 			j -= k;
-			for (k = anIntArray1538[k]; --j >= 0; k += Drawable.width) {
-				method506(Drawable.anIntArray1424, k, k1, 0, l >> 16, j1 >> 16);
+			for (k = lineOffsets[k]; --j >= 0; k += Drawable.width) {
+				flatRaster(Drawable.pixels, k, k1, 0, l >> 16, j1 >> 16);
 				l += i2;
 				j1 += j2;
 			}
 
 			while (--i >= 0) {
-				method506(Drawable.anIntArray1424, k, k1, 0, i1 >> 16, j1 >> 16);
+				flatRaster(Drawable.pixels, k, k1, 0, i1 >> 16, j1 >> 16);
 				i1 += l1;
 				j1 += j2;
 				k += Drawable.width;
@@ -1092,24 +1074,24 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 		i -= j;
 		j -= k;
-		for (k = anIntArray1538[k]; --j >= 0; k += Drawable.width) {
-			method506(Drawable.anIntArray1424, k, k1, 0, j1 >> 16, l >> 16);
+		for (k = lineOffsets[k]; --j >= 0; k += Drawable.width) {
+			flatRaster(Drawable.pixels, k, k1, 0, j1 >> 16, l >> 16);
 			l += i2;
 			j1 += j2;
 		}
 
 		while (--i >= 0) {
-			method506(Drawable.anIntArray1424, k, k1, 0, j1 >> 16, i1 >> 16);
+			flatRaster(Drawable.pixels, k, k1, 0, j1 >> 16, i1 >> 16);
 			i1 += l1;
 			j1 += j2;
 			k += Drawable.width;
 		}
 	}
 
-	public static void method506(int ai[], int i, int j, int k, int l, int i1) {
-		if (requiresBoundsCheck) {
-			if (i1 > Drawable.viewportRightBoundary)
-				i1 = Drawable.viewportRightBoundary;
+	public static void flatRaster(int ai[], int i, int j, int k, int l, int i1) {
+		if (hClip) {
+			if (i1 > Drawable.lastPixelX)
+				i1 = Drawable.lastPixelX;
 			if (l < 0)
 				l = 0;
 		}
@@ -1117,7 +1099,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			return;
 		i += l;
 		k = i1 - l >> 2;
-		if (currentFaceAlpha == 0) {
+		if (anInt1531 == 0) {
 			while (--k >= 0) {
 				ai[i++] = j;
 				ai[i++] = j;
@@ -1129,8 +1111,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 
 			return;
 		}
-		int j1 = currentFaceAlpha;
-		int k1 = 256 - currentFaceAlpha;
+		int j1 = anInt1531;
+		int k1 = 256 - anInt1531;
 		j = ((j & 0xff00ff) * k1 >> 8 & 0xff00ff) + ((j & 0xff00) * k1 >> 8 & 0xff00);
 		while (--k >= 0) {
 			ai[i++] = j + ((ai[i] & 0xff00ff) * j1 >> 8 & 0xff00ff) + ((ai[i] & 0xff00) * j1 >> 8 & 0xff00);
@@ -1143,9 +1125,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 
 	}
 
-	public static void drawTexturedTriangle(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2, int j2, int k2,
-											int l2, int i3, int j3, int k3, int l3, int i4, int j4, int k4) {
-		int ai[] = method500(k4);
+	public static void textureTriangle(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2, int j2, int k2,
+									   int l2, int i3, int j3, int k3, int l3, int i4, int j4, int k4) {
+		int ai[] = getTexels(k4);
 		aBoolean1529 = !aBooleanArray1541[k4];
 		k2 = j2 - k2;
 		j3 = i3 - j3;
@@ -1181,12 +1163,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			j8 = (k1 - i2 << 16) / (i - k);
 		}
 		if (i <= j && i <= k) {
-			if (i >= Drawable.anInt1428)
+			if (i >= Drawable.endY)
 				return;
-			if (j > Drawable.anInt1428)
-				j = Drawable.anInt1428;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
+			if (j > Drawable.endY)
+				j = Drawable.endY;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
 			if (j < k) {
 				j1 = l <<= 16;
 				i2 = k1 <<= 16;
@@ -1204,16 +1186,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 					l1 -= l7 * j;
 					j = 0;
 				}
-				int k8 = i - centerY;
+				int k8 = i - halfParentHeight;
 				l4 += j5 * k8;
 				k5 += i6 * k8;
 				j6 += l6 * k8;
 				if (i != j && i8 < i7 || i == j && i8 > k7) {
 					k -= j;
 					j -= i;
-					i = anIntArray1538[i];
+					i = lineOffsets[i];
 					while (--j >= 0) {
-						method508(Drawable.anIntArray1424, ai, 0, 0, i, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8,
+						textureRaster(Drawable.pixels, ai, 0, 0, i, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8,
 								l4, k5, j6, i5, l5, k6);
 						j1 += i8;
 						l += i7;
@@ -1225,7 +1207,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 						j6 += l6;
 					}
 					while (--k >= 0) {
-						method508(Drawable.anIntArray1424, ai, 0, 0, i, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8,
+						textureRaster(Drawable.pixels, ai, 0, 0, i, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8,
 								l4, k5, j6, i5, l5, k6);
 						j1 += i8;
 						i1 += k7;
@@ -1240,9 +1222,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				k -= j;
 				j -= i;
-				i = anIntArray1538[i];
+				i = lineOffsets[i];
 				while (--j >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, i, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, i, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					j1 += i8;
 					l += i7;
@@ -1254,7 +1236,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					j6 += l6;
 				}
 				while (--k >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, i, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, i, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					j1 += i8;
 					i1 += k7;
@@ -1283,16 +1265,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 				i2 -= l7 * k;
 				k = 0;
 			}
-			int l8 = i - centerY;
+			int l8 = i - halfParentHeight;
 			l4 += j5 * l8;
 			k5 += i6 * l8;
 			j6 += l6 * l8;
 			if (i != k && i8 < i7 || i == k && k7 > i7) {
 				j -= k;
 				k -= i;
-				i = anIntArray1538[i];
+				i = lineOffsets[i];
 				while (--k >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, i, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, i, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					i1 += i8;
 					l += i7;
@@ -1304,7 +1286,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					j6 += l6;
 				}
 				while (--j >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, i, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, i, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					j1 += k7;
 					l += i7;
@@ -1319,9 +1301,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= k;
 			k -= i;
-			i = anIntArray1538[i];
+			i = lineOffsets[i];
 			while (--k >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, i, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, i, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				i1 += i8;
 				l += i7;
@@ -1333,7 +1315,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				j6 += l6;
 			}
 			while (--j >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, i, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, i, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				j1 += k7;
 				l += i7;
@@ -1347,12 +1329,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			return;
 		}
 		if (j <= k) {
-			if (j >= Drawable.anInt1428)
+			if (j >= Drawable.endY)
 				return;
-			if (k > Drawable.anInt1428)
-				k = Drawable.anInt1428;
-			if (i > Drawable.anInt1428)
-				i = Drawable.anInt1428;
+			if (k > Drawable.endY)
+				k = Drawable.endY;
+			if (i > Drawable.endY)
+				i = Drawable.endY;
 			if (k < i) {
 				l = i1 <<= 16;
 				k1 = l1 <<= 16;
@@ -1370,16 +1352,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 					i2 -= j8 * k;
 					k = 0;
 				}
-				int i9 = j - centerY;
+				int i9 = j - halfParentHeight;
 				l4 += j5 * i9;
 				k5 += i6 * i9;
 				j6 += l6 * i9;
 				if (j != k && i7 < k7 || j == k && i7 > i8) {
 					i -= k;
 					k -= j;
-					j = anIntArray1538[j];
+					j = lineOffsets[j];
 					while (--k >= 0) {
-						method508(Drawable.anIntArray1424, ai, 0, 0, j, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8,
+						textureRaster(Drawable.pixels, ai, 0, 0, j, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8,
 								l4, k5, j6, i5, l5, k6);
 						l += i7;
 						i1 += k7;
@@ -1391,7 +1373,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 						j6 += l6;
 					}
 					while (--i >= 0) {
-						method508(Drawable.anIntArray1424, ai, 0, 0, j, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8,
+						textureRaster(Drawable.pixels, ai, 0, 0, j, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8,
 								l4, k5, j6, i5, l5, k6);
 						l += i7;
 						j1 += i8;
@@ -1406,9 +1388,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 				}
 				i -= k;
 				k -= j;
-				j = anIntArray1538[j];
+				j = lineOffsets[j];
 				while (--k >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, j, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, j, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					l += i7;
 					i1 += k7;
@@ -1420,7 +1402,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					j6 += l6;
 				}
 				while (--i >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, j, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, j, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					l += i7;
 					j1 += i8;
@@ -1449,16 +1431,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 				k1 -= j8 * i;
 				i = 0;
 			}
-			int j9 = j - centerY;
+			int j9 = j - halfParentHeight;
 			l4 += j5 * j9;
 			k5 += i6 * j9;
 			j6 += l6 * j9;
 			if (i7 < k7) {
 				k -= i;
 				i -= j;
-				j = anIntArray1538[j];
+				j = lineOffsets[j];
 				while (--i >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, j, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, j, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					j1 += i7;
 					i1 += k7;
@@ -1470,7 +1452,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					j6 += l6;
 				}
 				while (--k >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, j, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, j, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					l += i8;
 					i1 += k7;
@@ -1485,9 +1467,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			k -= i;
 			i -= j;
-			j = anIntArray1538[j];
+			j = lineOffsets[j];
 			while (--i >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, j, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, j, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				j1 += i7;
 				i1 += k7;
@@ -1499,7 +1481,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				j6 += l6;
 			}
 			while (--k >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, j, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, j, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				l += i8;
 				i1 += k7;
@@ -1512,12 +1494,12 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			return;
 		}
-		if (k >= Drawable.anInt1428)
+		if (k >= Drawable.endY)
 			return;
-		if (i > Drawable.anInt1428)
-			i = Drawable.anInt1428;
-		if (j > Drawable.anInt1428)
-			j = Drawable.anInt1428;
+		if (i > Drawable.endY)
+			i = Drawable.endY;
+		if (j > Drawable.endY)
+			j = Drawable.endY;
 		if (i < j) {
 			i1 = j1 <<= 16;
 			l1 = i2 <<= 16;
@@ -1535,16 +1517,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 				k1 -= j7 * i;
 				i = 0;
 			}
-			int k9 = k - centerY;
+			int k9 = k - halfParentHeight;
 			l4 += j5 * k9;
 			k5 += i6 * k9;
 			j6 += l6 * k9;
 			if (k7 < i8) {
 				j -= i;
 				i -= k;
-				k = anIntArray1538[k];
+				k = lineOffsets[k];
 				while (--i >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, k, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, k, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					i1 += k7;
 					j1 += i8;
@@ -1556,7 +1538,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 					j6 += l6;
 				}
 				while (--j >= 0) {
-					method508(Drawable.anIntArray1424, ai, 0, 0, k, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
+					textureRaster(Drawable.pixels, ai, 0, 0, k, i1 >> 16, l >> 16, l1 >> 8, k1 >> 8, l4,
 							k5, j6, i5, l5, k6);
 					i1 += k7;
 					l += i7;
@@ -1571,9 +1553,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 			}
 			j -= i;
 			i -= k;
-			k = anIntArray1538[k];
+			k = lineOffsets[k];
 			while (--i >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, k, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, k, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				i1 += k7;
 				j1 += i8;
@@ -1585,7 +1567,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				j6 += l6;
 			}
 			while (--j >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, k, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, k, l >> 16, i1 >> 16, k1 >> 8, l1 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				i1 += k7;
 				l += i7;
@@ -1614,16 +1596,16 @@ public class ThreeDimensionalCanvas extends Drawable {
 			l1 -= j7 * j;
 			j = 0;
 		}
-		int l9 = k - centerY;
+		int l9 = k - halfParentHeight;
 		l4 += j5 * l9;
 		k5 += i6 * l9;
 		j6 += l6 * l9;
 		if (k7 < i8) {
 			i -= j;
 			j -= k;
-			k = anIntArray1538[k];
+			k = lineOffsets[k];
 			while (--j >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, k, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, k, l >> 16, j1 >> 16, k1 >> 8, i2 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				l += k7;
 				j1 += i8;
@@ -1635,7 +1617,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 				j6 += l6;
 			}
 			while (--i >= 0) {
-				method508(Drawable.anIntArray1424, ai, 0, 0, k, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4, k5,
+				textureRaster(Drawable.pixels, ai, 0, 0, k, i1 >> 16, j1 >> 16, l1 >> 8, i2 >> 8, l4, k5,
 						j6, i5, l5, k6);
 				i1 += i7;
 				j1 += i8;
@@ -1650,9 +1632,9 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 		i -= j;
 		j -= k;
-		k = anIntArray1538[k];
+		k = lineOffsets[k];
 		while (--j >= 0) {
-			method508(Drawable.anIntArray1424, ai, 0, 0, k, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4, k5, j6,
+			textureRaster(Drawable.pixels, ai, 0, 0, k, j1 >> 16, l >> 16, i2 >> 8, k1 >> 8, l4, k5, j6,
 					i5, l5, k6);
 			l += k7;
 			j1 += i8;
@@ -1664,7 +1646,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 			j6 += l6;
 		}
 		while (--i >= 0) {
-			method508(Drawable.anIntArray1424, ai, 0, 0, k, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4, k5, j6,
+			textureRaster(Drawable.pixels, ai, 0, 0, k, j1 >> 16, i1 >> 16, i2 >> 8, l1 >> 8, l4, k5, j6,
 					i5, l5, k6);
 			i1 += i7;
 			j1 += i8;
@@ -1677,29 +1659,32 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 	}
 
-	public static void method508(int ai[], int ai1[], int i, int j, int k, int l, int i1, int j1, int k1, int l1,
-			int i2, int j2, int k2, int l2, int i3) {
-		if (l >= i1)
-			return;
+	public static void textureRaster(int ai[], int ai1[], int i, int j, int k, int l, int i1, int j1, int k1, int l1,
+									 int i2, int j2, int k2, int l2, int i3) {
+		if (l >= i1) {
+            return;
+        }
 		int j3;
 		int k3;
-		if (requiresBoundsCheck) {
+		if (hClip) {
 			j3 = (k1 - j1) / (i1 - l);
-			if (i1 > Drawable.viewportRightBoundary)
-				i1 = Drawable.viewportRightBoundary;
+			if (i1 > Drawable.lastPixelX) {
+                i1 = Drawable.lastPixelX;
+            }
 			if (l < 0) {
 				j1 -= l * j3;
 				l = 0;
 			}
-			if (l >= i1)
-				return;
+			if (l >= i1) {
+                return;
+            }
 			k3 = i1 - l >> 3;
 			j3 <<= 12;
 			j1 <<= 9;
 		} else {
 			if (i1 - l > 7) {
 				k3 = i1 - l >> 3;
-				j3 = (k1 - j1) * anIntArray1534[k3] >> 6;
+				j3 = (k1 - j1) * divTable[k3] >> 6;
 			} else {
 				k3 = 0;
 				j3 = 0;
@@ -1710,7 +1695,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 		if (lowMemory) {
 			int i4 = 0;
 			int k4 = 0;
-			int k6 = l - centerX;
+			int k6 = l - halfParentWidth;
 			l1 += (k2 >> 3) * k6;
 			i2 += (l2 >> 3) * k6;
 			j2 += (i3 >> 3) * k6;
@@ -1864,7 +1849,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 		}
 		int j4 = 0;
 		int l4 = 0;
-		int l6 = l - centerX;
+		int l6 = l - halfParentWidth;
 		l1 += (k2 >> 3) * l6;
 		i2 += (l2 >> 3) * l6;
 		j2 += (i3 >> 3) * l6;

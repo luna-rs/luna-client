@@ -4,24 +4,6 @@
 
 public class Bzip2Context {
 
-	public Bzip2Context() {
-		anIntArray67 = new int[256];
-		anIntArray69 = new int[257];
-		anIntArray70 = new int[257];
-		aBooleanArray73 = new boolean[256];
-		aBooleanArray74 = new boolean[16];
-		aByteArray75 = new byte[256];
-		aByteArray76 = new byte[4096];
-		anIntArray77 = new int[16];
-		aByteArray78 = new byte[18002];
-		aByteArray79 = new byte[18002];
-		aByteArrayArray80 = new byte[6][258];
-		anIntArrayArray81 = new int[6][258];
-		anIntArrayArray82 = new int[6][258];
-		anIntArrayArray83 = new int[6][258];
-		anIntArray84 = new int[6];
-	}
-
 	public final int anInt38 = 4096;
 	public final int anInt39 = 16;
 	public final int anInt40 = 258;
@@ -70,4 +52,22 @@ public class Bzip2Context {
 	public int anIntArrayArray83[][];
 	public int anIntArray84[];
 	public int anInt85;
+
+	public Bzip2Context() {
+		anIntArray67 = new int[256];
+		anIntArray69 = new int[257];
+		anIntArray70 = new int[257];
+		aBooleanArray73 = new boolean[256];
+		aBooleanArray74 = new boolean[16];
+		aByteArray75 = new byte[256];
+		aByteArray76 = new byte[4096];
+		anIntArray77 = new int[16];
+		aByteArray78 = new byte[18002];
+		aByteArray79 = new byte[18002];
+		aByteArrayArray80 = new byte[6][258];
+		anIntArrayArray81 = new int[6][258];
+		anIntArrayArray82 = new int[6][258];
+		anIntArrayArray83 = new int[6][258];
+		anIntArray84 = new int[6];
+	}
 }

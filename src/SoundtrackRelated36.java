@@ -2,7 +2,26 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class36 {
+public class SoundtrackRelated36 {
+
+	public int anInt611;
+	public boolean aBoolean612;
+	public int anIntArray613[];
+	public int anIntArrayArrayArray614[][][];
+	public int anIntArrayArrayArray615[][][];
+	public int anIntArray616[];
+	public static float aFloatArrayArray617[][] = new float[2][8];
+	public static int anIntArrayArray618[][] = new int[2][8];
+	public static float aFloat619;
+	public static int anInt620;
+
+	public SoundtrackRelated36() {
+		aBoolean612 = true;
+		anIntArray613 = new int[2];
+		anIntArrayArrayArray614 = new int[2][2][4];
+		anIntArrayArrayArray615 = new int[2][2][4];
+		anIntArray616 = new int[2];
+	}
 
 	public float method352(int i, int j, float f, int k) {
 		float f1 = anIntArrayArrayArray615[i][0][k] + f
@@ -68,7 +87,7 @@ public class Class36 {
 		return anIntArray613[i] * 2;
 	}
 
-	public void method356(int i, Class29 class29, JagBuffer class50_sub1_sub2) {
+	public void method356(int i, SoundRelated29 soundRelated29, JagBuffer class50_sub1_sub2) {
 		int j = class50_sub1_sub2.getByte();
 		anIntArray613[0] = j >> 4;
 		while (i >= 0) {
@@ -100,31 +119,11 @@ public class Class36 {
 			}
 
 			if (l != 0 || anIntArray616[1] != anIntArray616[0])
-				class29.method309(class50_sub1_sub2, 0);
+				soundRelated29.method309(class50_sub1_sub2, 0);
 			return;
 		} else {
 			anIntArray616[0] = anIntArray616[1] = 0;
 			return;
 		}
 	}
-
-	public Class36() {
-		aBoolean612 = true;
-		anIntArray613 = new int[2];
-		anIntArrayArrayArray614 = new int[2][2][4];
-		anIntArrayArrayArray615 = new int[2][2][4];
-		anIntArray616 = new int[2];
-	}
-
-	public int anInt611;
-	public boolean aBoolean612;
-	public int anIntArray613[];
-	public int anIntArrayArrayArray614[][][];
-	public int anIntArrayArrayArray615[][][];
-	public int anIntArray616[];
-	public static float aFloatArrayArray617[][] = new float[2][8];
-	public static int anIntArrayArray618[][] = new int[2][8];
-	public static float aFloat619;
-	public static int anInt620;
-
 }

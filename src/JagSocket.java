@@ -9,32 +9,47 @@ import java.net.Socket;
 
 public class JagSocket implements Runnable {
 
+	public int anInt379;
+	public byte aByte380;
+	public boolean connectionClosed;
+	public JagApplet anApplet_Sub1_385;
+	public byte aByteArray386[];
+	public int anInt387;
+	public int anInt388;
+	public boolean aBoolean389;
+	public boolean ioError;
+
+	public Socket socket;
+
+	public InputStream inputStream;
+	public OutputStream outputStream;
+
 	public JagSocket(byte byte0, Socket socket, JagApplet applet_sub1) throws IOException {
 		aByte380 = 2;
-		aBoolean384 = false;
+		connectionClosed = false;
 		aBoolean389 = false;
-		aBoolean390 = false;
+		ioError = false;
 		anApplet_Sub1_385 = applet_sub1;
-		aSocket383 = socket;
+		this.socket = socket;
 		if (byte0 == aByte380)
 			byte0 = 0;
 		else
 			anInt379 = -5;
-		aSocket383.setSoTimeout(30000);
-		aSocket383.setTcpNoDelay(true);
-		anInputStream381 = aSocket383.getInputStream();
-		anOutputStream382 = aSocket383.getOutputStream();
+		this.socket.setSoTimeout(30000);
+		this.socket.setTcpNoDelay(true);
+		inputStream = this.socket.getInputStream();
+		outputStream = this.socket.getOutputStream();
 	}
 
-	public void method224() {
-		aBoolean384 = true;
+	public void closeConnection() {
+		connectionClosed = true;
 		try {
-			if (anInputStream381 != null)
-				anInputStream381.close();
-			if (anOutputStream382 != null)
-				anOutputStream382.close();
-			if (aSocket383 != null)
-				aSocket383.close();
+			if (inputStream != null)
+				inputStream.close();
+			if (outputStream != null)
+				outputStream.close();
+			if (socket != null)
+				socket.close();
 		} catch (IOException _ex) {
 			System.out.println("Error closing stream");
 		}
@@ -46,25 +61,25 @@ public class JagSocket implements Runnable {
 	}
 
 	public int getByte() throws IOException {
-		if (aBoolean384)
+		if (connectionClosed)
 			return 0;
 		else
-			return anInputStream381.read();
+			return inputStream.read();
 	}
 
 	public int available() throws IOException {
-		if (aBoolean384)
+		if (connectionClosed)
 			return 0;
 		else
-			return anInputStream381.available();
+			return inputStream.available();
 	}
 
 	public void getBytes(byte abyte0[], int i, int j) throws IOException {
-		if (aBoolean384)
+		if (connectionClosed)
 			return;
 		int k;
 		for (; j > 0; j -= k) {
-			k = anInputStream381.read(abyte0, i, j);
+			k = inputStream.read(abyte0, i, j);
 			if (k <= 0)
 				throw new IOException("EOF");
 			i += k;
@@ -73,10 +88,10 @@ public class JagSocket implements Runnable {
 	}
 
 	public void putBytes(int i, int j, int k, byte abyte0[]) throws IOException {
-		if (aBoolean384)
+		if (connectionClosed)
 			return;
-		if (aBoolean390) {
-			aBoolean390 = false;
+		if (ioError) {
+			ioError = false;
 			throw new IOException("Error in writer thread");
 		}
 		if (aByteArray386 == null)
@@ -119,29 +134,29 @@ public class JagSocket implements Runnable {
 			}
 			if (i > 0) {
 				try {
-					anOutputStream382.write(aByteArray386, j, i);
+					outputStream.write(aByteArray386, j, i);
 				} catch (IOException _ex) {
-					aBoolean390 = true;
+					ioError = true;
 				}
 				anInt387 = (anInt387 + i) % 5000;
 				try {
 					if (anInt388 == anInt387)
-						anOutputStream382.flush();
+						outputStream.flush();
 				} catch (IOException _ex) {
-					aBoolean390 = true;
+					ioError = true;
 				}
 			}
 		}
 	}
 
-	public void method229(boolean flag) {
-		System.out.println("dummy:" + aBoolean384);
+	public void debugPrint(boolean flag) {
+		System.out.println("dummy:" + connectionClosed);
 		System.out.println("tcycl:" + anInt387);
 		System.out.println("tnum:" + anInt388);
 		System.out.println("writer:" + aBoolean389);
 		if (flag)
 			return;
-		System.out.println("ioerror:" + aBoolean390);
+		System.out.println("ioerror:" + ioError);
 		try {
 			System.out.println("available:" + available());
 			return;
@@ -149,17 +164,4 @@ public class JagSocket implements Runnable {
 			return;
 		}
 	}
-
-	public int anInt379;
-	public byte aByte380;
-	public InputStream anInputStream381;
-	public OutputStream anOutputStream382;
-	public Socket aSocket383;
-	public boolean aBoolean384;
-	public JagApplet anApplet_Sub1_385;
-	public byte aByteArray386[];
-	public int anInt387;
-	public int anInt388;
-	public boolean aBoolean389;
-	public boolean aBoolean390;
 }

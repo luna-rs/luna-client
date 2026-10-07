@@ -4,6 +4,9 @@
 
 public class LinkedQueue {
 
+	public QueueNode head;
+	public QueueNode current;
+
 	public LinkedQueue() {
 		head = new QueueNode();
 		head.next = head;
@@ -56,7 +59,4 @@ public class LinkedQueue {
 			size++;
 		return size;
 	}
-
-	public QueueNode head;
-	public QueueNode current;
 }

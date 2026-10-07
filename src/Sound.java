@@ -4,6 +4,15 @@
 
 public class Sound {
 
+    public static boolean aBoolean667 = true;
+    public static Sound sounds[] = new Sound[5000];
+    public static int anIntArray669[] = new int[5000];
+    public static byte data[];
+    public static JagBuffer buf;
+    public SoundTrack tracks[];
+    public int anInt673;
+    public int anInt674;
+
     public Sound() {
         tracks = new SoundTrack[10];
     }
@@ -11,6 +20,20 @@ public class Sound {
     public static void unpack(JagBuffer _buf, int i) {
         if (i != 36135)
             return;
+        data = new byte[0x6baa8];
+        buf = new JagBuffer(data);
+        SoundTrack.init();
+        do {
+            int id = _buf.getShort();
+            if (id == 65535)
+                return;
+            sounds[id] = new Sound();
+            sounds[id].init(_buf);
+            anIntArray669[id] = sounds[id].method368(0);
+        } while (true);
+    }
+
+    public static void unpack(JagBuffer _buf) {
         data = new byte[0x6baa8];
         buf = new JagBuffer(data);
         SoundTrack.init();
@@ -142,14 +165,5 @@ public class Sound {
         }
         return length;
     }
-
-    public static boolean aBoolean667 = true;
-    public static Sound sounds[] = new Sound[5000];
-    public static int anIntArray669[] = new int[5000];
-    public static byte data[];
-    public static JagBuffer buf;
-    public SoundTrack tracks[];
-    public int anInt673;
-    public int anInt674;
 
 }

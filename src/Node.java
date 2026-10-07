@@ -4,6 +4,13 @@
 
 public class Node {
 
+	public long id;
+	public Node next;
+	public Node previous;
+
+	public Node() {
+	}
+
 	public void unlink() {
 		if (previous == null) {
 			return;
@@ -15,12 +22,4 @@ public class Node {
 			return;
 		}
 	}
-
-	public Node() {
-	}
-
-	public long id;
-	public Node next;
-	public Node previous;
-
 }

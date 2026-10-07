@@ -4,6 +4,61 @@
 
 public class ItemDefinition {
 
+	public int anInt326;
+	public int modelOffsetX;
+	public byte description[];
+	public String name;
+	public byte aByte330;
+	public int anInt331;
+	public int team;
+	public int notedInfoId;
+	public int anInt334;
+	public static int count;
+	public static ItemDefinition cache[];
+	public static LruHashTable aClass33_337 = new LruHashTable(50);
+	public String groundActions[];
+	public int anInt339;
+	public int modelOffsetY;
+	public int destColors[];
+	public static int indices[];
+	public int notedGraphicsId;
+	public static boolean memberServer = true;
+	public int value;
+	public static LruHashTable spriteCache = new LruHashTable(100);
+	public static byte aByte347 = 6;
+	public String inventoryActions[];
+	public static boolean aBoolean350 = true;
+	public static int cachePos;
+	public int anInt353;
+	public int anInt354;
+	public int anInt355;
+	public int modelRotationY;
+	public int anInt357;
+	public int anInt358;
+	public int modelRotationX;
+	public int modelId;
+	public int anInt361;
+	public int anInt362;
+	public int id;
+	public int srcColors[];
+	public int stackIds[];
+	public int anInt366;
+	public int anInt367;
+	public int anInt368;
+	public int modelScale;
+	public int anInt370;
+	public boolean stackable;
+	public int anInt372;
+	public static JagBuffer buf;
+	public int anInt375;
+	public int stackAmounts[];
+	public boolean members;
+	public byte aByte378;
+
+	public ItemDefinition() {
+		id = -1;
+	}
+
 	public boolean method211(int i) {
 		int k = anInt334;
 		int l = anInt361;
@@ -22,9 +77,11 @@ public class ItemDefinition {
 	}
 	
 	public static ItemDefinition forId(int id) {
-		for (int j = 0; j < 10; j++)
-			if (cache[j].id == id)
-				return cache[j];
+		for (int j = 0; j < 10; j++) {
+            if (cache[j].id == id) {
+                return cache[j];
+            }
+        }
 
 		cachePos = (cachePos + 1) % 10;
 		ItemDefinition def = cache[cachePos];
@@ -44,42 +101,40 @@ public class ItemDefinition {
 		return def;
 	}
 
-	public Model method213(byte byte0, int i) {
+	public Model method213(int gender) {
 		int j = anInt353;
 		int k = anInt331;
 		int l = anInt370;
-		if (i == 1) {
+		if (gender == 1) {
 			j = anInt326;
 			k = anInt355;
 			l = anInt367;
 		}
 		if (j == -1)
 			return null;
-		Model class50_sub1_sub4_sub4 = Model.forId(j);
-		if (byte0 != -98)
-			throw new NullPointerException();
+		Model result = Model.forId(j);
 		if (k != -1)
 			if (l != -1) {
-				Model class50_sub1_sub4_sub4_1 = Model.forId(k);
-				Model class50_sub1_sub4_sub4_3 = Model.forId(l);
-				Model aclass50_sub1_sub4_sub4_1[] = { class50_sub1_sub4_sub4,
-						class50_sub1_sub4_sub4_1, class50_sub1_sub4_sub4_3 };
-				class50_sub1_sub4_sub4 = new Model(3, aclass50_sub1_sub4_sub4_1);
+				Model rootModel = Model.forId(k);
+				Model childModel = Model.forId(l);
+				Model aclass50_sub1_sub4_sub4_1[] = { result,
+						rootModel, childModel };
+				result = new Model(3, aclass50_sub1_sub4_sub4_1);
 			} else {
-				Model class50_sub1_sub4_sub4_2 = Model.forId(k);
-				Model aclass50_sub1_sub4_sub4[] = { class50_sub1_sub4_sub4, class50_sub1_sub4_sub4_2 };
-				class50_sub1_sub4_sub4 = new Model(2, aclass50_sub1_sub4_sub4);
+				Model rootModel = Model.forId(k);
+				Model aclass50_sub1_sub4_sub4[] = { result, rootModel };
+				result = new Model(2, aclass50_sub1_sub4_sub4);
 			}
-		if (i == 0 && aByte378 != 0)
-			class50_sub1_sub4_sub4.translate(0, aByte378, 0);
-		if (i == 1 && aByte330 != 0)
-			class50_sub1_sub4_sub4.translate(0, aByte330, 0);
+		if (gender == 0 && aByte378 != 0)
+			result.translate(0, aByte378, 0);
+		if (gender == 1 && aByte330 != 0)
+			result.translate(0, aByte330, 0);
 		if (srcColors != null) {
-			for (int color = 0; color < srcColors.length; color++)
-				class50_sub1_sub4_sub4.replaceColor(srcColors[color], destColors[color]);
-
+			for (int color = 0; color < srcColors.length; color++) {
+                result.replaceColor(srcColors[color], destColors[color]);
+            }
 		}
-		return class50_sub1_sub4_sub4;
+		return result;
 	}
 
 	public static void unpack(Archive archive) {
@@ -94,9 +149,9 @@ public class ItemDefinition {
 		}
 
 		cache = new ItemDefinition[10];
-		for (int k = 0; k < 10; k++)
-			cache[k] = new ItemDefinition();
-
+		for (int k = 0; k < 10; k++) {
+            cache[k] = new ItemDefinition();
+        }
 	}
 
 	public void toNote() {
@@ -116,15 +171,14 @@ public class ItemDefinition {
 		value = info.value;
 		String prefix = "a";
 		char firstChar = info.name.charAt(0);
-		if (firstChar == 'A' || firstChar == 'E' || firstChar == 'I' || firstChar == 'O' || firstChar == 'U')
-			prefix = "an";
+		if (firstChar == 'A' || firstChar == 'E' || firstChar == 'I' || firstChar == 'O' || firstChar == 'U') {
+            prefix = "an";
+        }
 		description = ("Swap this note at any bank for " + prefix + " " + info.name + ".").getBytes();
 		stackable = true;
 	}
 
-	public boolean method216(int i, int j) {
-		while (i >= 0)
-			aBoolean350 = !aBoolean350;
+	public boolean method216(int j) {
 		int k = anInt353;
 		int l = anInt331;
 		int i1 = anInt370;
@@ -167,105 +221,105 @@ public class ItemDefinition {
 	}
 
 	public void init(JagBuffer vec) {
-		do {
-			int i = vec.getByte();
-			if (i == 0)
-				return;
-			if (i == 1)
-				modelId = vec.getShort();
-			else if (i == 2)
-				name = vec.getString();
-			else if (i == 3)
-				description = vec.getStringBytes();
-			else if (i == 4)
-				modelScale = vec.getShort();
-			else if (i == 5)
-				modelRotationX = vec.getShort();
-			else if (i == 6)
-				modelRotationY = vec.getShort();
-			else if (i == 7) {
-				modelOffsetX = vec.getShort();
-				if (modelOffsetX > 32767)
-					modelOffsetX -= 0x10000;
-			} else if (i == 8) {
-				modelOffsetY = vec.getShort();
-				if (modelOffsetY > 32767)
-					modelOffsetY -= 0x10000;
-			} else if (i == 10)
-				anInt372 = vec.getShort();
-			else if (i == 11)
-				stackable = true;
-			else if (i == 12)
-				value = vec.getInt();
-			else if (i == 16)
-				members = true;
-			else if (i == 23) {
-				anInt353 = vec.getShort();
-				aByte378 = vec.getSignedByte();
-			} else if (i == 24)
-				anInt331 = vec.getShort();
-			else if (i == 25) {
-				anInt326 = vec.getShort();
-				aByte330 = vec.getSignedByte();
-			} else if (i == 26)
-				anInt355 = vec.getShort();
-			else if (i >= 30 && i < 35) {
-				if (groundActions == null)
-					groundActions = new String[5];
-				groundActions[i - 30] = vec.getString();
-				if (groundActions[i - 30].equalsIgnoreCase("hidden"))
-					groundActions[i - 30] = null;
-			} else if (i >= 35 && i < 40) {
-				if (inventoryActions == null)
-					inventoryActions = new String[5];
-				inventoryActions[i - 35] = vec.getString();
-			} else if (i == 40) {
-				int colorCount = vec.getByte();
-				srcColors = new int[colorCount];
-				destColors = new int[colorCount];
-				for (int k = 0; k < colorCount; k++) {
-					srcColors[k] = vec.getShort();
-					destColors[k] = vec.getShort();
-				}
+        while (true) {
+            int i = vec.getByte();
+            if (i == 0)
+                return;
+            if (i == 1)
+                modelId = vec.getShort();
+            else if (i == 2)
+                name = vec.getString();
+            else if (i == 3)
+                description = vec.getStringBytes();
+            else if (i == 4)
+                modelScale = vec.getShort();
+            else if (i == 5)
+                modelRotationX = vec.getShort();
+            else if (i == 6)
+                modelRotationY = vec.getShort();
+            else if (i == 7) {
+                modelOffsetX = vec.getShort();
+                if (modelOffsetX > 32767)
+                    modelOffsetX -= 0x10000;
+            } else if (i == 8) {
+                modelOffsetY = vec.getShort();
+                if (modelOffsetY > 32767)
+                    modelOffsetY -= 0x10000;
+            } else if (i == 10)
+                anInt372 = vec.getShort();
+            else if (i == 11)
+                stackable = true;
+            else if (i == 12)
+                value = vec.getInt();
+            else if (i == 16)
+                members = true;
+            else if (i == 23) {
+                anInt353 = vec.getShort();
+                aByte378 = vec.getSignedByte();
+            } else if (i == 24)
+                anInt331 = vec.getShort();
+            else if (i == 25) {
+                anInt326 = vec.getShort();
+                aByte330 = vec.getSignedByte();
+            } else if (i == 26)
+                anInt355 = vec.getShort();
+            else if (i >= 30 && i < 35) {
+                if (groundActions == null)
+                    groundActions = new String[5];
+                groundActions[i - 30] = vec.getString();
+                if (groundActions[i - 30].equalsIgnoreCase("hidden"))
+                    groundActions[i - 30] = null;
+            } else if (i >= 35 && i < 40) {
+                if (inventoryActions == null)
+                    inventoryActions = new String[5];
+                inventoryActions[i - 35] = vec.getString();
+            } else if (i == 40) { //color
+                int colorCount = vec.getByte();
+                srcColors = new int[colorCount];
+                destColors = new int[colorCount];
+                for (int k = 0; k < colorCount; k++) {
+                    srcColors[k] = vec.getShort();
+                    destColors[k] = vec.getShort();
+                }
 
-			} else if (i == 78)
-				anInt370 = vec.getShort();
-			else if (i == 79)
-				anInt367 = vec.getShort();
-			else if (i == 90)
-				anInt334 = vec.getShort();
-			else if (i == 91)
-				anInt375 = vec.getShort();
-			else if (i == 92)
-				anInt361 = vec.getShort();
-			else if (i == 93)
-				anInt362 = vec.getShort();
-			else if (i == 95)
-				anInt339 = vec.getShort();
-			else if (i == 97)
-				notedInfoId = vec.getShort();
-			else if (i == 98)
-				notedGraphicsId = vec.getShort();
-			else if (i >= 100 && i < 110) {
-				if (stackIds == null) {
-					stackIds = new int[10];
-					stackAmounts = new int[10];
-				}
-				stackIds[i - 100] = vec.getShort();
-				stackAmounts[i - 100] = vec.getShort();
-			} else if (i == 110)
-				anInt366 = vec.getShort();
-			else if (i == 111)
-				anInt357 = vec.getShort();
-			else if (i == 112)
-				anInt368 = vec.getShort();
-			else if (i == 113)
-				anInt354 = vec.getSignedByte();
-			else if (i == 114)
-				anInt358 = vec.getSignedByte() * 5;
-			else if (i == 115)
-				team = vec.getByte();
-		} while (true);
+            } else if (i == 78)
+                anInt370 = vec.getShort();
+            else if (i == 79)
+                anInt367 = vec.getShort();
+            else if (i == 90)
+                anInt334 = vec.getShort();
+            else if (i == 91)
+                anInt375 = vec.getShort();
+            else if (i == 92)
+                anInt361 = vec.getShort();
+            else if (i == 93)
+                anInt362 = vec.getShort();
+            else if (i == 95)
+                anInt339 = vec.getShort();
+            else if (i == 97)
+                notedInfoId = vec.getShort();
+            else if (i == 98)
+                notedGraphicsId = vec.getShort();
+            else if (i >= 100 && i < 110) {
+                if (stackIds == null) {
+                    stackIds = new int[10];
+                    stackAmounts = new int[10];
+                }
+                stackIds[i - 100] = vec.getShort();
+                stackAmounts[i - 100] = vec.getShort();
+            } else if (i == 110)
+                anInt366 = vec.getShort();
+            else if (i == 111)
+                anInt357 = vec.getShort();
+            else if (i == 112)
+                anInt368 = vec.getShort();
+            else if (i == 113)
+                anInt354 = vec.getSignedByte();
+            else if (i == 114)
+                anInt358 = vec.getSignedByte() * 5;
+            else if (i == 115)
+                team = vec.getByte();
+        }
 	}
 
 	public Model getGenderModel(int gender) {
@@ -323,8 +377,8 @@ public class ItemDefinition {
 	public static RgbSprite method221(byte byte0, int i, int j, int k) {
 		if (i == 0) {
 			RgbSprite class50_sub1_sub1_sub1 = (RgbSprite) spriteCache.get(k);
-			if (class50_sub1_sub1_sub1 != null && class50_sub1_sub1_sub1.anInt1495 != j
-					&& class50_sub1_sub1_sub1.anInt1495 != -1) {
+			if (class50_sub1_sub1_sub1 != null && class50_sub1_sub1_sub1.height_1495 != j
+					&& class50_sub1_sub1_sub1.height_1495 != -1) {
 				class50_sub1_sub1_sub1.unlink();
 				class50_sub1_sub1_sub1 = null;
 			}
@@ -352,21 +406,21 @@ public class ItemDefinition {
 			if (class50_sub1_sub1_sub1_2 == null)
 				return null;
 		}
-		RgbSprite class50_sub1_sub1_sub1_1 = new RgbSprite(32, 32);
-		int j1 = ThreeDimensionalCanvas.centerX;
-		int k1 = ThreeDimensionalCanvas.centerY;
-		int ai[] = ThreeDimensionalCanvas.anIntArray1538;
-		int ai1[] = Drawable.anIntArray1424;
+		RgbSprite rgbSprite_112 = new RgbSprite(32, 32);
+		int j1 = ThreeDimensionalCanvas.halfParentWidth;
+		int k1 = ThreeDimensionalCanvas.halfParentHeight;
+		int ai[] = ThreeDimensionalCanvas.lineOffsets;
+		int ai1[] = Drawable.pixels;
 		int l1 = Drawable.width;
 		int i2 = Drawable.height;
-		int j2 = Drawable.anInt1429;
-		int k2 = Drawable.anInt1430;
-		int l2 = Drawable.anInt1427;
-		int i3 = Drawable.anInt1428;
-		ThreeDimensionalCanvas.aBoolean1530 = false;
-		Drawable.method444(32, 32, class50_sub1_sub1_sub1_1.anIntArray1489);
-		Drawable.method449(32, 0, 0, (byte) -24, 32, 0);
-		ThreeDimensionalCanvas.method493(568);
+		int j2 = Drawable.startX;
+		int k2 = Drawable.endX;
+		int l2 = Drawable.startY;
+		int i3 = Drawable.endY;
+		ThreeDimensionalCanvas.jagged = false;
+		Drawable.putPixels(32, 32, rgbSprite_112.pixels_1489);
+		Drawable.drawFullRect(0, 0, 32, 32, 0);
+		ThreeDimensionalCanvas.setup493();
 		int j3 = class16.modelScale;
 		if (i == -1)
 			j3 = (int) (j3 * 1.5D);
@@ -378,70 +432,72 @@ public class ItemDefinition {
 				+ ((Entity) (class50_sub1_sub4_sub4)).height / 2 + class16.modelOffsetY, l3
 				+ class16.modelOffsetY);
 		for (int l4 = 31; l4 >= 0; l4--) {
-			for (int i4 = 31; i4 >= 0; i4--)
-				if (class50_sub1_sub1_sub1_1.anIntArray1489[l4 + i4 * 32] == 0)
-					if (l4 > 0 && class50_sub1_sub1_sub1_1.anIntArray1489[(l4 - 1) + i4 * 32] > 1)
-						class50_sub1_sub1_sub1_1.anIntArray1489[l4 + i4 * 32] = 1;
-					else if (i4 > 0 && class50_sub1_sub1_sub1_1.anIntArray1489[l4 + (i4 - 1) * 32] > 1)
-						class50_sub1_sub1_sub1_1.anIntArray1489[l4 + i4 * 32] = 1;
-					else if (l4 < 31 && class50_sub1_sub1_sub1_1.anIntArray1489[l4 + 1 + i4 * 32] > 1)
-						class50_sub1_sub1_sub1_1.anIntArray1489[l4 + i4 * 32] = 1;
-					else if (i4 < 31 && class50_sub1_sub1_sub1_1.anIntArray1489[l4 + (i4 + 1) * 32] > 1)
-						class50_sub1_sub1_sub1_1.anIntArray1489[l4 + i4 * 32] = 1;
+			for (int i4 = 31; i4 >= 0; i4--) {
+                if (rgbSprite_112.pixels_1489[l4 + i4 * 32] == 0) {
+                    if (l4 > 0 && rgbSprite_112.pixels_1489[(l4 - 1) + i4 * 32] > 1)
+                        rgbSprite_112.pixels_1489[l4 + i4 * 32] = 1;
+                    else if (i4 > 0 && rgbSprite_112.pixels_1489[l4 + (i4 - 1) * 32] > 1)
+                        rgbSprite_112.pixels_1489[l4 + i4 * 32] = 1;
+                    else if (l4 < 31 && rgbSprite_112.pixels_1489[l4 + 1 + i4 * 32] > 1)
+                        rgbSprite_112.pixels_1489[l4 + i4 * 32] = 1;
+                    else if (i4 < 31 && rgbSprite_112.pixels_1489[l4 + (i4 + 1) * 32] > 1)
+                        rgbSprite_112.pixels_1489[l4 + i4 * 32] = 1;
+                }
+            }
 
 		}
 
 		if (i > 0) {
 			for (int i5 = 31; i5 >= 0; i5--) {
 				for (int j4 = 31; j4 >= 0; j4--)
-					if (class50_sub1_sub1_sub1_1.anIntArray1489[i5 + j4 * 32] == 0)
-						if (i5 > 0 && class50_sub1_sub1_sub1_1.anIntArray1489[(i5 - 1) + j4 * 32] == 1)
-							class50_sub1_sub1_sub1_1.anIntArray1489[i5 + j4 * 32] = i;
-						else if (j4 > 0 && class50_sub1_sub1_sub1_1.anIntArray1489[i5 + (j4 - 1) * 32] == 1)
-							class50_sub1_sub1_sub1_1.anIntArray1489[i5 + j4 * 32] = i;
-						else if (i5 < 31 && class50_sub1_sub1_sub1_1.anIntArray1489[i5 + 1 + j4 * 32] == 1)
-							class50_sub1_sub1_sub1_1.anIntArray1489[i5 + j4 * 32] = i;
-						else if (j4 < 31 && class50_sub1_sub1_sub1_1.anIntArray1489[i5 + (j4 + 1) * 32] == 1)
-							class50_sub1_sub1_sub1_1.anIntArray1489[i5 + j4 * 32] = i;
+					if (rgbSprite_112.pixels_1489[i5 + j4 * 32] == 0)
+						if (i5 > 0 && rgbSprite_112.pixels_1489[(i5 - 1) + j4 * 32] == 1)
+							rgbSprite_112.pixels_1489[i5 + j4 * 32] = i;
+						else if (j4 > 0 && rgbSprite_112.pixels_1489[i5 + (j4 - 1) * 32] == 1)
+							rgbSprite_112.pixels_1489[i5 + j4 * 32] = i;
+						else if (i5 < 31 && rgbSprite_112.pixels_1489[i5 + 1 + j4 * 32] == 1)
+							rgbSprite_112.pixels_1489[i5 + j4 * 32] = i;
+						else if (j4 < 31 && rgbSprite_112.pixels_1489[i5 + (j4 + 1) * 32] == 1)
+							rgbSprite_112.pixels_1489[i5 + j4 * 32] = i;
 
 			}
 
 		} else if (i == 0) {
 			for (int j5 = 31; j5 >= 0; j5--) {
 				for (int k4 = 31; k4 >= 0; k4--)
-					if (class50_sub1_sub1_sub1_1.anIntArray1489[j5 + k4 * 32] == 0 && j5 > 0 && k4 > 0
-							&& class50_sub1_sub1_sub1_1.anIntArray1489[(j5 - 1) + (k4 - 1) * 32] > 0)
-						class50_sub1_sub1_sub1_1.anIntArray1489[j5 + k4 * 32] = 0x302020;
+					if (rgbSprite_112.pixels_1489[j5 + k4 * 32] == 0 && j5 > 0 && k4 > 0
+							&& rgbSprite_112.pixels_1489[(j5 - 1) + (k4 - 1) * 32] > 0)
+						rgbSprite_112.pixels_1489[j5 + k4 * 32] = 0x302020;
 
 			}
 
 		}
 		if (class16.notedGraphicsId != -1) {
-			int k5 = class50_sub1_sub1_sub1_2.anInt1494;
-			int l5 = class50_sub1_sub1_sub1_2.anInt1495;
-			class50_sub1_sub1_sub1_2.anInt1494 = 32;
-			class50_sub1_sub1_sub1_2.anInt1495 = 32;
+			int k5 = class50_sub1_sub1_sub1_2.width_1494;
+			int l5 = class50_sub1_sub1_sub1_2.height_1495;
+			class50_sub1_sub1_sub1_2.width_1494 = 32;
+			class50_sub1_sub1_sub1_2.height_1495 = 32;
 			class50_sub1_sub1_sub1_2.method461(0, 0, -488);
-			class50_sub1_sub1_sub1_2.anInt1494 = k5;
-			class50_sub1_sub1_sub1_2.anInt1495 = l5;
+			class50_sub1_sub1_sub1_2.width_1494 = k5;
+			class50_sub1_sub1_sub1_2.height_1495 = l5;
 		}
 		if (i == 0)
-			spriteCache.put(class50_sub1_sub1_sub1_1, k);
-		Drawable.method444(l1, i2, ai1);
-		Drawable.method446(l2, j2, i3, k2, true);
-		ThreeDimensionalCanvas.centerX = j1;
-		ThreeDimensionalCanvas.centerY = k1;
-		ThreeDimensionalCanvas.anIntArray1538 = ai;
-		ThreeDimensionalCanvas.aBoolean1530 = true;
+			spriteCache.put(rgbSprite_112, k);
+		Drawable.putPixels(l1, i2, ai1);
+		Drawable.recalcEdges(l2, j2, i3, k2, true);
+		ThreeDimensionalCanvas.halfParentWidth = j1;
+		ThreeDimensionalCanvas.halfParentHeight = k1;
+		ThreeDimensionalCanvas.lineOffsets = ai;
+		ThreeDimensionalCanvas.jagged = true;
 		if (class16.stackable)
-			class50_sub1_sub1_sub1_1.anInt1494 = 33;
+			rgbSprite_112.width_1494 = 33;
 		else
-			class50_sub1_sub1_sub1_1.anInt1494 = 32;
-		class50_sub1_sub1_sub1_1.anInt1495 = j;
+			rgbSprite_112.width_1494 = 32;
+		rgbSprite_112.height_1495 = j;
 		if (byte0 != -33)
 			throw new NullPointerException();
 		else
-			return class50_sub1_sub1_sub1_1;
+			return rgbSprite_112;
 	}
 
 	public static void method222(boolean flag) {
@@ -496,63 +552,4 @@ public class ItemDefinition {
 		anInt358 = 0;
 		team = 0;
 	}
-
-	public ItemDefinition() {
-		anInt351 = -68;
-		id = -1;
-	}
-
-	public int anInt326;
-	public int modelOffsetX;
-	public byte description[];
-	public String name;
-	public byte aByte330;
-	public int anInt331;
-	public int team;
-	public int notedInfoId;
-	public int anInt334;
-	public static int count;
-	public static ItemDefinition cache[];
-	public static LruHashTable aClass33_337 = new LruHashTable(50);
-	public String groundActions[];
-	public int anInt339;
-	public int modelOffsetY;
-	public int destColors[];
-	public static int indices[];
-	public int notedGraphicsId;
-	public static boolean memberServer = true;
-	public int value;
-	public static LruHashTable spriteCache = new LruHashTable(100);
-	public static byte aByte347 = 6;
-	public String inventoryActions[];
-	public static boolean aBoolean350 = true;
-	public int anInt351;
-	public static int cachePos;
-	public int anInt353;
-	public int anInt354;
-	public int anInt355;
-	public int modelRotationY;
-	public int anInt357;
-	public int anInt358;
-	public int modelRotationX;
-	public int modelId;
-	public int anInt361;
-	public int anInt362;
-	public int id;
-	public int srcColors[];
-	public int stackIds[];
-	public int anInt366;
-	public int anInt367;
-	public int anInt368;
-	public int modelScale;
-	public int anInt370;
-	public boolean stackable;
-	public int anInt372;
-	public static JagBuffer buf;
-	public boolean aBoolean374;
-	public int anInt375;
-	public int stackAmounts[];
-	public boolean members;
-	public byte aByte378;
-
 }

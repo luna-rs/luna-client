@@ -1074,8 +1074,8 @@ public class Model extends Entity {
 	static {
 		sineTable = ThreeDimensionalCanvas.sineTable;
 		cosineTable = ThreeDimensionalCanvas.cosineTable;
-		colorLookupTable = ThreeDimensionalCanvas.hslToRgbTable;
-		reciprocalTable = ThreeDimensionalCanvas.reciprocalTable;
+		colorLookupTable = ThreeDimensionalCanvas.anIntArray1548;
+		reciprocalTable = ThreeDimensionalCanvas.divTable;
 	}
 
 	/**
@@ -2221,8 +2221,8 @@ public class Model extends Entity {
 	 * @param offsetZ    Translation along the Z-axis.
 	 */
 	public void viewportTransform(int pitch, int yaw, int roll, int viewPitch, int offsetX, int offsetY, int offsetZ) {
-		int centerX = ThreeDimensionalCanvas.centerX;
-		int centerY = ThreeDimensionalCanvas.centerY;
+		int centerX = ThreeDimensionalCanvas.halfParentWidth;
+		int centerY = ThreeDimensionalCanvas.halfParentHeight;
 
 		// Pre-calculate Trigonometry for the rotation matrix
 		int sinPitch = sineTable[pitch];
@@ -2326,12 +2326,12 @@ public class Model extends Entity {
 		int leftLimit = transformedX - modelRadius << 9;
 
 		// Frustum Culling (Horizontal/X-Axis)
-		if (leftLimit / maxZ >= Drawable.anInt1432)
+		if (leftLimit / maxZ >= Drawable.halfWidthX)
 			return;
 
 		int rightLimit = transformedX + modelRadius << 9;
 
-		if (rightLimit / maxZ <= -Drawable.anInt1432)
+		if (rightLimit / maxZ <= -Drawable.halfWidthX)
 			return;
 
 		int transformedY = relativeY * cosViewPitch - transformedZ * sinViewPitch >> 16;
@@ -2339,13 +2339,13 @@ public class Model extends Entity {
 		int topLimit = transformedY + radiusY << 9;
 
 		// Frustum Culling (Vertical/Y-Axis)
-		if (topLimit / maxZ <= -Drawable.anInt1433)
+		if (topLimit / maxZ <= -Drawable.halfHeightY)
 			return;
 
 		int bottomLimit = radiusY + (super.height * cosViewPitch >> 16);
 		int bottomBound = transformedY - bottomLimit << 9;
 
-		if (bottomBound / maxZ >= Drawable.anInt1433)
+		if (bottomBound / maxZ >= Drawable.halfHeightY)
 			return;
 
 		// Broad-Phase Mouse Picking
@@ -2375,8 +2375,8 @@ public class Model extends Entity {
 				bottomBound /= minZ;
 			}
 
-			int mouseRelX = mouseX - ThreeDimensionalCanvas.centerX;
-			int mouseRelY = mouseY - ThreeDimensionalCanvas.centerY;
+			int mouseRelX = mouseX - ThreeDimensionalCanvas.halfParentWidth;
+			int mouseRelY = mouseY - ThreeDimensionalCanvas.halfParentHeight;
 			if (mouseRelX > leftLimit && mouseRelX < rightLimit && mouseRelY > bottomBound && mouseRelY < topLimit)
 				if (isPriorityPicking)
 					hoveredModels[hoveredCount++] = modelId;
@@ -2385,8 +2385,8 @@ public class Model extends Entity {
 		}
 
 		// Vertex Transformation Loop
-		int screenCenterX = ThreeDimensionalCanvas.centerX;
-		int screenCenterY = ThreeDimensionalCanvas.centerY;
+		int screenCenterX = ThreeDimensionalCanvas.halfParentWidth;
+		int screenCenterY = ThreeDimensionalCanvas.halfParentHeight;
 		int sinYaw = 0;
 		int cosYaw = 0;
 
@@ -2504,7 +2504,7 @@ public class Model extends Entity {
 					faceNeedsClipping[face] = false;
 
 					// Viewport Frustum Check (Horizontal Clipping)
-					faceIsOffScreen[face] = xA < 0 || xB < 0 || xC < 0 || xA > Drawable.viewportRightBoundary || xB > Drawable.viewportRightBoundary || xC > Drawable.viewportRightBoundary;
+					faceIsOffScreen[face] = xA < 0 || xB < 0 || xC < 0 || xA > Drawable.lastPixelX || xB > Drawable.lastPixelX || xC > Drawable.lastPixelX;
 
 					// Assign to depth bin based on average projected Z
 					int avgZ = (projectedZ[vA] + projectedZ[vB] + projectedZ[vC]) / 3 + modelBoundingSphere;
@@ -2678,24 +2678,24 @@ public class Model extends Entity {
 		int vC = faceIndicesZ[faceId];
 
 		// Sync Global Rasterizer State
-		ThreeDimensionalCanvas.requiresBoundsCheck = faceIsOffScreen[faceId];
+		ThreeDimensionalCanvas.hClip = faceIsOffScreen[faceId];
 
 		if (faceTransparency == null)
-			ThreeDimensionalCanvas.currentFaceAlpha = 0;
+			ThreeDimensionalCanvas.anInt1531 = 0;
 		else
-			ThreeDimensionalCanvas.currentFaceAlpha = faceTransparency[faceId];
+			ThreeDimensionalCanvas.anInt1531 = faceTransparency[faceId];
 
 		// Determine Render Mode (Bits 0-1)
 		int renderMode = (faceRenderTypes == null) ? 0 : faceRenderTypes[faceId] & 3;
 
 		switch(renderMode) {
 			case 0: // Gouraud (Smooth) Shading
-				ThreeDimensionalCanvas.drawGouraudTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
+				ThreeDimensionalCanvas.gouraudTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
 						projectedX[vA], projectedX[vB], projectedX[vC], faceColorsA[faceId], faceColorsB[faceId],
 						faceColorsC[faceId]);
 				break;
 			case 1: // Flat Shading
-				ThreeDimensionalCanvas.drawFlatTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
+				ThreeDimensionalCanvas.flatTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
 						projectedX[vA], projectedX[vB], projectedX[vC], colorLookupTable[faceColorsA[faceId]]);
 				break;
 			case 2: case 3:
@@ -2720,7 +2720,7 @@ public class Model extends Entity {
 		int colorB = (mode == 3) ? colorA : faceColorsB[faceId]; // Handles the difference between mode 2 and 3
 		int colorC = (mode == 3) ? colorA : faceColorsC[faceId]; // Handles the difference between mode 2 and 3
 
-		ThreeDimensionalCanvas.drawTexturedTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
+		ThreeDimensionalCanvas.textureTriangle(projectedY[vA], projectedY[vB], projectedY[vC],
 				projectedX[vA], projectedX[vB], projectedX[vC], colorA, colorB,
 				colorC, cameraX[tA], cameraX[tB], cameraX[tC], cameraY[tA],
 				cameraY[tB], cameraY[tC], cameraZ[tA], cameraZ[tB], cameraZ[tC],
@@ -2738,8 +2738,8 @@ public class Model extends Entity {
 	 * @param faceId The index of the face to clip and draw.
 	 */
 	public void clipAndDrawFace(int faceId) {
-		int centerX = ThreeDimensionalCanvas.centerX;
-		int centerY = ThreeDimensionalCanvas.centerY;
+		int centerX = ThreeDimensionalCanvas.halfParentWidth;
+		int centerY = ThreeDimensionalCanvas.halfParentHeight;
 		int clippedCount = 0;
 
 		int vA = faceIndicesX[faceId];
@@ -2832,7 +2832,7 @@ public class Model extends Entity {
 		if ((x1 - x2) * (y3 - y2) - (y1 - y2) * (x3 - x2) > 0) {
 
 			// Push rendering state to Canvas
-			ThreeDimensionalCanvas.requiresBoundsCheck = isOffScreen(clippedCount);
+			ThreeDimensionalCanvas.hClip = isOffScreen(clippedCount);
 			int renderMode = (faceRenderTypes == null) ? 0 : (faceRenderTypes[faceId] & 3);
 
 			// Draw the first triangle
@@ -2850,7 +2850,7 @@ public class Model extends Entity {
 	 */
 	private boolean isOffScreen(int count) {
 		for (int i = 0; i < count; i++) {
-			if (clippedProjectedX[i] < 0 || clippedProjectedX[i] > Drawable.viewportRightBoundary) return true;
+			if (clippedProjectedX[i] < 0 || clippedProjectedX[i] > Drawable.lastPixelX) return true;
 		}
 		return false;
 	}
@@ -2865,10 +2865,10 @@ public class Model extends Entity {
 
 		switch(mode) {
 			case 0:  // Gouraud triangle
-				ThreeDimensionalCanvas.drawGouraudTriangle(yA, yB, yC, xA, xB, xC, cA, cB, cC);
+				ThreeDimensionalCanvas.gouraudTriangle(yA, yB, yC, xA, xB, xC, cA, cB, cC);
 				break;
 			case 1: // Flat triangle
-				ThreeDimensionalCanvas.drawFlatTriangle(yA, yB, yC, xA, xB, xC, colorLookupTable[faceColorsA[faceId]]);
+				ThreeDimensionalCanvas.flatTriangle(yA, yB, yC, xA, xB, xC, colorLookupTable[faceColorsA[faceId]]);
 				break;
 			case 2: // Textured
 			case 3: // Textured Flat
@@ -2882,7 +2882,7 @@ public class Model extends Entity {
 				int colorB = (mode == 3) ? faceColorsA[faceId] : cB;
 				int colorC = (mode == 3) ? faceColorsA[faceId] : cC;
 
-				ThreeDimensionalCanvas.drawTexturedTriangle(yA, yB, yC, xA, xB, xC, colorA, colorB,
+				ThreeDimensionalCanvas.textureTriangle(yA, yB, yC, xA, xB, xC, colorA, colorB,
 						colorC, cameraX[texA], cameraX[texB], cameraX[texC],
 						cameraY[texA], cameraY[texB], cameraY[texC], cameraZ[texA],
 						cameraZ[texB], cameraZ[texC], colors[faceId]);

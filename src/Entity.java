@@ -4,6 +4,9 @@
 
 public class Entity extends QueueNode {
 
+	public VertexNormal normals[];
+	public int height;
+
 	public void render(int i, int j, int k, int l, int i1, int j1, int k1, int l1, int i2) {
 		Model model = getModel();
 		if (model != null) {
@@ -19,8 +22,5 @@ public class Entity extends QueueNode {
 	public Entity() {
 		height = 1000;
 	}
-
-	public VertexNormal[] normals;
-	public int height;
 
 }

@@ -2,10 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-public class Class10 {
-
-	public Class10() {
-	}
+public class ScenegraphMember10 {
 
 	public int anInt173;
 	public int anInt174;
@@ -15,4 +12,7 @@ public class Class10 {
 	public Entity aClass50_Sub1_Sub4_178;
 	public int anInt179;
 	public int anInt180;
+
+	public ScenegraphMember10() {
+	}
 }
