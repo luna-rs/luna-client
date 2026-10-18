@@ -11947,8 +11947,8 @@ public class client extends JagApplet {
         aCRC32_1088 = new CRC32();
         anInt1089 = -1;
         anIntArray1090 = new int[50];
-        thisPlayerName = "hydro";
-        thisPlayerPassword = "hydro";
+        thisPlayerName = "luna";
+        thisPlayerPassword = "luna";
         aBoolean1097 = false;
         aBoolean1098 = false;
         anIntArray1099 = new int[5];
