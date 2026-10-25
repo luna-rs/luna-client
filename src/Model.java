@@ -2130,6 +2130,11 @@ public class Model extends Entity {
 			// Determine if this face has specific render properties (like flat shading or textures)
 			int renderType = (faceRenderTypes == null) ? 0 : faceRenderTypes[face];
 
+			// Flat-shaded faces were already lit per-face in initLighting; don't overwrite them
+			if ((renderType & RENDER_TYPE_FLAT_SHADING) != 0) {
+				continue;
+			}
+
 			faceColorsA[face] = calculateVertexLight(vA, ambient, magnitude, lightX, lightY, lightZ, colors[face], renderType);
 			faceColorsB[face] = calculateVertexLight(vB, ambient, magnitude, lightX, lightY, lightZ, colors[face], renderType);
 			faceColorsC[face] = calculateVertexLight(vC, ambient, magnitude, lightX, lightY, lightZ, colors[face], renderType);
