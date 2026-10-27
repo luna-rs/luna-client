@@ -37,6 +37,7 @@ public final class MusicControllerTest {
         Fixture f = new Fixture();
         f.music.setSong(10);
         f.music.setSong(11);
+        check(f.stops == 0 && f.transitions == 2, "region changes preserve playback while loading");
         f.music.accept(10, new byte[1]);
         check(f.callbacks.isEmpty(), "late song must not play");
         f.music.setSong(65535);
@@ -138,13 +139,14 @@ public final class MusicControllerTest {
         final List<Boolean> loops = new ArrayList<>();
         final List<LongConsumer> callbacks = new ArrayList<>();
         int stops;
+        int transitions;
         final MusicController music = new MusicController(id -> {
             requests.add(id);
             return id >= 0 && id < 647;
         }, (data, loop, callback) -> {
             loops.add(loop);
             callbacks.add(callback);
-        }, () -> stops++);
+        }, () -> stops++, () -> transitions++);
 
         int lastRequest() {
             return requests.get(requests.size() - 1);

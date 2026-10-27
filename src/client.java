@@ -41,7 +41,7 @@ public class client extends JagApplet {
         this.fileFetcher.request(2, id);
         return true;
     }, (data, loop, started) -> signlink.musicPlayer.play(data, loop, started),
-            () -> signlink.musicPlayer.stop());
+            () -> signlink.musicPlayer.stop(), () -> signlink.musicPlayer.prepareTransition());
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 

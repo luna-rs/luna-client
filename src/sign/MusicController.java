@@ -24,6 +24,7 @@ public final class MusicController {
     private final IntPredicate request;
     private final Playback playback;
     private final Runnable stop;
+    private final Runnable prepareTransition;
     private boolean enabled = true;
     private int song = -1;
     private int requested = -1;
@@ -35,10 +36,11 @@ public final class MusicController {
     private long loadingTime;
     private final AtomicReference<Started> started = new AtomicReference<>();
 
-    public MusicController(IntPredicate request, Playback playback, Runnable stop) {
+    public MusicController(IntPredicate request, Playback playback, Runnable stop, Runnable prepareTransition) {
         this.request = request;
         this.playback = playback;
         this.stop = stop;
+        this.prepareTransition = prepareTransition;
     }
 
     public void setSong(int id) {
@@ -126,7 +128,11 @@ public final class MusicController {
         loadingTime = 0;
         requested = id;
         downloading = true;
-        stop.run();
+        if (jingle) {
+            stop.run();
+        } else {
+            prepareTransition.run();
+        }
         if (!request.test(id)) {
             System.err.println("Invalid music file id: " + id);
             failed();

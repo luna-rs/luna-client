@@ -2,6 +2,7 @@ package sign;
 
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiMessage;
+import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.Receiver;
 import javax.sound.midi.Sequence;
@@ -10,6 +11,7 @@ import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Soundbank;
 import javax.sound.midi.Synthesizer;
 import javax.sound.midi.Transmitter;
+import javax.sound.midi.Track;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.Arrays;
@@ -24,6 +26,7 @@ import java.util.function.LongConsumer;
 public final class MidiPlayer implements AutoCloseable {
 
 	static final int MAX_MIDI_BYTES = 2 * 1024 * 1024;
+	private static final long FADE_MILLIS = 600;
 
 	private final Object requests = new Object();
 	private final DeviceFactory factory;
@@ -39,6 +42,7 @@ public final class MidiPlayer implements AutoCloseable {
 	private Synthesizer synthesizer;
 	private Transmitter transmitter;
 	private VolumeReceiver receiver;
+	private double fadeGain = 1.0;
 
 	public MidiPlayer() {
 		this(new DeviceFactory(), new File("data/soundbank.sf2"));
@@ -67,7 +71,7 @@ public final class MidiPlayer implements AutoCloseable {
 				// Reject malformed/oversized requests on the worker, before cloning or
 				// allocating based on untrusted cache data. Null here is not a stop.
 				byte[] copy = data == null || data.length > MAX_MIDI_BYTES ? new byte[0] : data.clone();
-				pending = new Request(++generation, copy, loop, started);
+				pending = new Request(++generation, copy, loop, started, false);
 				requests.notifyAll();
 			}
 		}
@@ -76,7 +80,19 @@ public final class MidiPlayer implements AutoCloseable {
 	public void stop() {
 		synchronized (requests) {
 			if (!closed) {
-				pending = new Request(++generation, null, false, null);
+				pending = new Request(++generation, null, false, null, false);
+				requests.notifyAll();
+			}
+		}
+	}
+
+	/**
+	 * Cancels a pending region transition while retaining the current song during loading.
+	 */
+	public void prepareTransition() {
+		synchronized (requests) {
+			if (!closed) {
+				pending = new Request(++generation, null, false, null, true);
 				requests.notifyAll();
 			}
 		}
@@ -148,6 +164,11 @@ public final class MidiPlayer implements AutoCloseable {
 	private void process(Request request) throws Exception {
 		if (!isCurrent(request))
 			return;
+		if (request.preserve) {
+			if (receiver != null)
+				fade(request, 1.0);
+			return;
+		}
 		if (request.data == null) {
 			stopTrack();
 			return;
@@ -162,6 +183,10 @@ public final class MidiPlayer implements AutoCloseable {
 		openDevices();
 		if (!isCurrent(request))
 			return;
+		if (request.loop && sequencer.isRunning() && !fade(request, 0.0))
+			return;
+		fadeGain = request.loop ? 0.0 : 1.0;
+		receiver.setFade(fadeGain);
 		stopTrack();
 		if (!isCurrent(request))
 			return;
@@ -172,6 +197,10 @@ public final class MidiPlayer implements AutoCloseable {
 		receiver.setVolume(currentVolume);
 		sequencer.setSequence(sequence);
 		sequencer.setTickPosition(0);
+		// Clearing a Java Sound sequence caches its old tempo and can suppress the
+		// next song's tick-zero tempo event. Restore the new song's authored tempo.
+		sequencer.setTempoFactor(1.0f);
+		sequencer.setTempoInMPQ(initialTempo(sequence));
 		sequencer.setLoopStartPoint(0);
 		sequencer.setLoopEndPoint(-1);
 		sequencer.setLoopCount(request.loop ? Sequencer.LOOP_CONTINUOUSLY : 0);
@@ -184,6 +213,55 @@ public final class MidiPlayer implements AutoCloseable {
 		}
 		if (isCurrent(request))
 			notifyStarted(request, sequence.getMicrosecondLength() / 1000L);
+		if (request.loop)
+			fade(request, 1.0);
+	}
+
+	/**
+	 * Uses the standard default when the conductor track has no initial tempo event.
+	 */
+	static int initialTempo(Sequence sequence) {
+		int tempo = 500000;
+		Track[] tracks = sequence.getTracks();
+		if (tracks.length != 0) {
+			Track conductor = tracks[0];
+			for (int index = 0; index < conductor.size() && conductor.get(index).getTick() == 0; index++) {
+				MidiMessage message = conductor.get(index).getMessage();
+				if (message instanceof MetaMessage && ((MetaMessage) message).getType() == 81) {
+					byte[] data = ((MetaMessage) message).getData();
+					if (data.length == 3) {
+						int value = ((data[0] & 255) << 16) | ((data[1] & 255) << 8) | (data[2] & 255);
+						if (value > 0)
+							tempo = value;
+					}
+				}
+			}
+		}
+		return tempo;
+	}
+
+	/**
+	 * Runs a cancellable envelope on the audio worker, using elapsed wall time.
+	 */
+	private boolean fade(Request request, double target) throws InterruptedException {
+		double from = fadeGain;
+		long start = System.nanoTime();
+		while (true) {
+			synchronized (requests) {
+				if (closed || generation != request.generation)
+					return false;
+				if (volumeChanged) {
+					receiver.setVolume(volume);
+					volumeChanged = false;
+				}
+				double progress = Math.min(1.0, (System.nanoTime() - start) / (FADE_MILLIS * 1000000.0));
+				fadeGain = from + (target - from) * progress;
+				receiver.setFade(fadeGain);
+				if (progress >= 1.0 || from == target)
+					return true;
+				requests.wait(20);
+			}
+		}
 	}
 
 	private boolean isCurrent(Request request) {
@@ -364,12 +442,14 @@ public final class MidiPlayer implements AutoCloseable {
 		final byte[] data;
 		final boolean loop;
 		final LongConsumer started;
+		final boolean preserve;
 
-		Request(long generation, byte[] data, boolean loop, LongConsumer started) {
+		Request(long generation, byte[] data, boolean loop, LongConsumer started, boolean preserve) {
 			this.generation = generation;
 			this.data = data;
 			this.loop = loop;
 			this.started = started;
+			this.preserve = preserve;
 		}
 	}
 
@@ -383,6 +463,7 @@ public final class MidiPlayer implements AutoCloseable {
 		private final Receiver output;
 		private final int[] channelVolume = new int[16];
 		private double gain = 1.0;
+		private double fade = 1.0;
 		private boolean closed;
 
 		VolumeReceiver(Receiver output) {
@@ -392,6 +473,13 @@ public final class MidiPlayer implements AutoCloseable {
 
 		synchronized void setVolume(int hundredthsDb) {
 			gain = Math.pow(10.0, hundredthsDb / 2000.0);
+			if (!closed)
+				for (int channel = 0; channel < 16; channel++)
+					sendVolume(channel, -1);
+		}
+
+		synchronized void setFade(double value) {
+			fade = Math.max(0.0, Math.min(1.0, value));
 			if (!closed)
 				for (int channel = 0; channel < 16; channel++)
 					sendVolume(channel, -1);
@@ -456,7 +544,7 @@ public final class MidiPlayer implements AutoCloseable {
 		}
 
 		private void sendVolume(int channel, long timestamp) {
-			int scaled = (int) Math.round(channelVolume[channel] * gain);
+			int scaled = (int) Math.round(channelVolume[channel] * gain * fade);
 			control(channel, 7, scaled >> 7, timestamp);
 			control(channel, 39, scaled & 127, timestamp);
 		}

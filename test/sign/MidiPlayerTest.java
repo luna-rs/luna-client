@@ -3,6 +3,7 @@ package sign;
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiEvent;
 import javax.sound.midi.MidiMessage;
+import javax.sound.midi.MetaMessage;
 import javax.sound.midi.MidiSystem;
 import javax.sound.midi.MidiUnavailableException;
 import javax.sound.midi.Receiver;
@@ -34,6 +35,8 @@ public final class MidiPlayerTest {
 		byte[] midi = midi();
 		testRmid(midi);
 		testVolume();
+		testFades(midi);
+		testRealSequencerTempo();
 		testTransitions(midi);
 		testLatestRequest(midi);
 		testStopDuringParse(midi);
@@ -45,6 +48,84 @@ public final class MidiPlayerTest {
 			testPartialFailure(midi, failure);
 		System.out.println("MidiPlayerTest passed: RMID, volume, 1000 track lifecycles, "
 				+ "10000 coalesced requests, stop/close cancellation, invalid MIDI, partial failures.");
+	}
+
+	private static void testFades(byte[] midi) throws Exception {
+		Factory factory = new Factory();
+		MidiPlayer player = new MidiPlayer(factory, null);
+		AtomicLong result = new AtomicLong(-2);
+		try {
+			player.play(midi, false, result::set);
+			await(() -> result.get() == 500);
+			Sequence old = factory.sequence;
+			int full = factory.output.volume(0);
+			result.set(-2);
+			player.play(midi, true, result::set);
+			await(() -> factory.output.volume(0) < full * 3 / 4);
+			check(factory.sequence == old && result.get() == -2, "old track plays during fade-out");
+			player.setVolume(-400);
+			await(() -> result.get() == 500);
+			check(factory.output.volume(0) < full / 2, "new track begins quietly");
+			int attenuated = (int) Math.round(full * Math.pow(10.0, -0.2));
+			await(() -> factory.output.volume(0) == attenuated);
+			check(factory.starts.get() == 2, "fade-in completes at user's selected volume");
+			player.play(midi, true);
+			await(() -> factory.output.volume(0) < attenuated * 3 / 4);
+			player.prepareTransition();
+			await(() -> factory.output.volume(0) == attenuated);
+			check(factory.starts.get() == 2, "new region invalidates a pending transition");
+			player.play(midi, true);
+			await(() -> factory.output.volume(0) < attenuated * 3 / 4);
+			player.stop();
+			await(() -> factory.sequence == null);
+			check(factory.starts.get() == 2, "stop during fade never starts replacement");
+		} finally {
+			player.close();
+		}
+		await(factory::allClosed);
+	}
+
+	private static void testRealSequencerTempo() throws Exception {
+		// Uses the actual JDK sequencer, with no sound card or synthesizer required.
+		Sequencer sequencer = MidiSystem.getSequencer(false);
+		Factory factory = new Factory() {
+			@Override
+			Sequencer sequencer() {
+				return sequencer;
+			}
+		};
+		MidiPlayer player = new MidiPlayer(factory, null);
+		AtomicLong duration = new AtomicLong(-2);
+		try {
+			for (int tempo : new int[]{444444, 600000, 500000}) {
+				Sequence sequence = new Sequence(Sequence.PPQ, 480);
+				Track track = sequence.createTrack();
+				if (tempo != 500000)
+					track.add(new MidiEvent(tempo(tempo), 0));
+				track.add(new MidiEvent(tempo(750000), 240));
+				track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 100), 4800));
+				ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+				MidiSystem.write(sequence, 1, bytes);
+				duration.set(-2);
+				player.play(bytes.toByteArray(), false, duration::set);
+				await(() -> duration.get() >= 0);
+				check(Math.abs(sequencer.getTempoInMPQ() - tempo) < 1,
+						"each new song restores its own initial tempo, including default 120 BPM");
+				check(sequencer.getTempoFactor() == 1.0f, "normal playback speed");
+				await(() -> sequencer.getTempoInMPQ() == 750000);
+				check(sequencer.getTickPosition() >= 240, "later authored tempo changes still apply");
+				sequencer.setTempoFactor(1.5f);
+			}
+		} finally {
+			player.close();
+		}
+		await(() -> !sequencer.isOpen());
+	}
+
+	private static MetaMessage tempo(int mpq) throws Exception {
+		MetaMessage message = new MetaMessage();
+		message.setMessage(81, new byte[]{(byte) (mpq >> 16), (byte) (mpq >> 8), (byte) mpq}, 3);
+		return message;
 	}
 
 	private static void testTransitions(byte[] midi) throws Exception {
@@ -328,7 +409,7 @@ public final class MidiPlayerTest {
 	 *
 	 * @author lare96
 	 */
-	private static final class Factory extends MidiPlayer.DeviceFactory {
+	private static class Factory extends MidiPlayer.DeviceFactory {
 		final AtomicInteger synths = new AtomicInteger();
 		final AtomicInteger sequencers = new AtomicInteger();
 		final AtomicInteger synthClosed = new AtomicInteger();
@@ -345,6 +426,7 @@ public final class MidiPlayerTest {
 		volatile int loopCount;
 		volatile int failAt;
 		volatile boolean block;
+		volatile boolean running;
 		CountDownLatch entered;
 		CountDownLatch release;
 
@@ -421,8 +503,14 @@ public final class MidiPlayerTest {
 							loopCount = (Integer) args[0];
 							return null;
 						case "start":
+							running = true;
 							starts.incrementAndGet();
 							return null;
+						case "stop":
+							running = false;
+							return null;
+						case "isRunning":
+							return running;
 						case "getTransmitter":
 							transmitters.incrementAndGet();
 							return new Transmitter() {
