@@ -10,6 +10,7 @@ import java.awt.Graphics;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.io.DataInputStream;
 import java.io.EOFException;
@@ -303,6 +304,8 @@ public class client extends JagApplet {
     public RgbSprite aClass50_Sub1_Sub1_Sub1_1102;
     public RgbSprite aClass50_Sub1_Sub1_Sub1_1103;
     public String chatInput;
+    /** Whether the public chat line takes keystrokes. Toggled by pressing enter, so WASD can move the camera. */
+    public boolean chatActive;
     public int cameraJitter[];
     public int anInt1106;
     public int anInt1107;
@@ -1152,15 +1155,15 @@ public class client extends JagApplet {
                 anInt1262 += (j - anInt1262) / 16;
             if (anInt1263 != k)
                 anInt1263 += (k - anInt1263) / 16;
-            if (super.keyStatus[1] == 1)
+            if (cameraKeyHeld(1))
                 anInt1253 += (-24 - anInt1253) / 2;
-            else if (super.keyStatus[2] == 1)
+            else if (cameraKeyHeld(2))
                 anInt1253 += (24 - anInt1253) / 2;
             else
                 anInt1253 /= 2;
-            if (super.keyStatus[3] == 1)
+            if (cameraKeyHeld(3))
                 anInt1254 += (12 - anInt1254) / 2;
-            else if (super.keyStatus[4] == 1)
+            else if (cameraKeyHeld(4))
                 anInt1254 += (-12 - anInt1254) / 2;
             else
                 anInt1254 /= 2;
@@ -1405,8 +1408,7 @@ public class client extends JagApplet {
         }
         if (anInt1264 > 0)
             anInt1264--;
-        if (super.keyStatus[1] == 1 || super.keyStatus[2] == 1 || super.keyStatus[3] == 1
-                || super.keyStatus[4] == 1)
+        if (cameraKeyHeld(1) || cameraKeyHeld(2) || cameraKeyHeld(3) || cameraKeyHeld(4))
             aBoolean1265 = true;
         if (aBoolean1265 && anInt1264 <= 0) {
             anInt1264 = 20;
@@ -1701,6 +1703,37 @@ public class client extends JagApplet {
             anInt1220 = j2;
     }
 
+    /**
+     * Whether the camera key for a direction is held: 1 = left, 2 = right, 3 = up, 4 = down.
+     * The arrow keys always work; WASD only works while no text input is taking keystrokes.
+     */
+    public boolean cameraKeyHeld(int direction) {
+        if (super.keyStatus[direction] == 1)
+            return true;
+        if (isTypingText())
+            return false;
+        switch (direction) {
+            case 1:
+                return super.keyCodeHeld[KeyEvent.VK_A];
+            case 2:
+                return super.keyCodeHeld[KeyEvent.VK_D];
+            case 3:
+                return super.keyCodeHeld[KeyEvent.VK_W];
+            case 4:
+                return super.keyCodeHeld[KeyEvent.VK_S];
+        }
+        return false;
+    }
+
+    /** Whether typed characters currently go into some text input (chat, amount prompts, names, etc). */
+    public boolean isTypingText() {
+        if (anInt1169 != -1 && anInt1169 == anInt1231)
+            return true;
+        if (aBoolean866 || chatboxInterfaceType != 0)
+            return true;
+        return chatActive && anInt988 == -1 && anInt1053 == -1;
+    }
+
     public void updateChatbox() {
         do {
             int key = readCharFromChatbox();
@@ -1810,6 +1843,21 @@ public class client extends JagApplet {
                     aBoolean1240 = true;
                 }
             } else if (anInt988 == -1 && anInt1053 == -1) {
+                if (!chatActive) {
+                    // keys are free for the camera until enter opens the chat line
+                    if (key == 13 || key == 10) {
+                        chatActive = true;
+                        aBoolean1240 = true;
+                    }
+                    continue;
+                }
+                // escape closes the chat line and discards what was typed, enter on an empty line just closes it
+                if (key == 27 || (key == 13 || key == 10) && chatInput.length() == 0) {
+                    chatInput = "";
+                    chatActive = false;
+                    aBoolean1240 = true;
+                    continue;
+                }
                 if (key >= 32 && key <= 122 && chatInput.length() < 80) {
                     chatInput += (char) key;
                     aBoolean1240 = true;
@@ -1986,6 +2034,7 @@ public class client extends JagApplet {
                         }
                     }
                     chatInput = "";
+                    chatActive = false;
                     aBoolean1240 = true;
                 }
             }
@@ -7033,8 +7082,10 @@ public class client extends JagApplet {
             else
                 s = StringUtils.formatPlayerName(thisPlayerName);
             class50_sub1_sub1_sub2_1.drawString_474(s + ":", 2245, 4, 0, 90);
-            class50_sub1_sub1_sub2_1.drawString_474(chatInput + "*", 2245, 6 + class50_sub1_sub1_sub2_1.method472((byte) 35, s + ": "), 255,
-                    90);
+            // typed text is blue, the placeholder uses the same black as the player name and chat messages
+            String line = chatActive ? chatInput + "*" : "<press enter to chat>";
+            class50_sub1_sub1_sub2_1.drawString_474(line, 2245, 6 + class50_sub1_sub1_sub2_1.method472((byte) 35, s + ": "),
+                    chatActive ? 255 : 0, 90);
             Drawable.drawHorizontalLine(0, 0, 77, 479);
         }
         if (isContextMenuActive && anInt1304 == 2) {

@@ -44,6 +44,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public int mouseY;
 	public int keyStatus[];
 	public int inputBuffer[];
+	/** Held state indexed by AWT key code, so it is not affected by shift or caps lock. */
+	public boolean keyCodeHeld[];
 
 	public boolean aBoolean2;
 	public boolean aBoolean3;
@@ -81,6 +83,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		awtFocus = true;
 		keyStatus = new int[128];
 		inputBuffer = new int[128];
+		keyCodeHeld = new boolean[256];
 	}
 
 	/**
@@ -427,6 +430,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public void keyPressed(KeyEvent keyevent) {
 		anInt20 = 0;
 		int keycode = keyevent.getKeyCode();
+		if (keycode >= 0 && keycode < keyCodeHeld.length)
+			keyCodeHeld[keycode] = true;
 		int keychar = keyevent.getKeyChar();
 		if (keychar < 30)
 			keychar = 0;
@@ -448,6 +453,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			keychar = 9;
 		if (keycode == 10)
 			keychar = 10;
+		if (keycode == 27)
+			keychar = 27;
 		if (keycode >= 112 && keycode <= 123)
 			keychar = (1008 + keycode) - 112;
 		if (keycode == 36)
@@ -469,6 +476,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public void keyReleased(KeyEvent keyevent) {
 		anInt20 = 0;
 		int i = keyevent.getKeyCode();
+		if (i >= 0 && i < keyCodeHeld.length)
+			keyCodeHeld[i] = false;
 		char c = keyevent.getKeyChar();
 		if (c < '\036')
 			c = '\0';
@@ -490,6 +499,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			c = '\t';
 		if (i == 10)
 			c = '\n';
+		if (i == 27)
+			c = '\033';
 		if (c > 0 && c < '\200')
 			keyStatus[c] = 0;
 	}
@@ -516,7 +527,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		awtFocus = false;
 		for (int i = 0; i < 128; i++)
 			keyStatus[i] = 0;
-
+		for (int i = 0; i < keyCodeHeld.length; i++)
+			keyCodeHeld[i] = false;
 	}
 
 	public void windowActivated(WindowEvent windowevent) {
