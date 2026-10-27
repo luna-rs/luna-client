@@ -3,6 +3,8 @@
 // Decompiler options: packimports(3) 
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,12 +16,14 @@ import sign.signlink;
 
 public class OnDemandFetcher extends ModelProvider implements Runnable {
 
+	private static final int MAX_MUSIC_BYTES = 2 * 1024 * 1024;
+
 	public void waitForResponse() {
 		try {
 			int available = in.available();
 			if (remaining == 0 && available >= 6) {
 				aBoolean1338 = true;
-				for (int read = 0; read < 6; read += in.read(tmpBuf, read, 6 - read));
+				readFully(in, tmpBuf, 0, 6);
 				int type = tmpBuf[0] & 0xff;
 				int id = ((tmpBuf[1] & 0xff) << 8) + (tmpBuf[2] & 0xff);
 				int size = ((tmpBuf[3] & 0xff) << 8) + (tmpBuf[4] & 0xff);
@@ -64,7 +68,7 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 					abyte0 = currentFile.buf;
 					l = offset;
 				}
-				for (int j1 = 0; j1 < remaining; j1 += in.read(abyte0, j1 + l, remaining - j1));
+				readFully(in, abyte0, l, remaining);
 				if (remaining + offset >= abyte0.length && currentFile != null) {
 					if (_client.stores[0] != null)
 						_client.stores[currentFile.type + 1].put(abyte0.length, abyte0,
@@ -183,7 +187,8 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 	}
 
 	public void request(int type, int id) {
-		if (type < 0 || type > anIntArrayArray1377.length || id < 0 || id > anIntArrayArray1377[type].length)
+		if (type < 0 || type >= anIntArrayArray1377.length || id < 0
+				|| anIntArrayArray1377[type] == null || id >= anIntArrayArray1377[type].length)
 			return;
 		if (anIntArrayArray1377[type][id] == 0)
 			return;
@@ -216,9 +221,17 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 		}
 		if (class50_sub1_sub3.buf == null)
 			return class50_sub1_sub3;
+		if (class50_sub1_sub3.type == 2) {
+			try {
+				class50_sub1_sub3.buf = decompressMusic(class50_sub1_sub3.buf);
+			} catch (IOException exception) {
+				System.err.println("Unable to decompress MIDI " + class50_sub1_sub3.id + ": " + exception.getMessage());
+				class50_sub1_sub3.buf = null;
+			}
+			return class50_sub1_sub3;
+		}
 		int i = 0;
-		try {
-			GZIPInputStream gzipinputstream = new GZIPInputStream(new ByteArrayInputStream(class50_sub1_sub3.buf));
+		try (GZIPInputStream gzipinputstream = new GZIPInputStream(new ByteArrayInputStream(class50_sub1_sub3.buf))) {
 			do {
 				if (i == aByteArray1359.length)
 					throw new RuntimeException("buffer overflow!");
@@ -235,6 +248,20 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 			class50_sub1_sub3.buf[j] = aByteArray1359[j];
 
 		return class50_sub1_sub3;
+	}
+
+	private static byte[] decompressMusic(byte[] compressed) throws IOException {
+		try (GZIPInputStream input = new GZIPInputStream(new ByteArrayInputStream(compressed))) {
+			ByteArrayOutputStream output = new ByteArrayOutputStream(8192);
+			byte[] chunk = new byte[8192];
+			int read;
+			while ((read = input.read(chunk)) != -1) {
+				if (read > MAX_MUSIC_BYTES - output.size())
+					throw new IOException("uncompressed music exceeds " + MAX_MUSIC_BYTES + " bytes");
+				output.write(chunk, 0, read);
+			}
+			return output.toByteArray();
+		}
 	}
 
 	public void run() {
@@ -534,11 +561,11 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 					return;
 				aLong1378 = l;
 				aSocket1355 = _client.openSocket(43594 + client.portOffset);
+				aSocket1355.setSoTimeout(5000);
 				in = aSocket1355.getInputStream();
 				anOutputStream1349 = aSocket1355.getOutputStream();
 				anOutputStream1349.write(15);
-				for (int j = 0; j < 8; j++)
-					in.read();
+				readFully(in, tmpBuf, 0, 8);
 
 				anInt1353 = 0;
 			}
@@ -566,6 +593,23 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 		anOutputStream1349 = null;
 		remaining = 0;
 		anInt1379++;
+	}
+
+	static void readFully(InputStream input, byte[] data, int offset, int length) throws IOException {
+		int end = offset + length;
+		while (offset < end) {
+			int read = input.read(data, offset, end - offset);
+			if (read < 0)
+				throw new EOFException("truncated on-demand response");
+			if (read == 0) {
+				int value = input.read();
+				if (value < 0)
+					throw new EOFException("truncated on-demand response");
+				data[offset++] = (byte) value;
+			} else {
+				offset += read;
+			}
+		}
 	}
 
 	public int method343(int i) {

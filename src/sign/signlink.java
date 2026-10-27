@@ -5,11 +5,6 @@
 
 package sign;
 
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.Sequence;
-import javax.sound.midi.Sequencer;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
 import java.applet.Applet;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -21,11 +16,12 @@ import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
+import java.util.Arrays;
 
 public class signlink implements Runnable {
 
-	public static Sequencer musicSr = null;
-	public Sequence musicS = null;
+	public static final MidiPlayer musicPlayer = new MidiPlayer();
+	public static final WavePlayer wavePlayer = new WavePlayer();
 	public static void startpriv(InetAddress inetaddress) {
 		threadliveid = (int) (Math.random() * 99999999D);
 		if (active) {
@@ -88,50 +84,21 @@ public class signlink implements Runnable {
 				}
 				dnsreq = null;
 			} else if (savereq != null) {
-				if (savebuf != null)
-					try {
-						FileOutputStream fileoutputstream = new FileOutputStream(s + savereq);
+				boolean saved = true;
+				if (savebuf != null) {
+					try (FileOutputStream fileoutputstream = new FileOutputStream(s + savereq)) {
 						fileoutputstream.write(savebuf, 0, savelen);
-						fileoutputstream.close();
-					} catch (Exception _ex) {
+					} catch (IOException exception) {
+						saved = false;
+						System.err.println("Unable to save sound: " + exception);
 					}
-				if (waveplay) {
+				}
+				if (waveplay && saved) {
 					String wave = s + savereq;
-					try {
-						File sound = new File(wave);
-
-						if (sound.exists()) {
-							Clip clip = AudioSystem.getClip();
-							clip.open(AudioSystem.getAudioInputStream(sound));
-							clip.start();
-						}
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
-					waveplay = false;
+					wavePlayer.play(new File(wave));
 				}
-				if (midiplay) {
-					midi = s + savereq;
-					try {
-						if (musicS != null && musicSr.isOpen()) {
-							musicSr.stop();
-							musicSr.close();
-						}
-
-						File music = new File(midi);
-
-						if (music.exists()) {
-							musicS = MidiSystem.getSequence(music);
-							musicSr = MidiSystem.getSequencer();
-							musicSr.open();
-							musicSr.setSequence(musicS);
-							musicSr.start();
-						}
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
-					midiplay = false;
-				}
+				waveplay = false;
+				savebuf = null;
 				savereq = null;
 			} else if (urlreq != null) {
 				try {
@@ -223,14 +190,14 @@ public class signlink implements Runnable {
 	}
 
 	public static synchronized boolean wavesave(byte abyte0[], int i) {
-		if (i > 0x1e8480)
+		if (abyte0 == null || i < 0 || i > abyte0.length || i > 0x1e8480)
 			return false;
 		if (savereq != null) {
 			return false;
 		} else {
 			wavepos = (wavepos + 1) % 5;
 			savelen = i;
-			savebuf = abyte0;
+			savebuf = Arrays.copyOf(abyte0, i);
 			waveplay = true;
 			savereq = "sound" + wavepos + ".wav";
 			return true;
@@ -245,21 +212,6 @@ public class signlink implements Runnable {
 			waveplay = true;
 			savereq = "sound" + wavepos + ".wav";
 			return true;
-		}
-	}
-
-	public static synchronized void midisave(byte abyte0[], int i) {
-		if (i > 0x1e8480)
-			return;
-		if (savereq != null) {
-			return;
-		} else {
-			midipos = (midipos + 1) % 5;
-			savelen = i;
-			savebuf = abyte0;
-			midiplay = true;
-			savereq = "jingle" + midipos + ".mid";
-			return;
 		}
 	}
 
@@ -305,13 +257,8 @@ public class signlink implements Runnable {
 	public static String urlreq = null;
 	public static DataInputStream urlstream = null;
 	public static int savelen;
-	public static String savereq = null;
+	public static volatile String savereq = null;
 	public static byte savebuf[] = null;
-	public static boolean midiplay;
-	public static int midipos;
-	public static String midi = null;
-	public static int midivol;
-	public static int midifade;
 	public static boolean waveplay;
 	public static int wavepos;
 	public static String wave = null;

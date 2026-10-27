@@ -29,9 +29,19 @@ import java.util.zip.CRC32;
 import luna.Constants;
 import luna.RsaParser;
 import sign.signlink;
+import sign.MusicController;
 
 @SuppressWarnings("serial")
 public class client extends JagApplet {
+
+    private final MusicController music = new MusicController(id -> {
+        if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
+            return false;
+        }
+        this.fileFetcher.request(2, id);
+        return true;
+    }, (data, loop, started) -> signlink.musicPlayer.play(data, loop, started),
+            () -> signlink.musicPlayer.stop());
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 
@@ -313,7 +323,6 @@ public class client extends JagApplet {
     public byte aByteArrayArrayArray1125[][][];
     public int anInt1126;
     public boolean aBoolean1127;
-    public int anInt1128;
     public int currentlyHovered1129;
     public long friends[];
     public JagBuffer aClass50_Sub1_Sub2_1131;
@@ -470,8 +479,6 @@ public class client extends JagApplet {
     public static final int anIntArray1268[] = {9104, 10275, 7595, 3610, 7975, 8526, 918, 38802, 24466, 10145, 58654,
             5027, 1457, 16565, 34991, 25486};
     public int anInt1269;
-    public int anInt1270;
-    public boolean aBoolean1271;
     public int anInt1272;
     public int unreadMessages;
     public boolean aBoolean1274;
@@ -528,7 +535,6 @@ public class client extends JagApplet {
     public int anInt1324;
     public static int pulseCycle;
     public int anIntArray1326[];
-    public int anInt1327;
     public int anInt1328;
     public int anInt1329;
     public int anInt1330;
@@ -836,16 +842,7 @@ public class client extends JagApplet {
     }
 
     private void stopMidi() {
-        try {
-            if (signlink.musicSr.isOpen()) {
-                signlink.midifade = 0;
-                signlink.midi = "stop";
-                signlink.musicSr.stop();
-                signlink.musicSr.close();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        music.reset();
     }
 
     public void startLoginScreenLoop() {
@@ -989,6 +986,8 @@ public class client extends JagApplet {
         aClass50_Sub1_Sub1_Sub1Array954 = null;
         aClass50_Sub1_Sub1_Sub1Array896 = null;
         method50(false);
+        signlink.musicPlayer.close();
+        signlink.wavePlayer.close();
         outBuffer = null;
         tempBuffer = null;
         buffer = null;
@@ -1237,17 +1236,6 @@ public class client extends JagApplet {
             return true;
         } else {
             return false;
-        }
-    }
-
-    public void method24(boolean flag, byte abyte0[], int i) {
-        if (!musicEnabled) {
-            return;
-        } else {
-            signlink.midifade = flag ? 1 : 0;
-            signlink.midisave(abyte0, abyte0.length);
-            i = 71 / i;
-            return;
         }
     }
 
@@ -2194,14 +2182,8 @@ public class client extends JagApplet {
             }
             if (opcode == 220) {
                 int l2 = buffer.getLEShortA();
-                if (l2 == 65535)
-                    l2 = -1;
-                if (l2 != anInt1327 && musicEnabled && !lowMemory && anInt1128 == 0) {
-                    anInt1270 = l2;
-                    aBoolean1271 = true;
-                    fileFetcher.request(2, anInt1270);
-                }
-                anInt1327 = l2;
+                music.setEnabled(musicEnabled && !lowMemory);
+                music.setSong(l2);
                 opcode = -1;
                 return true;
             }
@@ -2209,10 +2191,7 @@ public class client extends JagApplet {
                 int fileId = buffer.getLEShort();
                 int j12 = buffer.method554();
                 if (musicEnabled && !lowMemory) {
-                    anInt1270 = fileId;
-                    aBoolean1271 = false;
-                    fileFetcher.request(2, anInt1270); // request something from cache!?!
-                    anInt1128 = j12;
+                    music.playJingle(fileId, j12);
                 }
                 opcode = -1;
                 return true;
@@ -4100,11 +4079,6 @@ public class client extends JagApplet {
     }
 
     public void method50(boolean flag) {
-        /*    signlink.midiplay = false;
-        if (flag)
-            anInt1119 = 466;
-        signlink.midifade = 0;
-        signlink.midi = "stop";*/
         stopMidi();
     }
 
@@ -5027,9 +5001,7 @@ public class client extends JagApplet {
             AnimationFrame.initFrames(fileFetcher.method343(553));
             Model.init(fileFetcher.method340(0), fileFetcher);
             if (!lowMemory) {
-                anInt1270 = 0;
-                aBoolean1271 = true;
-                fileFetcher.request(2, anInt1270);
+                music.setSong(0);
                 while (fileFetcher.method333() > 0) {
                     method77(false);
                     try {
@@ -6319,8 +6291,8 @@ public class client extends JagApplet {
                 }
                 if (class50_sub1_sub3.type == 1 && class50_sub1_sub3.buf != null)
                     AnimationFrame.unpackFrames(class50_sub1_sub3.buf, true);
-                if (class50_sub1_sub3.type == 2 && class50_sub1_sub3.id == anInt1270 && class50_sub1_sub3.buf != null)
-                    method24(aBoolean1271, class50_sub1_sub3.buf, 659);
+                if (class50_sub1_sub3.type == 2)
+                    music.accept(class50_sub1_sub3.id, class50_sub1_sub3.buf);
                 if (class50_sub1_sub3.type == 3 && loadingStage == 1) {
                     for (int i = 0; i < aByteArrayArray838.length; i++) {
                         if (anIntArray857[i] == class50_sub1_sub3.id) {
@@ -7925,9 +7897,7 @@ public class client extends JagApplet {
     public void adjustVolume(boolean flag, byte byte0, int i) {
         if (byte0 != 8)
             outBuffer.putByte(49);
-        signlink.midivol = i;
-        if (flag)
-            signlink.midi = "voladjust";
+        signlink.musicPlayer.setVolume(i);
     }
 
     public void method100(int i) {
@@ -8295,7 +8265,6 @@ public class client extends JagApplet {
             shouldRenderUI = true;
         }
         if (varpType == 3) {
-            boolean wasMusicEnabled = musicEnabled;
             if (value == 0) {
                 adjustVolume(musicEnabled, (byte) 8, 0);
                 musicEnabled = true;
@@ -8314,16 +8283,7 @@ public class client extends JagApplet {
             }
             if (value == 4)
                 musicEnabled = false;
-            if (musicEnabled != wasMusicEnabled && !lowMemory) {
-                if (musicEnabled) {
-                    anInt1270 = anInt1327;
-                    aBoolean1271 = true;
-                    fileFetcher.request(2, anInt1270);
-                } else {
-                    method50(false);
-                }
-                anInt1128 = 0;
-            }
+            music.setEnabled(musicEnabled && !lowMemory);
         }
         if (varpType == 4) {
             if (value == 0) {
@@ -10116,9 +10076,6 @@ public class client extends JagApplet {
         }
         System.gc();
         method50(false);
-        anInt1327 = -1;
-        anInt1270 = -1;
-        anInt1128 = 0;
     }
 
     public void method125(String s, String s1) {
@@ -11835,16 +11792,7 @@ public class client extends JagApplet {
                 anIntArray1259[j]--;
             }
 
-        if (anInt1128 > 0) {
-            anInt1128 -= 20;
-            if (anInt1128 < 0)
-                anInt1128 = 0;
-            if (anInt1128 == 0 && musicEnabled && !lowMemory) {
-                anInt1270 = anInt1327;
-                aBoolean1271 = true;
-                fileFetcher.request(2, anInt1270);
-            }
-        }
+        music.tick(20);
     }
 
     public client() {
@@ -12010,7 +11958,6 @@ public class client extends JagApplet {
         aBoolean1265 = false;
         musicEnabled = true;
         anIntArray1267 = new int[200];
-        aBoolean1271 = true;
         anInt1272 = -1;
         aBoolean1274 = true;
         aBoolean1275 = true;
@@ -12037,7 +11984,6 @@ public class client extends JagApplet {
         anIntArray1321 = new int[50];
         groundItems = new LinkedList[4][104][104];
         anIntArray1326 = new int[7];
-        anInt1327 = -1;
         anInt1328 = 409;
     }
 
