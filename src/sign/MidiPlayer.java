@@ -26,7 +26,7 @@ import java.util.function.LongConsumer;
 public final class MidiPlayer implements AutoCloseable {
 
 	static final int MAX_MIDI_BYTES = 2 * 1024 * 1024;
-	private static final long FADE_MILLIS = 600;
+	private static final long FADE_MILLIS = 1000;
 
 	private final Object requests = new Object();
 	private final DeviceFactory factory;
