@@ -22,6 +22,7 @@ import java.net.Socket;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Objects;
@@ -30,6 +31,7 @@ import java.util.zip.CRC32;
 import luna.Constants;
 import luna.RsaParser;
 import luna.SeasonalTitleMusic;
+import luna.SeasonalTitleTheme;
 import sign.signlink;
 import sign.MusicController;
 
@@ -46,6 +48,9 @@ public class client extends JagApplet {
             () -> signlink.musicPlayer.stop(), () -> signlink.musicPlayer.prepareTransition());
 
     private final SeasonalTitleMusic titleMusic = new SeasonalTitleMusic(music);
+    private final Object titleArtworkLock = new Object();
+    private TitleArtwork titleArtwork;
+    private SeasonalTitleTheme appliedTitleTheme;
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 
@@ -7864,6 +7869,12 @@ public class client extends JagApplet {
     }
 
     public void renderLoginFlames() {
+        synchronized (titleArtworkLock) {
+            renderLoginFlamesLocked();
+        }
+    }
+
+    private void renderLoginFlamesLocked() {
         char c = '\u0100';
         if (anInt1047 > 0) {
             for (int j = 0; j < 256; j++) {
@@ -10389,6 +10400,7 @@ public class client extends JagApplet {
 
     public void drawLoginScreen(boolean flag) {
         prepareLoginUI();
+        updateTitleArtwork();
         loginboxElement.pushPixels();
         titlebox_1292.drawSprite(0, 0);
         //char c = '\u0168';
@@ -10907,64 +10919,39 @@ public class client extends JagApplet {
     }
 
     public void loadPixelsLoginScreen_139() {
-        byte[] titleBytes = titleArchive.get("title.dat");
-        RgbSprite tmpSprite = new RgbSprite(titleBytes, this);
-        loginFlameLeft.pushPixels();
-        tmpSprite.method459(0, 0);
-        loginFlameRight.pushPixels();
-        tmpSprite.method459(0, -637);
-        loginBackground_1.pushPixels();
-        tmpSprite.method459(0, -128);
-        loginBackground_2.pushPixels();
-        tmpSprite.method459(-371, -202);
-        loginboxElement.pushPixels();
-        tmpSprite.method459(-171, -202);
-        loginBackground_3.pushPixels();
-        tmpSprite.method459(-265, 0);
-        loginBackground_4.pushPixels();
-        tmpSprite.method459(-265, -562);
-        loginBackground_5.pushPixels();
-        tmpSprite.method459(-171, -128);
-        loginBackground_6.pushPixels();
-        tmpSprite.method459(-171, -562);
-        int[] ai = new int[tmpSprite.width_1490];
-        for (int i = 0; i < tmpSprite.height_1491; i++) {
-            for (int j = 0; j < tmpSprite.width_1490; j++) {
-                ai[j] = tmpSprite.pixels_1489[(tmpSprite.width_1490 - j - 1)
-                        + tmpSprite.width_1490 * i];
-            }
+        if (titleArtwork == null) titleArtwork = new TitleArtwork(titleArchive);
+        applyTitleArtwork(SeasonalTitleTheme.forDate(LocalDate.now()));
+    }
 
-            for (int l = 0; l < tmpSprite.width_1490; l++) {
-                tmpSprite.pixels_1489[l + tmpSprite.width_1490 * i] = ai[l];
+    private void updateTitleArtwork() {
+        if (titleArtwork == null || loginBackground_1 == null) return;
+        SeasonalTitleTheme theme = SeasonalTitleTheme.forDate(LocalDate.now());
+        if (theme != appliedTitleTheme) applyTitleArtwork(theme);
+    }
+
+    private void applyTitleArtwork(SeasonalTitleTheme theme) {
+        java.awt.image.BufferedImage image = titleArtwork.imageFor(theme);
+        synchronized (titleArtworkLock) {
+            copyTitleRegion(image, loginFlameLeft, 0, 0);
+            copyTitleRegion(image, loginFlameRight, 637, 0);
+            copyTitleRegion(image, loginBackground_1, 128, 0);
+            copyTitleRegion(image, loginBackground_2, 202, 371);
+            copyTitleRegion(image, loginboxElement, 202, 171);
+            copyTitleRegion(image, loginBackground_3, 0, 265);
+            copyTitleRegion(image, loginBackground_4, 562, 265);
+            copyTitleRegion(image, loginBackground_5, 128, 171);
+            copyTitleRegion(image, loginBackground_6, 562, 171);
+            if (sprite_1017 != null) {
+                System.arraycopy(loginFlameLeft.pixels, 0, sprite_1017.pixels_1489, 0, loginFlameLeft.pixels.length);
+                System.arraycopy(loginFlameRight.pixels, 0, sprite_1018.pixels_1489, 0, loginFlameRight.pixels.length);
             }
+            appliedTitleTheme = theme;
+            shouldRenderUI = true;
         }
+    }
 
-        loginFlameLeft.pushPixels();
-        tmpSprite.method459(0, 382);
-        loginFlameRight.pushPixels();
-        tmpSprite.method459(0, -255);
-        loginBackground_1.pushPixels();
-        tmpSprite.method459(0, 254);
-        loginBackground_2.pushPixels();
-        tmpSprite.method459(-371, 180);
-        loginboxElement.pushPixels();
-        tmpSprite.method459(-171, 180);
-        loginBackground_3.pushPixels();
-        tmpSprite.method459(-265, 382);
-        loginBackground_4.pushPixels();
-        tmpSprite.method459(-265, -180);
-        loginBackground_5.pushPixels();
-        tmpSprite.method459(-171, 254);
-        loginBackground_6.pushPixels();
-        tmpSprite.method459(-171, -180);
-        tmpSprite = new RgbSprite(titleArchive, "logo", 0);
-        loginBackground_1.pushPixels();
-        // draw the logo on the login screen
-        tmpSprite.method461(18, 382 - tmpSprite.width_1490 / 2 - 128, -488);
-        tmpSprite = null;
-        titleBytes = null;
-        ai = null;
-        System.gc();
+    private static void copyTitleRegion(java.awt.image.BufferedImage image, JagImageProducer target, int x, int y) {
+        image.getRGB(x, y, target.width, target.height, target.pixels, 0, target.width);
     }
 
     public void method140(byte byte0, GameObjectSpawnRequest class50_sub2) {
