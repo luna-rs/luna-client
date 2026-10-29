@@ -29,6 +29,7 @@ import java.util.zip.CRC32;
 
 import luna.Constants;
 import luna.RsaParser;
+import luna.SeasonalTitleMusic;
 import sign.signlink;
 import sign.MusicController;
 
@@ -43,6 +44,8 @@ public class client extends JagApplet {
         return true;
     }, (data, loop, started) -> signlink.musicPlayer.play(data, loop, started),
             () -> signlink.musicPlayer.stop(), () -> signlink.musicPlayer.prepareTransition());
+
+    private final SeasonalTitleMusic titleMusic = new SeasonalTitleMusic(music);
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 
@@ -845,6 +848,7 @@ public class client extends JagApplet {
     }
 
     private void stopMidi() {
+        titleMusic.reset();
         music.reset();
     }
 
@@ -5050,7 +5054,7 @@ public class client extends JagApplet {
             AnimationFrame.initFrames(fileFetcher.method343(553));
             Model.init(fileFetcher.method340(0), fileFetcher);
             if (!lowMemory) {
-                music.setSong(0);
+                titleMusic.update();
                 while (fileFetcher.method333() > 0) {
                     method77(false);
                     try {
@@ -7423,10 +7427,14 @@ public class client extends JagApplet {
             toggleSize(size);
         }
         checkSize();
-        if (!isLoggedIn)
+        if (!isLoggedIn) {
+            music.setEnabled(musicEnabled && !lowMemory);
+            titleMusic.update();
+            music.tick(20);
             method149(-724);
-        else
+        } else {
             updateGame28((byte) 4);
+        }
         method77(false);
     }
 
