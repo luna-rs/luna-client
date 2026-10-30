@@ -11,7 +11,7 @@ public class SceneGraph {
 	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
 	 * by 128 world units. Scenery picking, actors and ground items keep their original range.
 	 */
-	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 15;
+	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 27;
 	private static final int CLASSIC_SCENE_RADIUS = 25;
 	private static final int CLASSIC_FAR_CLIP = 3500;
 	private static final int MAX_TERRAIN_RADIUS = 52;
@@ -1542,21 +1542,20 @@ public class SceneGraph {
 				if (flag2) {
 					ScenegraphMember44 class44_1 = class50_sub3_1.aClass44_1403;
 					if (!method288(l, i, j, class44_1.anInt722))
-						renderScenery(class44_1.aClass50_Sub1_Sub4_724, 0,
+						class44_1.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
 								class44_1.anInt720 - anInt470, class44_1.anInt719 - anInt471, class44_1.anInt721
-										- anInt472, class44_1.uid, renderObjects);
+										- anInt472, class44_1.uid);
 					class50_sub3_1.anInt1415 = 0;
 				}
 			}
-			if (class50_sub3_1.aBoolean1414)
+			if (renderObjects && class50_sub3_1.aBoolean1414)
 				try {
 					int i1 = class50_sub3_1.anInt1407;
 					class50_sub3_1.aBoolean1414 = false;
 					int l1 = 0;
 					label0: for (int k2 = 0; k2 < i1; k2++) {
 						ScenegraphRelated5 scenegraphRelated5_1 = class50_sub3_1.class5[k2];
-						if (!canRenderScenery(scenegraphRelated5_1.anInt125, renderObjects)
-								|| scenegraphRelated5_1.anInt124 == anInt463)
+						if (scenegraphRelated5_1.anInt124 == anInt463)
 							continue;
 						for (int k3 = scenegraphRelated5_1.anInt119; k3 <= scenegraphRelated5_1.anInt120; k3++) {
 							for (int l4 = scenegraphRelated5_1.anInt121; l4 <= scenegraphRelated5_1.anInt122; l4++) {
