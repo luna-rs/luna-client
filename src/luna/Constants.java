@@ -2,16 +2,17 @@ package luna;
 
 public final class Constants {
 
-    public static final boolean BETA_CLIENT = Boolean.getBoolean("luna.beta");
-    public static final String CLIENT_NAME = "luna-rs #377" + (BETA_CLIENT ? " (beta)" : "");
     /**
      * Overrides the selected release's endpoint with localhost when launched with -Dluna.local=true.
      */
+
     public static final boolean USE_LOCAL_SERVER = Boolean.getBoolean("luna.local");
     public static final String BETA_HOST = "85.155.184.204";
     public static final String LOCAL_HOST = "127.0.0.1";
     public static final String CONNECT_HOST = USE_LOCAL_SERVER ? LOCAL_HOST
-            : BETA_CLIENT ? BETA_HOST : LOCAL_HOST;
+       : BETA_HOST ;
+    public static final String CLIENT_NAME = "luna-rs #377" + (!USE_LOCAL_SERVER ? " (beta)" : "");
+
     public static final int CONNECT_PORT = 43594;
 
     public static final boolean DECODE_RSA = true;
