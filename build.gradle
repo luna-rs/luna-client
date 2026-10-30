@@ -1,0 +1,135 @@
+import java.util.jar.JarFile
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
+
+plugins {
+    id 'application'
+}
+
+group = 'io.luna'
+version = 'beta'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    mainClass = 'client'
+    applicationName = 'Luna-Beta'
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['src']
+        resources.srcDirs = []
+    }
+    test {
+        java.srcDirs = ['test']
+        resources.srcDirs = []
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+tasks.named('processResources') {
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    from('data') {
+        include 'soundbank.sf2', 'title/**'
+        into 'data'
+    }
+    from('rsa') {
+        include 'rsapub.toml'
+        into 'rsa'
+    }
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.named('jar') {
+    archiveFileName = 'Luna-Beta.jar'
+    manifest {
+        attributes('Main-Class': application.mainClass.get(),
+                'Implementation-Title': 'Luna Beta',
+                'Implementation-Version': project.version)
+    }
+}
+
+// These regression fixtures are plain Java entry points rather than JUnit tests.
+tasks.named('test') {
+    enabled = false
+}
+
+def appletFixtures = ['BetaConfigurationTest', 'ClientRenderTimingTest', 'JagAppletTimingTest',
+        'ResizableClientInputTest'] as Set
+def clientTestTasks = []
+fileTree('test').matching { include '**/*Test.java' }.files.sort().each { source ->
+    def packageMatch = source.getText('UTF-8') =~ /(?m)^package\s+([\w.]+)\s*;/
+    def simpleName = source.name.substring(0, source.name.length() - '.java'.length())
+    def className = packageMatch.find() ? packageMatch.group(1) + '.' + simpleName : simpleName
+    def taskName = 'run' + className.replace('.', '_')
+    clientTestTasks.add(tasks.register(taskName, JavaExec) {
+        group = 'verification'
+        description = "Runs ${className}."
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = className
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        maxHeapSize = '512m'
+        jvmArgs '-Djava.awt.headless=' + !appletFixtures.contains(className)
+        workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
+        doFirst {
+            workingDir.mkdirs()
+        }
+    })
+}
+
+tasks.register('clientTest') {
+    group = 'verification'
+    description = 'Runs all plain Java client regression fixtures.'
+    dependsOn clientTestTasks
+}
+
+tasks.register('verifyBetaJar') {
+    group = 'verification'
+    description = 'Checks the executable manifest and packaged runtime assets.'
+    dependsOn tasks.named('jar')
+    def archive = tasks.named('jar').flatMap { it.archiveFile }
+    inputs.file(archive)
+    doLast {
+        new JarFile(archive.get().asFile).withCloseable { jar ->
+            if (jar.manifest.mainAttributes.getValue('Main-Class') != 'client') {
+                throw new GradleException('The executable JAR must launch client.')
+            }
+            def required = ['client.class', 'luna/Constants.class', 'rsa/rsapub.toml',
+                    'data/soundbank.sf2']
+            ['christmas', 'easter', 'halloween'].each { season ->
+                ['background.png', 'logo.png'].each { image ->
+                    required.add("data/title/${season}/${image}")
+                }
+            }
+            required.each { path ->
+                if (jar.getJarEntry(path.toString()) == null) {
+                    throw new GradleException("Missing packaged runtime resource: ${path}")
+                }
+            }
+            jar.entries().each { entry ->
+                if (entry.name.startsWith('cache/') || entry.name.startsWith('luna/cache/')) {
+                    throw new GradleException('The mutable game cache must remain outside the executable JAR.')
+                }
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar')
+}

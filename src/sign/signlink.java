@@ -13,16 +13,20 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.util.Arrays;
+
+import luna.ClientPaths;
 
 public class signlink implements Runnable {
 
 	public static final MidiPlayer musicPlayer = new MidiPlayer();
 	public static final WavePlayer wavePlayer = new WavePlayer();
 	public static void startpriv(InetAddress inetaddress) {
+		findcachedir();
 		threadliveid = (int) (Math.random() * 99999999D);
 		if (active) {
 			try {
@@ -48,20 +52,17 @@ public class signlink implements Runnable {
 	}
 
 	public void run() {
-		active = true;
 		String s = findcachedir();
 		uid = getuid(s);
 		try {
-			File file = new File(s + "main_file_cache.dat");
-			if (file.exists() && file.length() > 0x3200000L)
-				file.delete();
-			cache_dat = new RandomAccessFile(s + "main_file_cache.dat", "rw");
+			cache_dat = new RandomAccessFile(new File(s, "main_file_cache.dat"), "rw");
 			for (int j = 0; j < 5; j++)
-				cache_idx[j] = new RandomAccessFile(s + "main_file_cache.idx" + j, "rw");
+				cache_idx[j] = new RandomAccessFile(new File(s, "main_file_cache.idx" + j), "rw");
 
 		} catch (Exception exception) {
 			exception.printStackTrace();
 		}
+		active = true;
 		for (int i = threadliveid; threadliveid == i;) {
 			if (socketreq != 0) {
 				try {
@@ -86,7 +87,7 @@ public class signlink implements Runnable {
 			} else if (savereq != null) {
 				boolean saved = true;
 				if (savebuf != null) {
-					try (FileOutputStream fileoutputstream = new FileOutputStream(s + savereq)) {
+					try (FileOutputStream fileoutputstream = new FileOutputStream(new File(s, savereq))) {
 						fileoutputstream.write(savebuf, 0, savelen);
 					} catch (IOException exception) {
 						saved = false;
@@ -94,8 +95,7 @@ public class signlink implements Runnable {
 					}
 				}
 				if (waveplay && saved) {
-					String wave = s + savereq;
-					wavePlayer.play(new File(wave));
+						wavePlayer.play(new File(s, savereq));
 				}
 				waveplay = false;
 				savebuf = null;
@@ -117,25 +117,16 @@ public class signlink implements Runnable {
 	}
 
 	public static String findcachedir() {
-		return "./cache/";
+		try {
+			return ClientPaths.ensureCacheDirectory().toString() + File.separator;
+		} catch (IOException exception) {
+			throw new UncheckedIOException(exception.getMessage(), exception);
+		}
 	}
-
-	/*
-	 * String as[] = { "c:/windows/", "c:/winnt/", "d:/windows/", "d:/winnt/",
-	 * "e:/windows/", "e:/winnt/", "f:/windows/", "f:/winnt/", "c:/", "~/",
-	 * "/tmp/", "", "c:/rscache", "/rscache" }; if(storeid < 32 || storeid > 34)
-	 * storeid = 32; String s = ".file_store_" + storeid; for(int i = 0; i <
-	 * as.length; i++) try { String s1 = as[i]; if(s1.length() > 0) { File file
-	 * = new File(s1); if(!file.exists()) continue; } File file1 = new File(s1 +
-	 * s); if(file1.exists() || file1.mkdir()) return s1 + s + "/"; }
-	 * catch(Exception _ex) { }
-	 * 
-	 * return null; }
-	 */
 
 	public static int getuid(String s) {
 		try {
-			File file = new File(s + "uid.dat");
+			File file = new File(s, "uid.dat");
 			if (!file.exists() || file.length() < 4L) {
 				DataOutputStream dataoutputstream = new DataOutputStream(new FileOutputStream(s + "uid.dat"));
 				dataoutputstream.writeInt((int) (Math.random() * 99999999D));
@@ -144,7 +135,7 @@ public class signlink implements Runnable {
 		} catch (Exception _ex) {
 		}
 		try {
-			DataInputStream datainputstream = new DataInputStream(new FileInputStream(s + "uid.dat"));
+			DataInputStream datainputstream = new DataInputStream(new FileInputStream(new File(s, "uid.dat")));
 			int i = datainputstream.readInt();
 			datainputstream.close();
 			return i + 1;
@@ -245,7 +236,7 @@ public class signlink implements Runnable {
 	public static RandomAccessFile cache_idx[] = new RandomAccessFile[5];
 	public static boolean sunjava;
 	public static Applet mainapp = null;
-	public static boolean active;
+	public static volatile boolean active;
 	public static int threadliveid;
 	public static InetAddress socketip;
 	public static int socketreq;

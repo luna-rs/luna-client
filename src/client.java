@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.zip.CRC32;
 
 import luna.Constants;
+import luna.ClientPaths;
 import luna.RsaParser;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
@@ -603,25 +604,25 @@ public class client extends JagApplet {
 
     public static void main(String args[]) {
         try {
-            System.out.println("RS2 user client - release #" + 377);
+            System.out.println(Constants.CLIENT_NAME + " - release #" + 377);
+            System.out.println("Server: " + Constants.CONNECT_HOST + ":" + Constants.CONNECT_PORT);
+            System.out.println("Cache: " + ClientPaths.cacheDirectory());
             RsaParser.parse();
             world = 10;
             portOffset = 0;
             switchToHighMem();
             memberServer = true;
             signlink.storeid = 32;
-            if(Constants.CONNECT_HOST == "127.0.0.1") {
-                signlink.startpriv(InetAddress.getLocalHost());
-            } else {
-                signlink.startpriv(InetAddress.getByName(Constants.CONNECT_HOST));
-            }
+            signlink.startpriv(InetAddress.getByName(Constants.CONNECT_HOST));
             settings = ClientSettings.load();
             client cl = new client();
             cl.startupClientSize = settings.clientSize;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> settings.save()));
             cl.start(765, 503);
         } catch (Exception exception) {
-            return;
+            System.err.println(Constants.CLIENT_NAME + " could not start: " + exception.getMessage());
+            exception.printStackTrace();
+            System.exit(1);
         }
     }
 
@@ -2165,7 +2166,7 @@ public class client extends JagApplet {
             }
             aSocket1224 = null;
         }
-        aSocket1224 = openSocket(43595);
+        aSocket1224 = openSocket(Constants.CONNECT_PORT + 1);
         aSocket1224.setSoTimeout(10000);
         java.io.InputStream inputstream = aSocket1224.getInputStream();
         OutputStream outputstream = aSocket1224.getOutputStream();
@@ -2177,7 +2178,7 @@ public class client extends JagApplet {
         if (signlink.mainapp != null)
             return signlink.opensocket(i);
         else
-            return new Socket(InetAddress.getByName(getCodeBase().getHost()), i);
+            return new Socket(InetAddress.getByName(Constants.CONNECT_HOST), i);
     }
 
     public boolean parseIncomingPacket() {
@@ -3654,11 +3655,7 @@ public class client extends JagApplet {
         if (signlink.mainapp != null) {
             return signlink.mainapp.getDocumentBase().getHost().toLowerCase();
         }
-        if (super.frame != null) {
-            return "runescape.com";
-        } else {
-            return super.getDocumentBase().getHost().toLowerCase();
-        }
+        return Constants.CONNECT_HOST;
     }
 
     public void method38(int i, int j, int k, Player player, int l) {
@@ -5107,33 +5104,7 @@ public class client extends JagApplet {
             return;
         }
         started = true;
-        boolean flag = false;
-        String s = method37(-42588);
-        if (s.endsWith("jagex.com"))
-            flag = true;
-        if (s.endsWith("runescape.com"))
-            flag = true;
-        if (s.endsWith("192.168.1.2"))
-            flag = true;
-        if (s.endsWith("192.168.1.231"))
-            flag = true;
-        if (s.endsWith("192.168.1.229"))
-            flag = true;
-        if (s.endsWith("192.168.1.228"))
-            flag = true;
-        if (s.endsWith("192.168.1.227"))
-            flag = true;
-        if (s.endsWith("192.168.1.226"))
-            flag = true;
-        if (s.endsWith("192.168.1.224"))
-            flag = true;
-        if (s.endsWith("192.168.1.223"))
-            flag = true;
-        if (s.endsWith("192.168.1.221"))
-            flag = true;
-        if (s.endsWith("127.0.0.1"))
-            flag = true;
-        if (!flag) {
+        if (!Constants.CONNECT_HOST.equalsIgnoreCase(method37(-42588))) {
             aBoolean1097 = true;
             return;
         }
@@ -6513,7 +6484,7 @@ public class client extends JagApplet {
                 statusLineTwo = "Connecting to server...";
                 drawLoginScreen(true);
             }
-            connection = new JagSocket((byte) 2, openSocket(43594 + portOffset), this);
+            connection = new JagSocket((byte) 2, openSocket(Constants.CONNECT_PORT + portOffset), this);
             long base37name = StringUtils.encodeBase37(username);
             int hash = (int) (base37name >> 16 & 31L);
             outBuffer.position = 0;
@@ -7448,11 +7419,10 @@ public class client extends JagApplet {
         if (signlink.mainapp != null)
             return signlink.mainapp.getCodeBase();
         try {
-            if (super.frame != null)
-                return new URL("http://"+Constants.CONNECT_HOST+":" + (80 + portOffset));
+            return new URL("http", Constants.CONNECT_HOST, 80 + portOffset, "/");
         } catch (Exception _ex) {
+            throw new IllegalStateException("Invalid configured server address", _ex);
         }
-        return super.getCodeBase();
     }
 
     public boolean updateInterfaceAnimations(int i, int id) {

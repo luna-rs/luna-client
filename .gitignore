@@ -3,3 +3,5 @@ out/
 .idea/
 cache/
 cacheModded/
+.gradle/
+build/

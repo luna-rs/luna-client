@@ -1,5 +1,7 @@
 package sign;
 
+import luna.ClientResources;
+
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiMessage;
 import javax.sound.midi.MetaMessage;
@@ -14,6 +16,7 @@ import javax.sound.midi.Transmitter;
 import javax.sound.midi.Track;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.function.LongConsumer;
 
@@ -286,15 +289,17 @@ public final class MidiPlayer implements AutoCloseable {
 		synthesizer = factory.synthesizer();
 		synthesizer.open();
 		if (soundbankFile != null) {
+			Soundbank bank;
 			if (soundbankFile.isFile()) {
-				Soundbank bank = MidiSystem.getSoundbank(soundbankFile);
-				if (bank == null || !synthesizer.isSoundbankSupported(bank)
-						|| !synthesizer.loadAllInstruments(bank))
-					throw new InvalidMidiDataException("Unsupported soundbank: " + soundbankFile);
+				bank = MidiSystem.getSoundbank(soundbankFile);
 			} else {
-				System.err.println("MIDI soundbank " + soundbankFile
-						+ " is missing; using the synthesizer's default instruments.");
+				try (InputStream stream = ClientResources.openBundled("data/soundbank.sf2")) {
+					bank = MidiSystem.getSoundbank(stream);
+				}
 			}
+			if (bank == null || !synthesizer.isSoundbankSupported(bank)
+					|| !synthesizer.loadAllInstruments(bank))
+				throw new InvalidMidiDataException("Unsupported soundbank: " + soundbankFile);
 		}
 		receiver = new VolumeReceiver(synthesizer.getReceiver());
 		sequencer = factory.sequencer();

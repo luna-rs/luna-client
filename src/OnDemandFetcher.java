@@ -560,7 +560,7 @@ public class OnDemandFetcher extends ModelProvider implements Runnable {
 				if (l - aLong1378 < 4000L)
 					return;
 				aLong1378 = l;
-				aSocket1355 = _client.openSocket(43594 + client.portOffset);
+				aSocket1355 = _client.openSocket(luna.Constants.CONNECT_PORT + client.portOffset);
 				aSocket1355.setSoTimeout(5000);
 				in = aSocket1355.getInputStream();
 				anOutputStream1349 = aSocket1355.getOutputStream();

@@ -1,4 +1,5 @@
 import luna.SeasonalTitleTheme;
+import luna.ClientResources;
 
 import javax.imageio.ImageIO;
 import java.awt.Canvas;
@@ -6,6 +7,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -32,6 +34,7 @@ public final class TitleArtworkTest {
             boundedLoading(archive, directory);
             sessionCaching(archive, directory);
             sharedCalendar();
+            bundledComposition(archive, directory.resolve("packaged-assets"));
         } finally {
             try (Stream<Path> paths = Files.walk(directory)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(path);
@@ -65,6 +68,22 @@ public final class TitleArtworkTest {
         }
         check(Arrays.equals(actual, pixels(TitleArtwork.compose(archive, directory, SeasonalTitleTheme.EASTER))),
                 "missing seasonal assets retain the complete cached title");
+    }
+
+    private static void bundledComposition(Archive archive, Path referenceDirectory) throws Exception {
+        TitleArtwork bundled = new TitleArtwork(archive, referenceDirectory.resolve("missing-overrides"), true);
+        for (SeasonalTitleTheme theme : new SeasonalTitleTheme[] {
+                SeasonalTitleTheme.EASTER, SeasonalTitleTheme.HALLOWEEN, SeasonalTitleTheme.CHRISTMAS}) {
+            Path season = Files.createDirectories(referenceDirectory.resolve(theme.directory()));
+            for (String image : new String[] {"background.png", "logo.png"}) {
+                try (InputStream resource = ClientResources.openBundled("data/title/" + theme.directory() + "/" + image)) {
+                    Files.copy(resource, season.resolve(image));
+                }
+            }
+            BufferedImage expected = TitleArtwork.compose(archive, referenceDirectory, theme);
+            check(Arrays.equals(pixels(expected), pixels(bundled.imageFor(theme))),
+                    "packaged seasonal artwork retains the exact filesystem composition");
+        }
     }
 
     private static void seasonalComposition(Archive archive, Path directory) throws Exception {

@@ -1,4 +1,5 @@
 import luna.SeasonalTitleTheme;
+import luna.ClientResources;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -10,6 +11,7 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,16 +37,22 @@ public final class TitleArtwork {
     private static final int MAX_DIMENSION = 4096;
 
     private final Path directory;
+    private final boolean bundledResources;
     private final BufferedImage cachedBackground;
     private final RgbSprite cachedLogo;
     private final Map<SeasonalTitleTheme, BufferedImage> images = new EnumMap<>(SeasonalTitleTheme.class);
 
     public TitleArtwork(Archive archive) {
-        this(archive, findTitleDirectory());
+        this(archive, findTitleDirectory(), true);
     }
 
     public TitleArtwork(Archive archive, Path directory) {
+        this(archive, directory, false);
+    }
+
+    TitleArtwork(Archive archive, Path directory, boolean bundledResources) {
         this.directory = directory;
+        this.bundledResources = bundledResources;
         RgbSprite half = new RgbSprite(archive.get("title.dat"), new Canvas());
         if (half.width_1490 != 383 || half.height_1491 != HEIGHT) {
             throw new IllegalArgumentException("Expected the cached 383x503 title background");
@@ -135,8 +143,20 @@ public final class TitleArtwork {
         if (theme == SeasonalTitleTheme.DEFAULT) return null;
         Path path = directory.resolve(theme.directory()).resolve(file);
         try {
-            if (!Files.isRegularFile(path) || Files.size(path) > MAX_FILE_BYTES) return null;
-            try (InputStream stream = Files.newInputStream(path);
+            InputStream source;
+            if (Files.isRegularFile(path)) {
+                if (Files.size(path) > MAX_FILE_BYTES) return null;
+                source = Files.newInputStream(path);
+            } else if (bundledResources) {
+                try (InputStream resource = ClientResources.openBundled("data/title/" + theme.directory() + "/" + file)) {
+                    byte[] bytes = resource.readNBytes((int) MAX_FILE_BYTES + 1);
+                    if (bytes.length > MAX_FILE_BYTES) return null;
+                    source = new ByteArrayInputStream(bytes);
+                }
+            } else {
+                return null;
+            }
+            try (InputStream stream = source;
                  ImageInputStream imageStream = new MemoryCacheImageInputStream(stream)) {
                 Iterator<ImageReader> readers = ImageIO.getImageReaders(imageStream);
                 if (!readers.hasNext()) return null;

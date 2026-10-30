@@ -1,9 +1,9 @@
 package luna;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 /**
@@ -13,10 +13,10 @@ public final class RsaParser {
 
     private static BigInteger modulus;
     private static BigInteger exponent;
-    private static final Path RSA = Paths.get("./rsa/rsapub.toml");
 
     public static void parse() throws IOException {
-        try (Scanner reader = new Scanner(RSA)) {
+        try (InputStream stream = ClientResources.open("rsa/rsapub.toml");
+             Scanner reader = new Scanner(stream, StandardCharsets.UTF_8)) {
             reader.nextLine();
             modulus = parseValue(reader.nextLine());
             exponent = parseValue(reader.nextLine());
