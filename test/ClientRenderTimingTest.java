@@ -60,7 +60,7 @@ public final class ClientRenderTimingTest {
         client game = fixture();
         Field target = JagApplet.class.getDeclaredField("targetFps");
         target.setAccessible(true);
-        int previousDistance = SceneGraph.getResizableSceneryDistanceIncrease();
+        int previousDistance = SceneGraph.getResizableDrawDistanceIncrease();
         try {
             for (int rate : new int[] {60, 120, 240}) {
                 check(game.handleClientCommand("::fpslimit " + rate), "render limits are handled locally");
@@ -71,21 +71,26 @@ public final class ClientRenderTimingTest {
                 game.handleClientCommand("::fpslimit " + invalid);
                 check(target.getInt(game) == 240, "invalid render limits retain the previous target");
             }
-            for (int distance : new int[] {15, 0, 27}) {
-                check(game.handleClientCommand("::scenerydistance " + distance),
-                        "scenery limits are handled locally");
-                check(SceneGraph.getResizableSceneryDistanceIncrease() == distance,
-                        "live scenery limits can be reduced and restored");
-            }
-            for (String invalid : new String[] {"", "-1", "28", "word"}) {
-                game.handleClientCommand("::scenerydistance " + invalid);
-                check(SceneGraph.getResizableSceneryDistanceIncrease() == 27,
-                        "invalid scenery limits retain the previous distance");
+            for (String command : new String[] {"::drawdistance", "::scenerydistance"}) {
+                for (int distance : new int[] {15, 0, 27}) {
+                    check(game.handleClientCommand(command + " " + distance),
+                            "both draw-distance command names are handled locally");
+                    check(SceneGraph.getResizableDrawDistanceIncrease() == distance,
+                            "both commands reduce and restore the shared draw distance");
+                    check(game.aStringArray1298[0].contains("terrain and scenery"),
+                            "the distance feedback identifies both synchronized layers");
+                }
+                for (String invalid : new String[] {"", "-1", "28", "word"}) {
+                    game.handleClientCommand(command + " " + invalid);
+                    check(SceneGraph.getResizableDrawDistanceIncrease() == 27,
+                            "invalid draw distances retain the previous value");
+                }
+                check(game.handleClientCommand(command), "missing distance is handled locally");
             }
             check(game.outBuffer.position == 0, "performance commands send no server packets");
             check(!game.handleClientCommand("::unrelated"), "unrelated commands retain normal routing");
         } finally {
-            SceneGraph.setResizableSceneryDistanceIncrease(previousDistance);
+            SceneGraph.setResizableDrawDistanceIncrease(previousDistance);
         }
     }
 

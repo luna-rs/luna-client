@@ -14,9 +14,62 @@ public final class SceneGraphTerrainDistanceTest {
 
     public static void main(String[] args) {
         visibilityAndDepthLimits();
+        liveDrawDistance();
         terrainOnlyTraversal();
         sceneEdgesAndOccluders();
         System.out.println("SceneGraphTerrainDistanceTest passed");
+    }
+
+    private static void liveDrawDistance() {
+        int previousDistance = SceneGraph.getResizableDrawDistanceIncrease();
+        int[] heights = visibilityHeights();
+        try {
+            SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, false);
+            boolean[][][][] classic = SceneGraph.aBooleanArrayArrayArrayArray506;
+            SceneGraph.setResizableDrawDistanceIncrease(15);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506 == classic,
+                    "changing the saved range in fixed mode does not expand fixed visibility");
+            checkDepth(3500);
+
+            SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, true);
+            boolean[][][][] distance15 = SceneGraph.aBooleanArrayArrayArrayArray506;
+            check(distance15[0][0].length == 81 && objectVisibilityTables() == classic,
+                    "resizable mode restores the chosen range and reuses classic picking visibility");
+            checkDepth(5420);
+
+            SceneGraph.setResizableDrawDistanceIncrease(27);
+            boolean[][][][] distance27 = SceneGraph.aBooleanArrayArrayArrayArray506;
+            check(distance27[0][0].length == 105 && objectVisibilityTables() == classic,
+                    "live distance expands terrain without rebuilding classic interaction visibility");
+            checkDepth(6956);
+            SceneGraph.setResizableDrawDistanceIncrease(15);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506 == distance15,
+                    "switching back to a recent distance reuses its visibility table");
+            checkDepth(5420);
+            SceneGraph.setResizableDrawDistanceIncrease(0);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506 == classic,
+                    "zero uses the exact classic table while retaining resizable mode");
+            checkDepth(3500);
+            SceneGraph.setResizableDrawDistanceIncrease(27);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506 == distance27,
+                    "zero can be extended again without a window or buffer rebuild");
+            checkDepth(6956);
+
+            SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, false);
+            SceneGraph.setResizableDrawDistanceIncrease(15);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506 == classic,
+                    "fixed mode keeps its classic table after a live setting change");
+            checkDepth(3500);
+            SceneGraph.preCalcFrustrumTable(heights, 900, 600, 500, 800, true);
+            check(SceneGraph.aBooleanArrayArrayArrayArray506[0][0].length == 81
+                            && SceneGraph.aBooleanArrayArrayArrayArray506 != distance15
+                            && objectVisibilityTables() != classic,
+                    "a new viewport invalidates both classic and extended visibility tables");
+            checkDepth(5420);
+        } finally {
+            SceneGraph.setResizableDrawDistanceIncrease(previousDistance);
+            SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, false);
+        }
     }
 
     private static void visibilityAndDepthLimits() {

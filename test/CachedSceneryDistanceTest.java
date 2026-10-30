@@ -18,7 +18,7 @@ public final class CachedSceneryDistanceTest {
         sceneryPathsAndBoundaries();
         visibilityAndCameraChanges();
         sharedFootprintsAndDeferredWalls();
-        liveSceneryDistance();
+        liveDrawDistance();
         outerFootprintAdmission();
         System.out.println("CachedSceneryDistanceTest passed");
     }
@@ -182,6 +182,10 @@ public final class CachedSceneryDistanceTest {
             heights[index] = (600 + angle * 3) * ThreeDimensionalCanvas.sineTable[angle] >> 16;
         }
         SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, extra);
+        makeVisible(classicVisible);
+    }
+
+    private static void makeVisible(boolean classicVisible) {
         fill(SceneGraph.aBooleanArrayArrayArrayArray506, true);
         try {
             Field field = SceneGraph.class.getDeclaredField("objectVisibilityTables");
@@ -202,10 +206,10 @@ public final class CachedSceneryDistanceTest {
         return offset >= -25 && offset < 25;
     }
 
-    private static void liveSceneryDistance() {
-        int previousDistance = SceneGraph.getResizableSceneryDistanceIncrease();
+    private static void liveDrawDistance() {
+        int previousDistance = SceneGraph.getResizableDrawDistanceIncrease();
         try {
-            SceneGraph.setResizableSceneryDistanceIncrease(27);
+            SceneGraph.setResizableDrawDistanceIncrease(27);
             RecordingScene scene = new RecordingScene();
             List<Fixture> fixtures = new ArrayList<>();
             for (int offset : new int[] {-50, -41, -39, -26, -25, 0, 24, 25, 39, 41, 50}) {
@@ -220,28 +224,30 @@ public final class CachedSceneryDistanceTest {
             addObject(scene, negativeBoundary, CACHE_UID | Integer.MIN_VALUE, 12, 12, CAMERA);
             addObject(scene, positiveBoundary, CACHE_UID, 92, 92, CAMERA);
             configure(27, true);
-            boolean[][][][] terrainTables = SceneGraph.aBooleanArrayArrayArrayArray506;
             for (int distance : new int[] {27, 15, 0, 27}) {
-                SceneGraph.setResizableSceneryDistanceIncrease(distance);
-                check(SceneGraph.getResizableSceneryDistanceIncrease() == distance,
-                        "scenery distance can change during an active scene");
+                SceneGraph.setResizableDrawDistanceIncrease(distance);
+                makeVisible(true);
+                check(SceneGraph.getResizableDrawDistanceIncrease() == distance,
+                        "shared draw distance can change during an active scene");
                 for (Fixture fixture : fixtures) fixture.reset();
                 crossingCache.reset();
                 negativeBoundary.reset();
                 positiveBoundary.reset();
                 scene.floorCalls = 0;
                 render(scene, CAMERA, CAMERA);
+                int expectedFloors = 0;
                 for (Fixture fixture : fixtures) {
                     boolean classic = classicOffset(fixture.x - CAMERA) && classicOffset(fixture.y - CAMERA);
                     int radius = 25 + distance;
                     boolean visible = fixture.x - CAMERA >= -radius && fixture.x - CAMERA < radius
                             && fixture.y - CAMERA >= -radius && fixture.y - CAMERA < radius;
+                    if (visible) expectedFloors++;
                     fixture.checkCalls(visible, classic, distance > 0, 3500 + distance * 128);
                 }
-                check(scene.floorCalls == fixtures.size(), "scenery distance does not shorten terrain traversal");
-                check(SceneGraph.aBooleanArrayArrayArrayArray506 == terrainTables
-                                && terrainTables[0][0].length == 105 && terrainFarClip() == 6956,
-                        "live scenery changes preserve terrain visibility tables and depth");
+                check(scene.floorCalls == expectedFloors, "terrain and scenery traversal use the same live range");
+                check(SceneGraph.aBooleanArrayArrayArrayArray506[0][0].length == 51 + distance * 2
+                                && terrainFarClip() == 3500 + distance * 128,
+                        "live draw distance changes terrain visibility and depth with cached scenery");
                 check(SceneGraph.anInt461 == 0, "reduced scenery distance still resolves deferred walls");
                 if (distance > 0) {
                     check(crossingCache.extendedCalls == 1 && crossingCache.lastPicking,
@@ -274,12 +280,14 @@ public final class CachedSceneryDistanceTest {
                         && fixture.y - CAMERA >= -40 && fixture.y - CAMERA < 40;
                 fixture.checkCalls(visible, classic, true);
             }
-            SceneGraph.setResizableSceneryDistanceIncrease(Integer.MAX_VALUE);
-            check(SceneGraph.getResizableSceneryDistanceIncrease() == 27, "excessive scenery increases are capped");
+            SceneGraph.setResizableDrawDistanceIncrease(Integer.MAX_VALUE);
+            check(SceneGraph.getResizableDrawDistanceIncrease() == 27, "excessive draw increases are capped");
             SceneGraph.setResizableSceneryDistanceIncrease(Integer.MIN_VALUE);
-            check(SceneGraph.getResizableSceneryDistanceIncrease() == 0, "negative scenery increases are disabled");
+            check(SceneGraph.getResizableDrawDistanceIncrease() == 0
+                            && SceneGraph.getResizableSceneryDistanceIncrease() == 0 && terrainFarClip() == 3500,
+                    "the old scenery API also changes the shared terrain and scenery range");
         } finally {
-            SceneGraph.setResizableSceneryDistanceIncrease(previousDistance);
+            SceneGraph.setResizableDrawDistanceIncrease(previousDistance);
         }
     }
 
@@ -304,6 +312,7 @@ public final class CachedSceneryDistanceTest {
             configure(27, true);
             for (int distance : new int[] {27, 15, 27}) {
                 SceneGraph.setResizableSceneryDistanceIncrease(distance);
+                makeVisible(true);
                 crossingCache.reset();
                 render(scene, 30, CAMERA);
                 check(crossingCache.extendedCalls == (distance == 27 ? 1 : 0),

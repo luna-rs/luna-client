@@ -2,28 +2,34 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public class SceneGraph {
 
 	/**
-	 * Extra terrain tiles drawn beyond the original 25 tile
+	 * Extra terrain and cached scenery tiles drawn beyond the original 25 tile
 	 * radius in resizable mode. Zero disables the increase; negative values are treated as zero and
 	 * the effective increase is capped at 27 (a 52 tile radius) for the supported
 	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
 	 * by 128 world units. Scenery picking, actors and ground items keep their original range.
 	 */
 	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 27;
-	/**
-	 * Initial extra cached scenery tiles in resizable mode, capped by the terrain distance.
-	 * Zero keeps scenery at its classic range without reducing terrain visibility.
-	 */
-	public static final int RESIZABLE_SCENERY_DISTANCE_INCREASE = 27;
 	private static final int CLASSIC_SCENE_RADIUS = 25;
 	private static final int CLASSIC_FAR_CLIP = 3500;
 	private static final int MAX_TERRAIN_RADIUS = 52;
 	private static int terrainDrawRadius = CLASSIC_SCENE_RADIUS;
 	private static int terrainFarClip = CLASSIC_FAR_CLIP;
-	private static int resizableSceneryDistanceIncrease = Math.max(0,
-			Math.min(RESIZABLE_SCENERY_DISTANCE_INCREASE, MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
+	private static int resizableDrawDistanceIncrease = Math.max(0,
+			Math.min(RESIZABLE_TERRAIN_DISTANCE_INCREASE, MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
+	private static int[] visibilityHeights;
+	private static int visibilityWidth;
+	private static int visibilityHeight;
+	private static int visibilityBelow;
+	private static int visibilityAbove;
+	private static boolean resizableVisibility;
+	private static final Map<Integer, boolean[][][][]> extendedVisibilityCache = new LinkedHashMap<>();
 	public static boolean aBoolean439;
 	public int anInt440;
 	public boolean aBoolean441;
@@ -154,6 +160,9 @@ public class SceneGraph {
 		aBooleanArrayArrayArrayArray506 = null;
 		objectVisibilityTables = null;
 		objectVisibility = null;
+		visibilityHeights = null;
+		resizableVisibility = false;
+		extendedVisibilityCache.clear();
 		if (flag) {
 			return;
 		} else {
@@ -960,30 +969,62 @@ public class SceneGraph {
 	}
 
 	/**
-	 * Builds visibility for the viewport, optionally extending terrain beyond the
-	 * original object and entity range in resizable mode.
+	 * Builds matching terrain and cached scenery visibility for the viewport while
+	 * preserving the original interaction and actor range.
 	 */
 	public static void preCalcFrustrumTable(int[] ai, int intArg0, int intArg1, int i, int j,
 			boolean extendedTerrain) {
-		preCalcFrustrumTable(ai, intArg0, intArg1, i, j,
-				extendedTerrain ? RESIZABLE_TERRAIN_DISTANCE_INCREASE : 0);
+		configureVisibility(ai, intArg0, intArg1, i, j,
+				extendedTerrain ? resizableDrawDistanceIncrease : 0, extendedTerrain);
 	}
 
 	static void preCalcFrustrumTable(int[] ai, int intArg0, int intArg1, int i, int j,
 			int terrainDistanceIncrease) {
-		int extraTiles = Math.max(0, Math.min(terrainDistanceIncrease,
+		configureVisibility(ai, intArg0, intArg1, i, j, terrainDistanceIncrease, terrainDistanceIncrease != 0);
+	}
+
+	/**
+	 * Reuses visibility tables while the viewport and sampled heights are unchanged.
+	 */
+	private static void configureVisibility(int[] ai, int width, int height, int below, int above,
+			int distanceIncrease, boolean resizable) {
+		boolean viewportChanged = visibilityHeights == null || visibilityWidth != width
+				|| visibilityHeight != height || visibilityBelow != below || visibilityAbove != above
+				|| !Arrays.equals(visibilityHeights, ai);
+		if (viewportChanged) {
+			visibilityHeights = ai.clone();
+			visibilityWidth = width;
+			visibilityHeight = height;
+			visibilityBelow = below;
+			visibilityAbove = above;
+			objectVisibilityTables = null;
+			extendedVisibilityCache.clear();
+		}
+		int extraTiles = Math.max(0, Math.min(distanceIncrease,
 				MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
 		terrainDrawRadius = CLASSIC_SCENE_RADIUS + extraTiles;
 		terrainFarClip = CLASSIC_FAR_CLIP + extraTiles * 128;
+		resizableVisibility = resizable;
 		anInt510 = 0;
 		anInt511 = 0;
-		anInt512 = intArg0;
-		anInt513 = intArg1;
-		anInt508 = intArg0 / 2;
-		anInt509 = intArg1 / 2;
-		objectVisibilityTables = buildVisibilityTable(ai, i, j, CLASSIC_SCENE_RADIUS, CLASSIC_FAR_CLIP);
-		aBooleanArrayArrayArrayArray506 = extraTiles == 0 ? objectVisibilityTables
-				: buildVisibilityTable(ai, i, j, terrainDrawRadius, terrainFarClip);
+		anInt512 = width;
+		anInt513 = height;
+		anInt508 = width / 2;
+		anInt509 = height / 2;
+		if (objectVisibilityTables == null)
+			objectVisibilityTables = buildVisibilityTable(ai, below, above, CLASSIC_SCENE_RADIUS, CLASSIC_FAR_CLIP);
+		if (extraTiles == 0) {
+			aBooleanArrayArrayArrayArray506 = objectVisibilityTables;
+		} else {
+			boolean[][][][] tables = extendedVisibilityCache.get(extraTiles);
+			if (tables == null) {
+				tables = buildVisibilityTable(ai, below, above, terrainDrawRadius, terrainFarClip);
+				if (extendedVisibilityCache.size() == 2)
+					extendedVisibilityCache.remove(extendedVisibilityCache.keySet().iterator().next());
+				extendedVisibilityCache.put(extraTiles, tables);
+			}
+			aBooleanArrayArrayArrayArray506 = tables;
+		}
 	}
 
 	/**
@@ -1317,19 +1358,37 @@ public class SceneGraph {
 	}
 
 	/**
-	 * Changes cached scenery distance without rebuilding terrain visibility tables.
-	 * The configured increase is clamped to 0 through 27; rendering also caps it at the active terrain increase.
+	 * Changes terrain and cached scenery distance together on the game thread.
+	 * Fixed mode keeps its classic range until resizable mode is selected again.
 	 */
-	public static void setResizableSceneryDistanceIncrease(int extraTiles) {
-		resizableSceneryDistanceIncrease = Math.max(0,
+	public static void setResizableDrawDistanceIncrease(int extraTiles) {
+		resizableDrawDistanceIncrease = Math.max(0,
 				Math.min(extraTiles, MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
+		if (visibilityHeights != null && resizableVisibility
+				&& terrainDrawRadius != CLASSIC_SCENE_RADIUS + resizableDrawDistanceIncrease)
+			configureVisibility(visibilityHeights, visibilityWidth, visibilityHeight, visibilityBelow,
+					visibilityAbove, resizableDrawDistanceIncrease, true);
 	}
 
 	/**
-	 * Returns the configured cached scenery increase, before the active terrain distance caps it.
+	 * Returns the configured shared increase used whenever resizable mode is active.
+	 */
+	public static int getResizableDrawDistanceIncrease() {
+		return resizableDrawDistanceIncrease;
+	}
+
+	/**
+	 * Retains the old scenery command API while changing both terrain and scenery distance.
+	 */
+	public static void setResizableSceneryDistanceIncrease(int extraTiles) {
+		setResizableDrawDistanceIncrease(extraTiles);
+	}
+
+	/**
+	 * Returns the shared distance through the old scenery command API.
 	 */
 	public static int getResizableSceneryDistanceIncrease() {
-		return resizableSceneryDistanceIncrease;
+		return getResizableDrawDistanceIncrease();
 	}
 
 	/**
@@ -1337,18 +1396,9 @@ public class SceneGraph {
 	 */
 	private static void renderScenery(Entity entity, int yaw, int relativeX, int relativeY,
 			int relativeZ, int uid, boolean classicVisible) {
-		int extraTiles = Math.min(resizableSceneryDistanceIncrease, terrainDrawRadius - CLASSIC_SCENE_RADIUS);
-		if (extraTiles > 0 && isCachedScenery(uid)) {
-			if (!classicVisible && extraTiles < terrainDrawRadius - CLASSIC_SCENE_RADIUS) {
-				int radius = CLASSIC_SCENE_RADIUS + extraTiles;
-				int offsetX = ((relativeX + anInt470) >> 7) - anInt468;
-				int offsetY = ((relativeZ + anInt472) >> 7) - anInt469;
-				// Only a shorter scenery limit uses the model centre; full distance retains footprint admission.
-				if (offsetX < -radius || offsetX >= radius || offsetY < -radius || offsetY >= radius)
-					return;
-			}
+		if (terrainDrawRadius > CLASSIC_SCENE_RADIUS && isCachedScenery(uid)) {
 			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
-					relativeZ, uid, CLASSIC_FAR_CLIP + extraTiles * 128, classicVisible);
+					relativeZ, uid, terrainFarClip, classicVisible);
 		} else if (classicVisible) {
 			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
 					relativeZ, uid);
