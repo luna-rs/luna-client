@@ -10,6 +10,6 @@ public final class BetaClientLauncher {
 
     public static void main(String[] args) {
         System.setProperty("luna.beta", "true");
-        client.main(args);
+        ClientLauncher.main(args);
     }
 }

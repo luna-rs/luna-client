@@ -18,7 +18,7 @@ java {
 }
 
 application {
-    mainClass = 'client'
+    mainClass = 'ClientLauncher'
     applicationName = 'Luna-Development'
 }
 
@@ -166,7 +166,7 @@ tasks.register('verifyBetaJar') {
     description = 'Checks both executable manifests and their packaged runtime assets.'
     dependsOn tasks.named('jar'), tasks.named('betaJar')
     def artifacts = [
-            [archive: tasks.named('jar').flatMap { it.archiveFile }, main: 'client', title: 'luna-rs #377'],
+            [archive: tasks.named('jar').flatMap { it.archiveFile }, main: 'ClientLauncher', title: 'luna-rs #377'],
             [archive: tasks.named('betaJar').flatMap { it.archiveFile }, main: 'BetaClientLauncher', title: 'luna-rs #377 (beta)']
     ]
     inputs.files(artifacts.collect { it.archive })
@@ -177,7 +177,7 @@ tasks.register('verifyBetaJar') {
                         || jar.manifest.mainAttributes.getValue('Implementation-Title') != artifact.title) {
                     throw new GradleException('The executable JAR must select its intended client profile and title.')
                 }
-                def required = ['client.class', 'BetaClientLauncher.class', 'luna/Constants.class', 'luna/CacheBootstrap.class', 'rsa/rsapub.toml',
+                def required = ['client.class', 'ClientLauncher.class', 'BetaClientLauncher.class', 'luna/Constants.class', 'luna/CacheBootstrap.class', 'rsa/rsapub.toml',
                         'data/soundbank.sf2', 'bootstrap/cache.zip', 'bootstrap/cache.sha256']
                 ['christmas', 'easter', 'halloween'].each { season ->
                     ['background.png', 'logo.png'].each { image ->
@@ -240,7 +240,26 @@ tasks.register('verifyBetaJar') {
     }
 }
 
+tasks.register('verifyClientLaunchers', JavaExec) {
+    group = 'verification'
+    description = 'Checks that both packaged launchers select software graphics before the client initializes.'
+    dependsOn tasks.named('testClasses'), tasks.named('jar'), tasks.named('betaJar')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'ClientLauncherTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '256m'
+    jvmArgs '-Djava.awt.headless=true'
+    workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
+    doFirst {
+        workingDir.mkdirs()
+        setArgs([tasks.named('jar').get().archiveFile.get().asFile.absolutePath,
+                 tasks.named('betaJar').get().archiveFile.get().asFile.absolutePath])
+    }
+}
+
 tasks.named('check') {
-    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyLocalServerToggle'),
+    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyClientLaunchers'), tasks.named('verifyLocalServerToggle'),
             tasks.named('verifyBetaServerToggle'), tasks.named('verifyLocalBetaServerToggle')
 }

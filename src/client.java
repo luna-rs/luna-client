@@ -466,7 +466,7 @@ public class client extends JagApplet {
     public boolean aBoolean1240;
     public int lastAddress;
     public static boolean aBoolean1242 = true;
-    public volatile boolean isThreadStarted;
+    private boolean loginFlamesReady;
     public int chatboxInterfaceType;
     public byte aByteArray1245[];
     public int anInt1246;
@@ -536,14 +536,12 @@ public class client extends JagApplet {
     public int anIntArray1311[];
     public int anIntArray1312[];
     public int anIntArray1313[];
-    public volatile boolean isGameThreadStarted;
     public int anInt1315;
     public static BigInteger JAGEX_PUBLIC_KEY = new BigInteger(
             "58778699976184461502525193738213253649000149147835990136706041084440742975821");
     public byte aByte1317;
     public int anInt1318;
     public int anInt1319;
-    public volatile boolean delayedResetter1320;
     public int anIntArray1321[];
     public int anInt1322;
     public LinkedList groundItems[][][];
@@ -604,6 +602,7 @@ public class client extends JagApplet {
     private boolean loginScreenCleared = false;
 
     public static void main(String args[]) {
+        ClientLauncher.configureGraphics();
         try {
             System.out.println(Constants.CLIENT_NAME + " - release #" + 377);
             System.out.println("Server: " + Constants.CONNECT_HOST + ":" + Constants.CONNECT_PORT);
@@ -843,16 +842,6 @@ public class client extends JagApplet {
         return clientSize == 1 && !isLoggedIn ? Math.max(0, (clientHeight - REGULAR_HEIGHT) / 2) : 0;
     }
 
-    public void run() {
-        if (isGameThreadStarted) {
-            startLoginScreenLoop();
-            return;
-        } else {
-            super.run();
-            return;
-        }
-    }
-
     public void method14(String s, int i) {
         if (s == null || s.length() == 0) {
             anInt862 = 0;
@@ -959,37 +948,6 @@ public class client extends JagApplet {
     private void stopMidi() {
         titleMusic.reset();
         music.reset();
-    }
-
-    public void startLoginScreenLoop() {
-        delayedResetter1320 = true;
-        try {
-            long l = System.currentTimeMillis();
-            int i = 0;
-            int j = 20;
-            while (isThreadStarted) {
-                anInt1101++;
-                updateLoginFlames((byte) 1);
-                updateLoginFlames((byte) 1);
-                renderLoginFlames();
-                if (++i > 10) {
-                    long l1 = System.currentTimeMillis();
-                    int k = (int) (l1 - l) / 10 - j;
-                    j = 40 - k;
-                    if (j < 5) {
-                        j = 5;
-                    }
-                    i = 0;
-                    l = l1;
-                }
-                try {
-                    Thread.sleep(j);
-                } catch (Exception _ex) {
-                }
-            }
-        } catch (Exception _ex) {
-        }
-        delayedResetter1320 = false;
     }
 
     public void processGameObjectSpawnRequests() {
@@ -4379,11 +4337,7 @@ public class client extends JagApplet {
         anIntArray1084 = new int[32768];
         anIntArray1085 = new int[32768];
         drawLoadingText(10, "Connecting to fileserver");
-        if (!isThreadStarted) {
-            isGameThreadStarted = true;
-            isThreadStarted = true;
-            startThread(this, 2);
-        }
+        loginFlamesReady = true;
     }
 
     public void method53(long l, int i) {
@@ -8058,7 +8012,6 @@ public class client extends JagApplet {
         }
 
         loginFlameRight.drawImage(637, 0, super.graphics);
-        presentBackBuffer();
     }
 
     public void adjustVolume(boolean flag, byte byte0, int i) {
@@ -10177,7 +10130,7 @@ public class client extends JagApplet {
         g.fillRect(0, 0, 765, 503);
         setFramerate(1);
         if (aBoolean1283) {
-            isThreadStarted = false;
+            loginFlamesReady = false;
             g.setFont(new Font("Helvetica", 1, 16));
             g.setColor(Color.yellow);
             int j = 35;
@@ -10199,7 +10152,7 @@ public class client extends JagApplet {
             g.drawString("5: Try selecting a different version of Java from the play-game menu", 30, j);
         }
         if (aBoolean1097) {
-            isThreadStarted = false;
+            loginFlamesReady = false;
             g.setFont(new Font("Helvetica", 1, 20));
             g.setColor(Color.white);
             g.drawString("Error - unable to load game!", 50, 50);
@@ -10207,7 +10160,7 @@ public class client extends JagApplet {
             g.drawString("http://www.runescape.com", 50, 150);
         }
         if (aBoolean1016) {
-            isThreadStarted = false;
+            loginFlamesReady = false;
             g.setColor(Color.yellow);
             int k = 35;
             g.drawString("Error a copy of RuneScape already appears to be loaded", 30, k);
@@ -10307,6 +10260,12 @@ public class client extends JagApplet {
     }
 
     @Override
+    protected int getEffectiveFramerate() {
+        int requestedFps = super.getEffectiveFramerate();
+        return isLoggedIn ? requestedFps : Math.min(requestedFps, 30);
+    }
+
+    @Override
     public void repaintGame() {
         if (aBoolean1016 || aBoolean1283 || aBoolean1097) {
             drawErrorScreen();
@@ -10316,6 +10275,12 @@ public class client extends JagApplet {
         if (!isLoggedIn) {
             prepareLoginScreenGraphics();
             drawLoginScreen(false);
+            if (loginFlamesReady) {
+                anInt1101++;
+                updateLoginFlames((byte) 1);
+                updateLoginFlames((byte) 1);
+                renderLoginFlames();
+            }
         } else {
             drawGame();
         }
@@ -11001,10 +10966,8 @@ public class client extends JagApplet {
         loginboxElement.drawImage(202, 171, super.graphics);
         if (shouldRenderUI) {
             shouldRenderUI = false;
-            if (!isThreadStarted) {
-                loginFlameLeft.drawImage(0, 0, super.graphics);
-                loginFlameRight.drawImage(637, 0, super.graphics);
-            }
+            loginFlameLeft.drawImage(0, 0, super.graphics);
+            loginFlameRight.drawImage(637, 0, super.graphics);
             loginBackground_1.drawImage(128, 0, super.graphics);
             loginBackground_2.drawImage(202, 371, super.graphics);
             loginBackground_3.drawImage(0, 265, super.graphics);
@@ -11079,14 +11042,7 @@ public class client extends JagApplet {
     }
 
     public void resetWhenBoolTrue() {
-        isThreadStarted = false;
-        while (delayedResetter1320) {
-            isThreadStarted = false;
-            try {
-                Thread.sleep(50L);
-            } catch (Exception _ex) {
-            }
-        }
+        loginFlamesReady = false;
         titlebox_1292 = null;
         titlebutton_1293 = null;
         runes_array1117 = null;
@@ -12127,7 +12083,7 @@ public class client extends JagApplet {
         anInt1236 = 326;
         aBoolean1239 = false;
         aBoolean1240 = false;
-        isThreadStarted = false;
+        loginFlamesReady = false;
         aByteArray1245 = new byte[16384];
         aClass13_1249 = new JagInterface();
         anInt1251 = 128;
@@ -12158,10 +12114,8 @@ public class client extends JagApplet {
         aStringArray1297 = new String[100];
         aStringArray1298 = new String[100];
         aBoolean1301 = true;
-        isGameThreadStarted = false;
         aByte1317 = -58;
         anInt1318 = 416;
-        delayedResetter1320 = false;
         anIntArray1321 = new int[50];
         groundItems = new LinkedList[4][104][104];
         anIntArray1326 = new int[7];
