@@ -42,6 +42,13 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	public int mouseX;
 	public int mouseY;
+	/**
+	 * Unscaled content coordinates captured by AWT, sampled by the game thread before input and drawing.
+	 */
+	public volatile int screenMouseX;
+	public volatile int screenMouseY;
+	public int screenClickX;
+	public int screenClickY;
 	public int keyStatus[];
 	public int inputBuffer[];
 	/** Held state indexed by AWT key code, so it is not affected by shift or caps lock. */
@@ -279,8 +286,11 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				anInt28 = anInt24;
 				anInt29 = anInt25;
 				anInt30 = anInt26;
+				screenClickX = anInt29;
+				screenClickY = anInt30;
 				aLong31 = aLong27;
 				anInt24 = 0;
+				updateMouseInput();
 				method7((byte) -111);
 				anInt34 = anInt35;
 			}
@@ -289,6 +299,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			if (delayTime > 0)
 				fps = (1000 * j) / (delayTime * 256);
 			ensureBackBuffer();
+			updateMouseInput();
 			repaintGame();
 			presentBackBuffer();
 			if (aBoolean11) {
@@ -403,8 +414,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	public void mouseExited(MouseEvent mouseevent) {
 		anInt20 = 0;
-		mouseX = -1;
-		mouseY = -1;
+		screenMouseX = -1;
+		screenMouseY = -1;
 	}
 
 	public void mouseDragged(MouseEvent mouseevent) {
@@ -413,8 +424,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		i -= insetLeft() + inputOffsetX();
 		j -= insetTop() + inputOffsetY();
 		anInt20 = 0;
-		mouseX = i;
-		mouseY = j;
+		screenMouseX = i;
+		screenMouseY = j;
 	}
 
 	public void mouseMoved(MouseEvent mouseevent) {
@@ -423,8 +434,18 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		i -= insetLeft() + inputOffsetX();
 		j -= insetTop() + inputOffsetY();
 		anInt20 = 0;
-		mouseX = i;
-		mouseY = j;
+		screenMouseX = i;
+		screenMouseY = j;
+	}
+
+	/**
+	 * Samples physical input without changing the fixed-mode coordinate system.
+	 */
+	protected void updateMouseInput() {
+		mouseX = screenMouseX;
+		mouseY = screenMouseY;
+		anInt29 = screenClickX;
+		anInt30 = screenClickY;
 	}
 
 	public void keyPressed(KeyEvent keyevent) {

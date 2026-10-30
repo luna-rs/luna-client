@@ -15,6 +15,19 @@ public class Entity extends QueueNode {
 		}
 	}
 
+	/**
+	 * Draws cached scenery with an explicit visual range and independent mouse-picking eligibility.
+	 */
+	public void render(int yaw, int sinPitch, int cosPitch, int sinYaw, int cosYaw,
+			int relativeX, int relativeY, int relativeZ, int uid, int farClip, boolean allowPicking) {
+		Model model = getModel();
+		if (model != null) {
+			height = model.height;
+			model.render(yaw, sinPitch, cosPitch, sinYaw, cosYaw,
+					relativeX, relativeY, relativeZ, uid, farClip, allowPicking);
+		}
+	}
+
 	public Model getModel() {
 		return null;
 	}
