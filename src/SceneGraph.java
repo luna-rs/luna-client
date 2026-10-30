@@ -1133,12 +1133,13 @@ public class SceneGraph {
 						} else {
 							class50_sub3.aBoolean1412 = true;
 							class50_sub3.aBoolean1413 = true;
+							boolean classicVisible = canRenderTileObjects(l1, j2, l2);
 							if (class50_sub3.anInt1407 > 0
-									&& (canRenderTileObjects(l1, j2, l2) || hasExtendedScenery(class50_sub3)))
+									&& (classicVisible || hasExtendedScenery(class50_sub3)))
 								class50_sub3.aBoolean1414 = true;
 							else
 								class50_sub3.aBoolean1414 = false;
-							if (!canRenderTileObjects(l1, j2, l2)) {
+							if (!classicVisible) {
 								class50_sub3.anInt1415 = 0;
 								class50_sub3.anInt1418 = 0;
 							}
@@ -1292,8 +1293,14 @@ public class SceneGraph {
 	 * A shared multi-tile object was originally admitted by any visible footprint tile.
 	 */
 	private boolean isClassicObjectVisible(int plane, ScenegraphRelated5 object) {
-		for (int x = object.anInt119; x <= object.anInt120; x++) {
-			for (int y = object.anInt121; y <= object.anInt122; y++) {
+		int minX = Math.max(object.anInt119, anInt468 - CLASSIC_SCENE_RADIUS);
+		int maxX = Math.min(object.anInt120, anInt468 + CLASSIC_SCENE_RADIUS - 1);
+		int minY = Math.max(object.anInt121, anInt469 - CLASSIC_SCENE_RADIUS);
+		int maxY = Math.min(object.anInt122, anInt469 + CLASSIC_SCENE_RADIUS - 1);
+		if (minX > maxX || minY > maxY)
+			return false;
+		for (int x = minX; x <= maxX; x++) {
+			for (int y = minY; y <= maxY; y++) {
 				Tile tile = tiles[plane][x][y];
 				if (tile != null && tile.anInt1411 <= anInt462 && canRenderTileObjects(plane, x, y))
 					return true;

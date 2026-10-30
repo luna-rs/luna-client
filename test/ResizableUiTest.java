@@ -20,6 +20,7 @@ public final class ResizableUiTest {
         inputOwnership();
         renderedInputAlignment();
         nativeArtworkAndCorners();
+        stagingRgbAndReuse();
         componentTranslationAndAlpha();
         frameClearingAndGraphicsIsolation();
         System.out.println("ResizableUiTest passed");
@@ -203,6 +204,26 @@ public final class ResizableUiTest {
                 "ordinary minimap input uses the minimap inverse transform");
         check(ui.mapInput(-1, -1, inventory, true, chat).equals(new Point(-1, -1)),
                 "mouse-exit sentinel remains intact during a drag or menu");
+    }
+
+    private static void stagingRgbAndReuse() {
+        ClientLayout layout = ClientLayout.create(true, 900, 600);
+        ResizableUi ui = new ResizableUi(layout, 900, 600);
+        int[] first = {0x00123456, 0xff123456, 0x7f123456, 0x80000000};
+        int[] second = {0xffabcdef, 0x00abcdef, 0x17abcdef, 0xffffffff};
+        Rectangle firstArea = new Rectangle(layout.inventoryBlock.x + 60, layout.inventoryBlock.y + 60, 2, 2);
+        Rectangle secondArea = new Rectangle(firstArea.x + 10, firstArea.y, 2, 2);
+        ui.drawPixels(first, 2, 2, firstArea, ClientLayout.AREA_INVENTORY, ClientLayout.OPAQUE);
+        ui.drawPixels(second, 2, 2, secondArea, ClientLayout.AREA_INVENTORY, ClientLayout.OPAQUE);
+        BufferedImage image = render(ui, 900, 600);
+        for (int index = 0; index < first.length; index++) {
+            int x = index % 2;
+            int y = index / 2;
+            check(image.getRGB(firstArea.x + x, firstArea.y + y) == (0xff000000 | first[index]),
+                    "RGB staging ignores source alpha and retains an earlier component when its dimensions are reused");
+            check(image.getRGB(secondArea.x + x, secondArea.y + y) == (0xff000000 | second[index]),
+                    "RGB staging updates reused dimensions with the latest native pixels");
+        }
     }
 
     private static void componentTranslationAndAlpha() {

@@ -22,6 +22,13 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public static final int MIN_CONTENT_WIDTH = 765, MIN_CONTENT_HEIGHT = 503;
 
 	/**
+	 * Target rendering rate. Game updates always run at their original 50 Hz.
+	 */
+	public static final int TARGET_FPS = 60;
+	private volatile int targetFps = TARGET_FPS;
+	private volatile long stopDeadlineNanos;
+
+	/**
 	 * Latest drawable size reported by the AWT thread when the frame was resized, or -1 if no resize is pending.
 	 * The game thread reads these (see client.checkSize) so buffers are only rebuilt on the game thread.
 	 */
@@ -57,7 +64,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public boolean aBoolean2;
 	public boolean aBoolean3;
 	public int anInt5;
-	public int gameState;
+	public volatile int gameState;
 	public int delayTime;
 	public int minDelay;
 	public long otims[];
@@ -148,12 +155,18 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	 * Copies the back buffer to the window. This is the only place the game output reaches the screen.
 	 */
 	public void presentBackBuffer() {
+		presentFrame();
+	}
+
+	private boolean presentFrame() {
 		synchronized (presentLock) {
 			BufferedImage buffer = backBuffer;
 			Graphics screen = screenGraphics;
 			if (buffer != null && screen != null) {
 				screen.drawImage(buffer, 0, 0, null);
+				return true;
 			}
+			return false;
 		}
 	}
 
@@ -233,56 +246,22 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		}
 		drawLoadingText(0, "Loading...");
 		load();
-		int i = 0;
-		int j = 256;
-		int k = 1;
-		int i1 = 0;
-		int j1 = 0;
-		for (int k1 = 0; k1 < 10; k1++)
-			otims[k1] = System.currentTimeMillis();
+		int scheduledFps = targetFps;
+		FrameScheduler scheduler = new FrameScheduler(System.nanoTime(), scheduledFps);
 
 		while (gameState >= 0) {
-			if (gameState > 0) {
-				gameState--;
-				if (gameState == 0) {
-					exit(aBoolean2);
-					return;
-				}
+			long now = System.nanoTime();
+			long stopDeadline = stopDeadlineNanos;
+			if (gameState > 0 && stopDeadline != 0L && now - stopDeadline >= 0) {
+				exit(aBoolean2);
+				return;
 			}
-			int i2 = j;
-			int j2 = k;
-			j = 300;
-			k = 1;
-			long l1 = System.currentTimeMillis();
-			if (otims[i] == 0L) {
-				j = i2;
-				k = j2;
-			} else if (l1 > otims[i])
-				j = (int) ((2560 * delayTime) / (l1 - otims[i]));
-			if (j < 25)
-				j = 25;
-			if (j > 256) {
-				j = 256;
-				k = (int) (delayTime - (l1 - otims[i]) / 10L);
+			if (targetFps != scheduledFps) {
+				scheduledFps = targetFps;
+				scheduler.setTargetFps(scheduledFps, now);
 			}
-			if (k > delayTime)
-				k = delayTime;
-			otims[i] = l1;
-			i = (i + 1) % 10;
-			if (k > 1) {
-				for (int k2 = 0; k2 < 10; k2++)
-					if (otims[k2] != 0L)
-						otims[k2] += k;
-
-			}
-			if (k < minDelay)
-				k = minDelay;
-			try {
-				Thread.sleep(k);
-			} catch (InterruptedException _ex) {
-				j1++;
-			}
-			for (; i1 < 256; i1 += j) {
+			int updates = scheduler.pendingUpdates(now);
+			for (int update = 0; update < updates && gameState >= 0; update++) {
 				anInt28 = anInt24;
 				anInt29 = anInt25;
 				anInt30 = anInt26;
@@ -294,26 +273,30 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				method7((byte) -111);
 				anInt34 = anInt35;
 			}
-
-			i1 &= 0xff;
-			if (delayTime > 0)
-				fps = (1000 * j) / (delayTime * 256);
-			ensureBackBuffer();
-			updateMouseInput();
-			repaintGame();
-			presentBackBuffer();
+			if (gameState < 0) {
+				break;
+			}
+			long frameStart = System.nanoTime();
+			if (scheduler.isRenderDue(frameStart)) {
+				scheduler.frameStarted(frameStart);
+				ensureBackBuffer();
+				updateMouseInput();
+				repaintGame();
+				boolean presented = presentFrame();
+				scheduler.frameCompleted(System.nanoTime(), presented);
+				fps = scheduler.getFramesPerSecond();
+			}
 			if (aBoolean11) {
-				System.out.println("ntime:" + l1);
-				for (int l2 = 0; l2 < 10; l2++) {
-					int i3 = ((i - l2 - 1) + 20) % 10;
-					System.out.println("otim" + i3 + ":" + otims[i3]);
-				}
-
-				System.out.println("fps:" + fps + " ratio:" + j + " count:" + i1);
-				System.out.println("del:" + k + " deltime:" + delayTime + " mindel:" + minDelay);
-				System.out.println("intex:" + j1 + " opos:" + i);
+				System.out.println("fps:" + fps + " target:" + scheduledFps + " updates:" + updates);
 				aBoolean11 = false;
-				j1 = 0;
+			}
+			long waitNanos = scheduler.nanosUntilWork(System.nanoTime());
+			if (waitNanos > 0) {
+				try {
+					Thread.sleep(waitNanos / 1_000_000L, (int) (waitNanos % 1_000_000L));
+				} catch (InterruptedException _ex) {
+					// Check lifecycle state again when a pending sleep is interrupted.
+				}
 			}
 		}
 		if (gameState == -1)
@@ -339,19 +322,26 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	}
 
 	public void setFramerate(int newFramerate) {
-		delayTime = 1000 / newFramerate;
+		if (newFramerate < 1 || newFramerate > 1000) {
+			throw new IllegalArgumentException("Frame rate must be between 1 and 1000");
+		}
+		targetFps = newFramerate;
 	}
 
 	@Override
 	public void start() {
-		if (gameState >= 0)
+		if (gameState >= 0) {
+			stopDeadlineNanos = 0L;
 			gameState = 0;
+		}
 	}
 
 	@Override
 	public void stop() {
-		if (gameState >= 0)
-			gameState = 4000 / delayTime;
+		if (gameState >= 0) {
+			stopDeadlineNanos = System.nanoTime() + 4_000_000_000L;
+			gameState = 1;
+		}
 	}
 
 	@Override

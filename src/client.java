@@ -51,6 +51,8 @@ public class client extends JagApplet {
     private final Object titleArtworkLock = new Object();
     private TitleArtwork titleArtwork;
     private SeasonalTitleTheme appliedTitleTheme;
+    private int cameraShakeCycle = Integer.MIN_VALUE;
+    private final int[] cameraShakeOffsets = new int[5];
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 
@@ -3781,6 +3783,11 @@ public class client extends JagApplet {
     }
 
     public void method42(int i, int j, JagInterface class13, byte byte0, int k, int l, int i1, int j1, int k1) {
+        if (anInt1094 == 0) {
+            if (super.anInt21 != 1)
+                aBoolean1127 = false;
+            return;
+        }
         if (aBoolean1127)
             anInt1303 = 32;
         else
@@ -4197,7 +4204,7 @@ public class client extends JagApplet {
             if (projectile.plane != plane || pulseCycle > projectile.speed)
                 projectile.unlink();
             else if (pulseCycle >= projectile.createdTime) {
-                if (projectile.target > 0) {
+                if (anInt951 > 0 && projectile.target > 0) {
                     Npc npc = npcs[projectile.target - 1];
                     if (npc != null
                             && npc.unitX >= 0
@@ -4211,7 +4218,7 @@ public class client extends JagApplet {
                                         projectile.plane)
                                         - projectile.heightEnd, pulseCycle);
                 }
-                if (projectile.target < 0) {
+                if (anInt951 > 0 && projectile.target < 0) {
                     int i = -projectile.target - 1;
                     Player player;
                     if (i == thisPlayerServerId)
@@ -4230,13 +4237,14 @@ public class client extends JagApplet {
                                         projectile.plane)
                                         - projectile.heightEnd, pulseCycle);
                 }
-                projectile.method563(anInt951, false);
+                if (anInt951 > 0)
+                    projectile.method563(anInt951, false);
                 sceneGraph.method252(-1, projectile, (int) projectile.aDouble1555,
                         (int) projectile.aDouble1557, false, 0, plane, 60,
                         (int) projectile.aDouble1556, projectile.anInt1562);
             }
 
-        heartbeatCounter++;
+        heartbeatCounter += anInt951;
         if (heartbeatCounter > 51) {
             heartbeatCounter = 0;
             outBuffer.putOpcode(248);
@@ -5425,6 +5433,8 @@ public class client extends JagApplet {
     }
 
     public void animateTexture_65(int i) {
+        if (anInt951 == 0)
+            return;
         if (!lowMemory) {
             for (int k = 0; k < anIntArray1290.length; k++) {
                 int l = anIntArray1290[k];
@@ -8587,7 +8597,7 @@ public class client extends JagApplet {
                 fontChatboxButtons.drawString_474("System update in: " + l + ":0" + j, 2245, 4, 0xffff00, privateChatY());
             else
                 fontChatboxButtons.drawString_474("System update in: " + l + ":" + j, 2245, 4, 0xffff00, privateChatY());
-            anInt895++;
+            anInt895 += anInt951;
             if (anInt895 > 112) {
                 anInt895 = 0;
                 outBuffer.putOpcode(197);
@@ -8903,7 +8913,7 @@ public class client extends JagApplet {
         else
             load();
         if (anInt1219 < 310) {
-            anInt978++;
+            anInt978 += anInt951;
             if (anInt978 > 1457) {
                 anInt978 = 0;
                 outBuffer.putOpcode(244);
@@ -10023,11 +10033,11 @@ public class client extends JagApplet {
                 if (anIntArray945[j] < 6)
                     k2 = anIntArray842[anIntArray945[j]];
                 if (anIntArray945[j] == 6)
-                    k2 = tickCounter1138 % 20 >= 10 ? 0xffff00 : 0xff0000;
+                    k2 = pulseCycle % 20 >= 10 ? 0xffff00 : 0xff0000;
                 if (anIntArray945[j] == 7)
-                    k2 = tickCounter1138 % 20 >= 10 ? 65535 : 255;
+                    k2 = pulseCycle % 20 >= 10 ? 65535 : 255;
                 if (anIntArray945[j] == 8)
-                    k2 = tickCounter1138 % 20 >= 10 ? 0x80ff80 : 45056;
+                    k2 = pulseCycle % 20 >= 10 ? 0x80ff80 : 45056;
                 if (anIntArray945[j] == 9) {
                     int l2 = 150 - anIntArray947[j];
                     if (l2 < 50)
@@ -10060,18 +10070,18 @@ public class client extends JagApplet {
                     loginScreenFont.drawHorizontallyCenteredString(anInt932, anInt933, k2, s);
                 }
                 if (anIntArray946[j] == 1) {
-                    loginScreenFont.method475(anInt933 + 1, tickCounter1138, s, anInt932, 0);
-                    loginScreenFont.method475(anInt933, tickCounter1138, s, anInt932, k2);
+                    loginScreenFont.method475(anInt933 + 1, pulseCycle, s, anInt932, 0);
+                    loginScreenFont.method475(anInt933, pulseCycle, s, anInt932, k2);
                 }
                 if (anIntArray946[j] == 2) {
-                    loginScreenFont.drawString_476(s, anInt933 + 1, 0, (byte) 1, anInt932, tickCounter1138);
-                    loginScreenFont.drawString_476(s, anInt933, k2, (byte) 1, anInt932, tickCounter1138);
+                    loginScreenFont.drawString_476(s, anInt933 + 1, 0, (byte) 1, anInt932, pulseCycle);
+                    loginScreenFont.drawString_476(s, anInt933, k2, (byte) 1, anInt932, pulseCycle);
                 }
                 if (anIntArray946[j] == 3) {
                     loginScreenFont.method477(-601, s, 0, anInt932, anInt933 + 1, 150 - anIntArray947[j],
-                            tickCounter1138);
+                            pulseCycle);
                     loginScreenFont.method477(-601, s, k2, anInt932, anInt933, 150 - anIntArray947[j],
-                            tickCounter1138);
+                            pulseCycle);
                 }
                 if (anIntArray946[j] == 4) {
                     int k3 = loginScreenFont.method473(s, (byte) -53);
@@ -11804,11 +11814,10 @@ public class client extends JagApplet {
         int k1 = anInt1218;
         int l1 = anInt1219;
         int i2 = anInt1220;
+        updateCameraShake();
         for (int j2 = 0; j2 < 5; j2++) {
             if (customCameraActive[j2]) {
-                int k2 = (int) ((Math.random() * (double) (cameraJitter[j2] * 2 + 1) - (double) cameraJitter[j2]) + Math
-                        .sin((double) unknownCameraVariable[j2] * ((double) cameraFrequency[j2] / 100D))
-                        * (double) cameraAmplitude[j2]);
+                int k2 = cameraShakeOffsets[j2];
                 if (j2 == 0) {
                     anInt1216 += k2;
                 }
@@ -11849,6 +11858,21 @@ public class client extends JagApplet {
         anInt1218 = k1;
         anInt1219 = l1;
         anInt1220 = i2;
+    }
+
+    /**
+     * Refreshes camera shake once per game tick so extra render frames keep the same offset.
+     */
+    void updateCameraShake() {
+        if (cameraShakeCycle == pulseCycle)
+            return;
+        cameraShakeCycle = pulseCycle;
+        for (int channel = 0; channel < cameraShakeOffsets.length; channel++) {
+            cameraShakeOffsets[channel] = customCameraActive[channel]
+                    ? (int) ((Math.random() * (cameraJitter[channel] * 2 + 1) - cameraJitter[channel])
+                    + Math.sin(unknownCameraVariable[channel] * (cameraFrequency[channel] / 100D))
+                    * cameraAmplitude[channel]) : 0;
+        }
     }
 
     public void method152(int i) {

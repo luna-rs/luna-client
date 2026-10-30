@@ -6,6 +6,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.Area;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -82,7 +83,8 @@ public final class ResizableUi {
         long key = (long) width << 32 | height & 0xffffffffL;
         BufferedImage image = pixelImages.computeIfAbsent(key,
                 ignored -> new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB));
-        image.setRGB(0, 0, width, height, pixels, 0, width);
+        int[] stagingPixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+        System.arraycopy(pixels, 0, stagingPixels, 0, width * height);
         Graphics2D graphics = graphicsFor(panelCode, alpha);
         try {
             graphics.drawImage(image, logicalArea.x, logicalArea.y, null);
