@@ -9,6 +9,8 @@ public final class FrameSchedulerTest {
         independentRates(60, 120, 100);
         independentRates(120, 240, 100);
         independentRates(144, 288, 100);
+        independentRates(30, 60, 100);
+        independentRates(10, 20, 100);
         independentRates(1, 2, 100);
         boundedCatchUp();
         renderStallsAndRateChanges();

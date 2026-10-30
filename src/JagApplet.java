@@ -28,6 +28,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public static final int TARGET_FPS = 60;
 	private volatile int targetFps = TARGET_FPS;
 	private volatile long stopDeadlineNanos;
+	private volatile boolean minimized;
+	private Thread scheduledRenderThread;
 
 	/**
 	 * Latest drawable size reported by the AWT thread when the frame was resized, or -1 if no resize is pending.
@@ -77,7 +79,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	public boolean aBoolean11;
 	public JagImageProducer imageProducer;
 	public boolean clearBackground;
-	public boolean awtFocus;
+	public volatile boolean awtFocus;
 	public int anInt20;
 	public int anInt21;
 	public int anInt24;
@@ -161,6 +163,9 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	 */
 	public void presentBackBuffer() {
 		synchronized (presentLock) {
+			if (Thread.currentThread() == scheduledRenderThread) {
+				return;
+			}
 			presentationGeneration++;
 			presentFrame(backBuffer);
 		}
@@ -297,7 +302,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		screenGraphics = getParentComponent().getGraphics();
 		ensureBackBuffer();
 		imageProducer = new JagImageProducer(width, height, getParentComponent());
-		startThread(this, Thread.NORM_PRIORITY);
+		startThread(this, Thread.MIN_PRIORITY);
 	}
 
 	public void run() {
@@ -308,7 +313,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		}
 		drawLoadingText(0, "Loading...");
 		load();
-		int scheduledFps = targetFps;
+		int scheduledFps = getEffectiveFramerate();
 		FrameScheduler scheduler = new FrameScheduler(System.nanoTime(), scheduledFps);
 
 		while (gameState >= 0) {
@@ -318,8 +323,9 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				exit(aBoolean2);
 				return;
 			}
-			if (targetFps != scheduledFps) {
-				scheduledFps = targetFps;
+			int effectiveFps = getEffectiveFramerate();
+			if (effectiveFps != scheduledFps) {
+				scheduledFps = effectiveFps;
 				discardQueuedFrame();
 				scheduler.setTargetFps(scheduledFps, now);
 			}
@@ -348,7 +354,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				scheduler.frameStarted(frameStart);
 				ensureBackBuffer();
 				updateMouseInput();
-				repaintGame();
+				renderScheduledFrame();
 				long renderFinished = System.nanoTime();
 				if (scheduler.presentationDeadlineReached(renderFinished)) {
 					scheduler.frameRendered(renderFinished);
@@ -385,6 +391,18 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			exit(aBoolean2);
 	}
 
+	/**
+	 * Leaves presentation to the scheduler while drawing one completed frame.
+	 */
+	private void renderScheduledFrame() {
+		scheduledRenderThread = Thread.currentThread();
+		try {
+			repaintGame();
+		} finally {
+			scheduledRenderThread = null;
+		}
+	}
+
 	public void exit(boolean flag) {
 		gameState = -2;
 		cleanupShutdown();
@@ -408,6 +426,16 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			throw new IllegalArgumentException("Frame rate must be between 1 and 1000");
 		}
 		targetFps = newFramerate;
+	}
+
+	/**
+	 * Reduces rendering while the window is inactive without changing the game update rate.
+	 */
+	protected int getEffectiveFramerate() {
+		if (minimized) {
+			return 1;
+		}
+		return awtFocus ? targetFps : Math.min(targetFps, 10);
 	}
 
 	@Override
@@ -625,6 +653,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	}
 
 	public void windowActivated(WindowEvent windowevent) {
+		focusGained(null);
 	}
 
 	public void windowClosed(WindowEvent windowevent) {
@@ -635,12 +664,17 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	}
 
 	public void windowDeactivated(WindowEvent windowevent) {
+		focusLost(null);
 	}
 
 	public void windowDeiconified(WindowEvent windowevent) {
+		minimized = false;
+		clearBackground = true;
+		needsUIRedraw();
 	}
 
 	public void windowIconified(WindowEvent windowevent) {
+		minimized = true;
 	}
 
 	public void windowOpened(WindowEvent windowevent) {
