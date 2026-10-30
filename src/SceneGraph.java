@@ -5,18 +5,25 @@
 public class SceneGraph {
 
 	/**
-	 * Extra terrain and cached scenery tiles drawn beyond the original 25 tile
+	 * Extra terrain tiles drawn beyond the original 25 tile
 	 * radius in resizable mode. Zero disables the increase; negative values are treated as zero and
 	 * the effective increase is capped at 27 (a 52 tile radius) for the supported
 	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
 	 * by 128 world units. Scenery picking, actors and ground items keep their original range.
 	 */
 	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 27;
+	/**
+	 * Initial extra cached scenery tiles in resizable mode, capped by the terrain distance.
+	 * Zero keeps scenery at its classic range without reducing terrain visibility.
+	 */
+	public static final int RESIZABLE_SCENERY_DISTANCE_INCREASE = 27;
 	private static final int CLASSIC_SCENE_RADIUS = 25;
 	private static final int CLASSIC_FAR_CLIP = 3500;
 	private static final int MAX_TERRAIN_RADIUS = 52;
 	private static int terrainDrawRadius = CLASSIC_SCENE_RADIUS;
 	private static int terrainFarClip = CLASSIC_FAR_CLIP;
+	private static int resizableSceneryDistanceIncrease = Math.max(0,
+			Math.min(RESIZABLE_SCENERY_DISTANCE_INCREASE, MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
 	public static boolean aBoolean439;
 	public int anInt440;
 	public boolean aBoolean441;
@@ -1310,13 +1317,38 @@ public class SceneGraph {
 	}
 
 	/**
+	 * Changes cached scenery distance without rebuilding terrain visibility tables.
+	 * The configured increase is clamped to 0 through 27; rendering also caps it at the active terrain increase.
+	 */
+	public static void setResizableSceneryDistanceIncrease(int extraTiles) {
+		resizableSceneryDistanceIncrease = Math.max(0,
+				Math.min(extraTiles, MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
+	}
+
+	/**
+	 * Returns the configured cached scenery increase, before the active terrain distance caps it.
+	 */
+	public static int getResizableSceneryDistanceIncrease() {
+		return resizableSceneryDistanceIncrease;
+	}
+
+	/**
 	 * Passes additional scenery visibility explicitly while retaining classic virtual rendering.
 	 */
 	private static void renderScenery(Entity entity, int yaw, int relativeX, int relativeY,
 			int relativeZ, int uid, boolean classicVisible) {
-		if (terrainDrawRadius > CLASSIC_SCENE_RADIUS && isCachedScenery(uid)) {
+		int extraTiles = Math.min(resizableSceneryDistanceIncrease, terrainDrawRadius - CLASSIC_SCENE_RADIUS);
+		if (extraTiles > 0 && isCachedScenery(uid)) {
+			if (!classicVisible && extraTiles < terrainDrawRadius - CLASSIC_SCENE_RADIUS) {
+				int radius = CLASSIC_SCENE_RADIUS + extraTiles;
+				int offsetX = ((relativeX + anInt470) >> 7) - anInt468;
+				int offsetY = ((relativeZ + anInt472) >> 7) - anInt469;
+				// Only a shorter scenery limit uses the model centre; full distance retains footprint admission.
+				if (offsetX < -radius || offsetX >= radius || offsetY < -radius || offsetY >= radius)
+					return;
+			}
 			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
-					relativeZ, uid, terrainFarClip, classicVisible);
+					relativeZ, uid, CLASSIC_FAR_CLIP + extraTiles * 128, classicVisible);
 		} else if (classicVisible) {
 			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
 					relativeZ, uid);

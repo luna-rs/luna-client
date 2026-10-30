@@ -714,6 +714,28 @@ public class client extends JagApplet {
             toggleSize(1);
             return true;
         }
+        if (input.equals("::fpslimit") || input.startsWith("::fpslimit ")) {
+            try {
+                int target = Integer.parseInt(input.substring("::fpslimit".length()).trim());
+                setFramerate(target);
+                pushMessage("", (byte) -123, "Render target: " + target + " FPS.", 0);
+            } catch (IllegalArgumentException exception) {
+                pushMessage("", (byte) -123, "Usage: ::fpslimit 1..1000", 0);
+            }
+            return true;
+        }
+        if (input.equals("::scenerydistance") || input.startsWith("::scenerydistance ")) {
+            try {
+                int extra = Integer.parseInt(input.substring("::scenerydistance".length()).trim());
+                if (extra < 0 || extra > 27)
+                    throw new IllegalArgumentException();
+                SceneGraph.setResizableSceneryDistanceIncrease(extra);
+                pushMessage("", (byte) -123, "Resizable scenery limit: " + (25 + extra) + " tiles.", 0);
+            } catch (IllegalArgumentException exception) {
+                pushMessage("", (byte) -123, "Usage: ::scenerydistance 0..27 extra tiles", 0);
+            }
+            return true;
+        }
         return false;
     }
 

@@ -5,7 +5,9 @@
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
+import java.awt.image.DataBufferInt;
 import java.awt.image.DirectColorModel;
 import java.awt.image.ImageConsumer;
 import java.awt.image.ImageObserver;
@@ -19,19 +21,16 @@ public class JagImageProducer implements ImageProducer, ImageObserver {
 	public ColorModel colorModel;
 	public ImageConsumer consumer;
 	public Image image;
+	private final int[] imagePixels;
 
 	public JagImageProducer(int _width, int _height, Component component) {
 		this.width = _width;
 		this.height = _height;
-		this.pixels = new int[_width * _height];
+		BufferedImage buffer = new BufferedImage(_width, _height, BufferedImage.TYPE_INT_RGB);
+		this.imagePixels = ((DataBufferInt) buffer.getRaster().getDataBuffer()).getData();
+		this.pixels = imagePixels;
 		this.colorModel = new DirectColorModel(32, 0xff0000, 65280, 255);
-		this.image = component.createImage(this);
-		flipBuffer();
-		component.prepareImage(image, this);
-		flipBuffer();
-		component.prepareImage(image, this);
-		flipBuffer();
-		component.prepareImage(image, this);
+		this.image = buffer;
 		pushPixels();
 	}
 
@@ -87,6 +86,8 @@ public class JagImageProducer implements ImageProducer, ImageObserver {
 	}
 
 	public synchronized void flipBuffer() {
+		if (pixels != imagePixels)
+			System.arraycopy(pixels, 0, imagePixels, 0, imagePixels.length);
 		if (consumer == null) {
 			return;
 		} else {

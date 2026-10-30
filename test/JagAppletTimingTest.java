@@ -9,8 +9,8 @@ public final class JagAppletTimingTest {
 
     public static void main(String[] args) throws Exception {
         JagApplet applet = new JagApplet();
-        check(JagApplet.TARGET_FPS == 60, "default render target is 60 FPS");
-        for (int target : new int[] {60, 144, 1}) {
+        check(JagApplet.TARGET_FPS == 120, "default render target is 120 FPS");
+        for (int target : new int[] {60, 120, 144, 1}) {
             applet.setFramerate(target);
             check(applet.delayTime == 20, "render changes retain the 20 millisecond game step");
             check(field("targetFps").getInt(applet) == target, "requested render rate is applied");

@@ -20,6 +20,7 @@ public final class ClientRenderTimingTest {
             cameraShakeCadence();
             scrollbarDragCadence();
             unchangedTextures();
+            performanceCommands();
         } finally {
             client.pulseCycle = previousCycle;
             client.heartbeatCounter = previousHeartbeat;
@@ -53,6 +54,39 @@ public final class ClientRenderTimingTest {
         client game = new client();
         game.outBuffer.random = new IsaacRandom(new int[4]);
         return game;
+    }
+
+    private static void performanceCommands() throws Exception {
+        client game = fixture();
+        Field target = JagApplet.class.getDeclaredField("targetFps");
+        target.setAccessible(true);
+        int previousDistance = SceneGraph.getResizableSceneryDistanceIncrease();
+        try {
+            for (int rate : new int[] {60, 120, 240}) {
+                check(game.handleClientCommand("::fpslimit " + rate), "render limits are handled locally");
+                check(target.getInt(game) == rate && game.delayTime == 20,
+                        "live render limits preserve the fixed game update rate");
+            }
+            for (String invalid : new String[] {"", "0", "1001", "word"}) {
+                game.handleClientCommand("::fpslimit " + invalid);
+                check(target.getInt(game) == 240, "invalid render limits retain the previous target");
+            }
+            for (int distance : new int[] {15, 0, 27}) {
+                check(game.handleClientCommand("::scenerydistance " + distance),
+                        "scenery limits are handled locally");
+                check(SceneGraph.getResizableSceneryDistanceIncrease() == distance,
+                        "live scenery limits can be reduced and restored");
+            }
+            for (String invalid : new String[] {"", "-1", "28", "word"}) {
+                game.handleClientCommand("::scenerydistance " + invalid);
+                check(SceneGraph.getResizableSceneryDistanceIncrease() == 27,
+                        "invalid scenery limits retain the previous distance");
+            }
+            check(game.outBuffer.position == 0, "performance commands send no server packets");
+            check(!game.handleClientCommand("::unrelated"), "unrelated commands retain normal routing");
+        } finally {
+            SceneGraph.setResizableSceneryDistanceIncrease(previousDistance);
+        }
     }
 
     private static void heartbeatCadence() {

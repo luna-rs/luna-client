@@ -1,3 +1,5 @@
+import java.util.Arrays;
+
 /**
  * Represents a 3D mesh in the software rendering engine.
  *
@@ -2477,9 +2479,9 @@ public class Model extends Entity {
 	public void processFaces(boolean needsClipping, boolean isMouseOver, int modelId) {
 		//TODO split this method into smaller methods for each stage of the pipeline (culling, picking, sorting, rendering)
 		// Clear the depth bin counters
-		for (int i = 0; i < totalDepthSortingRange; i++) {
-			faceDepthCounts[i] = 0;
-		}
+		Arrays.fill(faceDepthCounts, 0, totalDepthSortingRange, 0);
+		int minimumDepth = totalDepthSortingRange;
+		int maximumDepth = -1;
 
 		// Culling, Picking, and Depth Sorting Loop
 		for (int face = 0; face < faceCount; face++) {
@@ -2505,6 +2507,8 @@ public class Model extends Entity {
 				// Calculate average Z depth and add to bin
 				int avgZ = (projectedZ[vA] + projectedZ[vB] + projectedZ[vC]) / 3 + modelBoundingSphere;
 				faceDepthBins[avgZ][faceDepthCounts[avgZ]++] = face;
+				minimumDepth = Math.min(minimumDepth, avgZ);
+				maximumDepth = Math.max(maximumDepth, avgZ);
 			} else {
 				// Narrow-Phase Mouse Picking: Check if mouse is inside this specific triangle
 				if (isMouseOver && isPointInFaceBounds(mouseX, mouseY, projectedY[vA], projectedY[vB], projectedY[vC], xA, xB, xC)) {
@@ -2523,13 +2527,15 @@ public class Model extends Entity {
 					// Assign to depth bin based on average projected Z
 					int avgZ = (projectedZ[vA] + projectedZ[vB] + projectedZ[vC]) / 3 + modelBoundingSphere;
 					faceDepthBins[avgZ][faceDepthCounts[avgZ]++] = face;
+					minimumDepth = Math.min(minimumDepth, avgZ);
+					maximumDepth = Math.max(maximumDepth, avgZ);
 				}
 			}
 		}
 
 		// --- CASE 1: Rendering without priority layers ---
 		if (facePriorities == null) {
-			for (int depth = totalDepthSortingRange - 1; depth >= 0; depth--) {
+			for (int depth = Math.min(maximumDepth, totalDepthSortingRange - 1); depth >= minimumDepth; depth--) {
 				int countAtDepth = faceDepthCounts[depth];
 				if (countAtDepth > 0) {
 					int[] facesAtDepth = faceDepthBins[depth];
@@ -2547,7 +2553,7 @@ public class Model extends Entity {
 		}
 
 		// Sort depth bins into priority bins
-		for (int depth = totalDepthSortingRange - 1; depth >= 0; depth--) {
+		for (int depth = Math.min(maximumDepth, totalDepthSortingRange - 1); depth >= minimumDepth; depth--) {
 			int countAtDepth = faceDepthCounts[depth];
 			if (countAtDepth > 0) {
 				int[] facesAtDepth = faceDepthBins[depth];
