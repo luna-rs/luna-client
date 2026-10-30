@@ -15,7 +15,7 @@ public class SceneGraph {
 	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
 	 * by 128 world units. Scenery picking, actors and ground items keep their original range.
 	 */
-	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 27;
+	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 20;
 	private static final int CLASSIC_SCENE_RADIUS = 25;
 	private static final int CLASSIC_FAR_CLIP = 3500;
 	private static final int MAX_TERRAIN_RADIUS = 52;
