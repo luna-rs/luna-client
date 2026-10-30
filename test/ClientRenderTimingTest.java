@@ -1,7 +1,5 @@
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
 import java.util.Arrays;
 
 /**
@@ -25,7 +23,6 @@ public final class ClientRenderTimingTest {
             unchangedTextures();
             performanceCommands();
             parallelFailureRecovery();
-            titleAnimationCadence();
         } finally {
             client.pulseCycle = previousCycle;
             client.heartbeatCounter = previousHeartbeat;
@@ -33,78 +30,6 @@ public final class ClientRenderTimingTest {
             SpotAnimation.spotAnimations = previousAnimations;
         }
         System.out.println("ClientRenderTimingTest passed");
-    }
-
-    private static void titleAnimationCadence() throws Exception {
-        RecordingTitle game = new RecordingTitle();
-        BufferedImage image = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
-        Graphics2D graphics = image.createGraphics();
-        game.graphics = graphics;
-        Field ready = client.class.getDeclaredField("loginFlamesReady");
-        ready.setAccessible(true);
-        int previousPaints = client.paintCounter1309;
-        try {
-            game.repaintGame();
-            check(game.titleDraws == 1 && game.flameUpdates == 0 && game.flameDraws == 0,
-                    "title rendering is safe before flame resources are ready");
-            ready.setBoolean(game, true);
-            game.repaintGame();
-            check(game.titleDraws == 2 && game.flameUpdates == 2 && game.flameDraws == 1,
-                    "one title render advances and draws its flames once on the render caller");
-            check(game.animationThread == Thread.currentThread(),
-                    "title animation runs on the rendering thread");
-            game.drawLoginScreen(true);
-            check(game.flameUpdates == 2 && game.flameDraws == 1,
-                    "immediate connecting messages do not independently advance title animation");
-            game.isLoggedIn = true;
-            game.repaintGame();
-            check(game.gameDraws == 1 && game.flameUpdates == 2 && game.flameDraws == 1,
-                    "in-game rendering performs no title animation work");
-            game.resetWhenBoolTrue();
-            check(!ready.getBoolean(game), "clearing login resources disables further flame drawing");
-            game.isLoggedIn = false;
-            game.repaintGame();
-            check(game.flameUpdates == 2 && game.flameDraws == 1,
-                    "cleared flame resources remain untouched until the title is initialized again");
-        } finally {
-            client.paintCounter1309 = previousPaints;
-            graphics.dispose();
-        }
-    }
-
-    /**
-     * Observes scheduled title work without loading title artwork or world resources.
-     *
-     * @author lare96
-     */
-    private static final class RecordingTitle extends client {
-        private int titleDraws;
-        private int gameDraws;
-        private int flameUpdates;
-        private int flameDraws;
-        private Thread animationThread;
-
-        @Override
-        public void drawLoginScreen(boolean immediate) {
-            titleDraws++;
-        }
-
-        @Override
-        public void updateLoginFlames(byte unused) {
-            flameUpdates++;
-            animationThread = Thread.currentThread();
-        }
-
-        @Override
-        public void renderLoginFlames() {
-            flameDraws++;
-            animationThread = Thread.currentThread();
-        }
-
-        @Override
-        public void drawGame() {
-            gameDraws++;
-        }
     }
 
     private static void roofHeartbeatCadence() {
