@@ -5,11 +5,11 @@
 public class SceneGraph {
 
 	/**
-	 * Extra terrain tiles drawn beyond the original 25 tile radius in resizable
-	 * mode. Zero disables the increase; negative values are treated as zero and
+	 * Extra terrain and cached scenery tiles drawn beyond the original 25 tile
+	 * radius in resizable mode. Zero disables the increase; negative values are treated as zero and
 	 * the effective increase is capped at 27 (a 52 tile radius) for the supported
 	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
-	 * by 128 world units. Objects and entities keep their original range.
+	 * by 128 world units. Scenery picking, actors and ground items keep their original range.
 	 */
 	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 15;
 	private static final int CLASSIC_SCENE_RADIUS = 25;
@@ -1133,7 +1133,8 @@ public class SceneGraph {
 						} else {
 							class50_sub3.aBoolean1412 = true;
 							class50_sub3.aBoolean1413 = true;
-							if (class50_sub3.anInt1407 > 0 && canRenderTileObjects(l1, j2, l2))
+							if (class50_sub3.anInt1407 > 0
+									&& (canRenderTileObjects(l1, j2, l2) || hasExtendedScenery(class50_sub3)))
 								class50_sub3.aBoolean1414 = true;
 							else
 								class50_sub3.aBoolean1414 = false;
@@ -1241,7 +1242,7 @@ public class SceneGraph {
 	}
 
 	/**
-	 * Keeps non-terrain renderables within the original half-open tile window.
+	 * Identifies the original half-open tile window for interaction and actors.
 	 */
 	private static boolean isWithinObjectDistance(int tileX, int tileY) {
 		int offsetX = tileX - anInt468;
@@ -1251,13 +1252,68 @@ public class SceneGraph {
 	}
 
 	/**
-	 * Retains the original visibility and height exception for non-terrain models.
+	 * Retains the original visibility and height exception for interaction and actors.
 	 */
 	private boolean canRenderTileObjects(int plane, int tileX, int tileY) {
 		return isWithinObjectDistance(tileX, tileY)
 				&& (objectVisibility[tileX - anInt468 + CLASSIC_SCENE_RADIUS]
 						[tileY - anInt469 + CLASSIC_SCENE_RADIUS]
 						|| anIntArrayArrayArray455[plane][tileX][tileY] - anInt471 >= 2000);
+	}
+
+	/**
+	 * Cache scenery uses UID type two, including non-interactive signed UIDs.
+	 */
+	private static boolean isCachedScenery(int uid) {
+		return (uid >>> 29 & 3) == 2;
+	}
+
+	/**
+	 * Admits cache scenery on the additional visible tiles without admitting actors.
+	 */
+	private static boolean canRenderScenery(int uid, boolean classicVisible) {
+		return classicVisible || terrainDrawRadius > CLASSIC_SCENE_RADIUS && isCachedScenery(uid);
+	}
+
+	/**
+	 * Keeps extended traversal active only when a tile contains cached scenery.
+	 */
+	private static boolean hasExtendedScenery(Tile tile) {
+		if (terrainDrawRadius == CLASSIC_SCENE_RADIUS)
+			return false;
+		for (int index = 0; index < tile.anInt1407; index++) {
+			if (isCachedScenery(tile.class5[index].anInt125))
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * A shared multi-tile object was originally admitted by any visible footprint tile.
+	 */
+	private boolean isClassicObjectVisible(int plane, ScenegraphRelated5 object) {
+		for (int x = object.anInt119; x <= object.anInt120; x++) {
+			for (int y = object.anInt121; y <= object.anInt122; y++) {
+				Tile tile = tiles[plane][x][y];
+				if (tile != null && tile.anInt1411 <= anInt462 && canRenderTileObjects(plane, x, y))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Passes additional scenery visibility explicitly while retaining classic virtual rendering.
+	 */
+	private static void renderScenery(Entity entity, int yaw, int relativeX, int relativeY,
+			int relativeZ, int uid, boolean classicVisible) {
+		if (terrainDrawRadius > CLASSIC_SCENE_RADIUS && isCachedScenery(uid)) {
+			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
+					relativeZ, uid, terrainFarClip, classicVisible);
+		} else if (classicVisible) {
+			entity.render(yaw, anInt473, anInt474, anInt475, anInt476, relativeX, relativeY,
+					relativeZ, uid);
+		}
 	}
 
 	public void method281(Tile class50_sub3, boolean flag) {
@@ -1317,17 +1373,18 @@ public class SceneGraph {
 							method282(class50_sub3_7.class3, 0, anInt473, anInt474, anInt475, anInt476, i, j);
 					} else if (class50_sub3_7.class20 != null && !method287(0, i, j))
 						method283(anInt474, anInt476, class50_sub3_7.class20, anInt473, j, i, anInt475, (byte) 3);
-					ScenegraphMember44 class44 = renderObjects ? class50_sub3_7.aClass44_1403 : null;
-					if (class44 != null)
-						class44.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
+					ScenegraphMember44 class44 = class50_sub3_7.aClass44_1403;
+					if (class44 != null && canRenderScenery(class44.uid, renderObjects))
+						renderScenery(class44.aClass50_Sub1_Sub4_724, 0,
 								class44.anInt720 - anInt470, class44.anInt719 - anInt471, class44.anInt721 - anInt472,
-								class44.uid);
-					for (int i2 = 0; renderObjects && i2 < class50_sub3_7.anInt1407; i2++) {
+								class44.uid, renderObjects);
+					for (int i2 = 0; i2 < class50_sub3_7.anInt1407; i2++) {
 						ScenegraphRelated5 scenegraphRelated5 = class50_sub3_7.class5[i2];
-						if (scenegraphRelated5 != null)
-							scenegraphRelated5.entity.render(scenegraphRelated5.anInt118, anInt473, anInt474, anInt475,
-									anInt476, scenegraphRelated5.anInt115 - anInt470, scenegraphRelated5.anInt114 - anInt471, scenegraphRelated5.anInt116
-											- anInt472, scenegraphRelated5.anInt125);
+						if (scenegraphRelated5 != null && canRenderScenery(scenegraphRelated5.anInt125, renderObjects))
+							renderScenery(scenegraphRelated5.entity, scenegraphRelated5.anInt118,
+									scenegraphRelated5.anInt115 - anInt470, scenegraphRelated5.anInt114 - anInt471,
+									scenegraphRelated5.anInt116 - anInt472, scenegraphRelated5.anInt125,
+									isClassicObjectVisible(k, scenegraphRelated5));
 					}
 
 				}
@@ -1343,8 +1400,12 @@ public class SceneGraph {
 				}
 				int j1 = 0;
 				int j2 = 0;
-				ScenegraphMember44 class44_3 = renderObjects ? class50_sub3_1.aClass44_1403 : null;
-				ScenegraphMember35 class35_1 = renderObjects ? class50_sub3_1.aClass35_1404 : null;
+				ScenegraphMember44 class44_3 = class50_sub3_1.aClass44_1403;
+				if (class44_3 != null && !canRenderScenery(class44_3.uid, renderObjects))
+					class44_3 = null;
+				ScenegraphMember35 class35_1 = class50_sub3_1.aClass35_1404;
+				if (class35_1 != null && !canRenderScenery(class35_1.anInt609, renderObjects))
+					class35_1 = null;
 				if (class44_3 != null || class35_1 != null) {
 					if (anInt468 == i)
 						j1++;
@@ -1380,19 +1441,19 @@ public class SceneGraph {
 						class50_sub3_1.anInt1415 = 0;
 					}
 					if ((class44_3.anInt722 & j2) != 0 && !method288(l, i, j, class44_3.anInt722))
-						class44_3.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
+						renderScenery(class44_3.aClass50_Sub1_Sub4_724, 0,
 								class44_3.anInt720 - anInt470, class44_3.anInt719 - anInt471, class44_3.anInt721
-										- anInt472, class44_3.uid);
+										- anInt472, class44_3.uid, renderObjects);
 					if ((class44_3.anInt723 & j2) != 0 && !method288(l, i, j, class44_3.anInt723))
-						class44_3.aClass50_Sub1_Sub4_725.render(0, anInt473, anInt474, anInt475, anInt476,
+						renderScenery(class44_3.aClass50_Sub1_Sub4_725, 0,
 								class44_3.anInt720 - anInt470, class44_3.anInt719 - anInt471, class44_3.anInt721
-										- anInt472, class44_3.uid);
+										- anInt472, class44_3.uid, renderObjects);
 				}
 				if (class35_1 != null && !method289(l, i, j, class35_1.aClass50_Sub1_Sub4_608.height))
 					if ((class35_1.anInt606 & j2) != 0)
-						class35_1.aClass50_Sub1_Sub4_608.render(class35_1.anInt607, anInt473, anInt474, anInt475,
-								anInt476, class35_1.anInt604 - anInt470, class35_1.anInt603 - anInt471,
-								class35_1.anInt605 - anInt472, class35_1.anInt609);
+						renderScenery(class35_1.aClass50_Sub1_Sub4_608, class35_1.anInt607,
+								class35_1.anInt604 - anInt470, class35_1.anInt603 - anInt471,
+								class35_1.anInt605 - anInt472, class35_1.anInt609, renderObjects);
 					else if ((class35_1.anInt606 & 0x300) != 0) {
 						int j4 = class35_1.anInt604 - anInt470;
 						int l5 = class35_1.anInt603 - anInt471;
@@ -1411,23 +1472,23 @@ public class SceneGraph {
 						if ((class35_1.anInt606 & 0x100) != 0 && k10 < k9) {
 							int i11 = j4 + anIntArray478[i8];
 							int k11 = k6 + anIntArray479[i8];
-							class35_1.aClass50_Sub1_Sub4_608.render(i8 * 512 + 256, anInt473, anInt474, anInt475,
-									anInt476, i11, l5, k11, class35_1.anInt609);
+							renderScenery(class35_1.aClass50_Sub1_Sub4_608, i8 * 512 + 256,
+									i11, l5, k11, class35_1.anInt609, renderObjects);
 						}
 						if ((class35_1.anInt606 & 0x200) != 0 && k10 > k9) {
 							int j11 = j4 + anIntArray480[i8];
 							int l11 = k6 + anIntArray481[i8];
-							class35_1.aClass50_Sub1_Sub4_608.render(i8 * 512 + 1280 & 0x7ff, anInt473, anInt474,
-									anInt475, anInt476, j11, l5, l11, class35_1.anInt609);
+							renderScenery(class35_1.aClass50_Sub1_Sub4_608, i8 * 512 + 1280 & 0x7ff,
+									j11, l5, l11, class35_1.anInt609, renderObjects);
 						}
 					}
-				if (flag1 && renderObjects) {
+				if (flag1) {
 					ScenegraphMember28 class28 = class50_sub3_1.aClass28_1405;
-					if (class28 != null)
-						class28.aClass50_Sub1_Sub4_570.render(0, anInt473, anInt474, anInt475, anInt476,
+					if (class28 != null && canRenderScenery(class28.anInt571, renderObjects))
+						renderScenery(class28.aClass50_Sub1_Sub4_570, 0,
 								class28.anInt568 - anInt470, class28.anInt567 - anInt471, class28.anInt569 - anInt472,
-								class28.anInt571);
-					ScenegraphMember10 class10_1 = class50_sub3_1.aClass10_1406;
+								class28.anInt571, renderObjects);
+					ScenegraphMember10 class10_1 = renderObjects ? class50_sub3_1.aClass10_1406 : null;
 					if (class10_1 != null && class10_1.anInt180 == 0) {
 						if (class10_1.aClass50_Sub1_Sub4_177 != null)
 							class10_1.aClass50_Sub1_Sub4_177.render(0, anInt473, anInt474, anInt475, anInt476,
@@ -1467,10 +1528,11 @@ public class SceneGraph {
 					}
 				}
 			}
-			if (renderObjects && class50_sub3_1.anInt1415 != 0) {
+			if (class50_sub3_1.anInt1415 != 0) {
 				boolean flag2 = true;
 				for (int k1 = 0; k1 < class50_sub3_1.anInt1407; k1++) {
-					if (class50_sub3_1.class5[k1].anInt124 == anInt463
+					if (!canRenderScenery(class50_sub3_1.class5[k1].anInt125, renderObjects)
+							|| class50_sub3_1.class5[k1].anInt124 == anInt463
 							|| (class50_sub3_1.anIntArray1409[k1] & class50_sub3_1.anInt1415) != class50_sub3_1.anInt1416)
 						continue;
 					flag2 = false;
@@ -1480,20 +1542,21 @@ public class SceneGraph {
 				if (flag2) {
 					ScenegraphMember44 class44_1 = class50_sub3_1.aClass44_1403;
 					if (!method288(l, i, j, class44_1.anInt722))
-						class44_1.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
+						renderScenery(class44_1.aClass50_Sub1_Sub4_724, 0,
 								class44_1.anInt720 - anInt470, class44_1.anInt719 - anInt471, class44_1.anInt721
-										- anInt472, class44_1.uid);
+										- anInt472, class44_1.uid, renderObjects);
 					class50_sub3_1.anInt1415 = 0;
 				}
 			}
-			if (renderObjects && class50_sub3_1.aBoolean1414)
+			if (class50_sub3_1.aBoolean1414)
 				try {
 					int i1 = class50_sub3_1.anInt1407;
 					class50_sub3_1.aBoolean1414 = false;
 					int l1 = 0;
 					label0: for (int k2 = 0; k2 < i1; k2++) {
 						ScenegraphRelated5 scenegraphRelated5_1 = class50_sub3_1.class5[k2];
-						if (scenegraphRelated5_1.anInt124 == anInt463)
+						if (!canRenderScenery(scenegraphRelated5_1.anInt125, renderObjects)
+								|| scenegraphRelated5_1.anInt124 == anInt463)
 							continue;
 						for (int k3 = scenegraphRelated5_1.anInt119; k3 <= scenegraphRelated5_1.anInt120; k3++) {
 							for (int l4 = scenegraphRelated5_1.anInt121; l4 <= scenegraphRelated5_1.anInt122; l4++) {
@@ -1559,9 +1622,10 @@ public class SceneGraph {
 						scenegraphRelated5_3.anInt124 = anInt463;
 						if (!method290(l, scenegraphRelated5_3.anInt119, scenegraphRelated5_3.anInt120, scenegraphRelated5_3.anInt121, scenegraphRelated5_3.anInt122,
 								scenegraphRelated5_3.entity.height))
-							scenegraphRelated5_3.entity.render(scenegraphRelated5_3.anInt118, anInt473, anInt474, anInt475,
-									anInt476, scenegraphRelated5_3.anInt115 - anInt470, scenegraphRelated5_3.anInt114 - anInt471,
-									scenegraphRelated5_3.anInt116 - anInt472, scenegraphRelated5_3.anInt125);
+							renderScenery(scenegraphRelated5_3.entity, scenegraphRelated5_3.anInt118,
+									scenegraphRelated5_3.anInt115 - anInt470, scenegraphRelated5_3.anInt114 - anInt471,
+									scenegraphRelated5_3.anInt116 - anInt472, scenegraphRelated5_3.anInt125,
+									isClassicObjectVisible(k, scenegraphRelated5_3));
 						for (int k7 = scenegraphRelated5_3.anInt119; k7 <= scenegraphRelated5_3.anInt120; k7++) {
 							for (int l8 = scenegraphRelated5_3.anInt121; l8 <= scenegraphRelated5_3.anInt122; l8++) {
 								Tile class50_sub3_22 = aclass50_sub3[k7][l8];
@@ -1618,13 +1682,14 @@ public class SceneGraph {
 							class10.anInt174 - anInt470, class10.anInt173 - anInt471 - class10.anInt180,
 							class10.anInt175 - anInt472, class10.anInt179);
 			}
-			if (renderObjects && class50_sub3_1.anInt1418 != 0) {
+			if (class50_sub3_1.anInt1418 != 0) {
 				ScenegraphMember35 class35 = class50_sub3_1.aClass35_1404;
-				if (class35 != null && !method289(l, i, j, class35.aClass50_Sub1_Sub4_608.height))
+				if (class35 != null && canRenderScenery(class35.anInt609, renderObjects)
+						&& !method289(l, i, j, class35.aClass50_Sub1_Sub4_608.height))
 					if ((class35.anInt606 & class50_sub3_1.anInt1418) != 0)
-						class35.aClass50_Sub1_Sub4_608.render(class35.anInt607, anInt473, anInt474, anInt475,
-								anInt476, class35.anInt604 - anInt470, class35.anInt603 - anInt471, class35.anInt605
-										- anInt472, class35.anInt609);
+						renderScenery(class35.aClass50_Sub1_Sub4_608, class35.anInt607,
+								class35.anInt604 - anInt470, class35.anInt603 - anInt471, class35.anInt605
+										- anInt472, class35.anInt609, renderObjects);
 					else if ((class35.anInt606 & 0x300) != 0) {
 						int l2 = class35.anInt604 - anInt470;
 						int j3 = class35.anInt603 - anInt471;
@@ -1643,26 +1708,26 @@ public class SceneGraph {
 						if ((class35.anInt606 & 0x100) != 0 && l7 >= j6) {
 							int i9 = l2 + anIntArray478[k5];
 							int i10 = i4 + anIntArray479[k5];
-							class35.aClass50_Sub1_Sub4_608.render(k5 * 512 + 256, anInt473, anInt474, anInt475,
-									anInt476, i9, j3, i10, class35.anInt609);
+							renderScenery(class35.aClass50_Sub1_Sub4_608, k5 * 512 + 256,
+									i9, j3, i10, class35.anInt609, renderObjects);
 						}
 						if ((class35.anInt606 & 0x200) != 0 && l7 <= j6) {
 							int j9 = l2 + anIntArray480[k5];
 							int j10 = i4 + anIntArray481[k5];
-							class35.aClass50_Sub1_Sub4_608.render(k5 * 512 + 1280 & 0x7ff, anInt473, anInt474,
-									anInt475, anInt476, j9, j3, j10, class35.anInt609);
+							renderScenery(class35.aClass50_Sub1_Sub4_608, k5 * 512 + 1280 & 0x7ff,
+									j9, j3, j10, class35.anInt609, renderObjects);
 						}
 					}
 				ScenegraphMember44 class44_2 = class50_sub3_1.aClass44_1403;
-				if (class44_2 != null) {
+				if (class44_2 != null && canRenderScenery(class44_2.uid, renderObjects)) {
 					if ((class44_2.anInt723 & class50_sub3_1.anInt1418) != 0 && !method288(l, i, j, class44_2.anInt723))
-						class44_2.aClass50_Sub1_Sub4_725.render(0, anInt473, anInt474, anInt475, anInt476,
+						renderScenery(class44_2.aClass50_Sub1_Sub4_725, 0,
 								class44_2.anInt720 - anInt470, class44_2.anInt719 - anInt471, class44_2.anInt721
-										- anInt472, class44_2.uid);
+										- anInt472, class44_2.uid, renderObjects);
 					if ((class44_2.anInt722 & class50_sub3_1.anInt1418) != 0 && !method288(l, i, j, class44_2.anInt722))
-						class44_2.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
+						renderScenery(class44_2.aClass50_Sub1_Sub4_724, 0,
 								class44_2.anInt720 - anInt470, class44_2.anInt719 - anInt471, class44_2.anInt721
-										- anInt472, class44_2.uid);
+										- anInt472, class44_2.uid, renderObjects);
 				}
 			}
 			if (k < anInt452 - 1) {

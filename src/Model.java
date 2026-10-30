@@ -15,6 +15,8 @@
  */
 public class Model extends Entity {
 
+	private static final int CLASSIC_FAR_CLIP = 3500;
+
 	/**
 	 * Constructs a "blank" or placeholder Model instance with default state flags.
 	 *
@@ -2315,6 +2317,13 @@ public class Model extends Entity {
 	 */
 	@Override
 	public void render(int yaw, int sinViewPitch, int cosViewPitch, int sinViewYaw, int cosViewYaw, int relativeX, int relativeY, int relativeZ, int modelId) {
+		render(yaw, sinViewPitch, cosViewPitch, sinViewYaw, cosViewYaw, relativeX, relativeY, relativeZ,
+				modelId, CLASSIC_FAR_CLIP, true);
+	}
+
+	@Override
+	public void render(int yaw, int sinViewPitch, int cosViewPitch, int sinViewYaw, int cosViewYaw,
+			int relativeX, int relativeY, int relativeZ, int modelId, int farClip, boolean allowPicking) {
 
 		//Initial View Transformation (Camera Space Calculation)
 		int transformedZ = relativeZ * cosViewYaw - relativeX * sinViewYaw >> 16;
@@ -2324,7 +2333,7 @@ public class Model extends Entity {
 
 		// Frustum Culling (Z-Axis)
 		// If the entire model is behind the near plane (50) or too far away, stop.
-		if (maxZ <= 50 || depthZ >= 3500)
+		if (maxZ <= 50 || depthZ >= farClip)
 			return;
 
 		int transformedX = relativeZ * sinViewYaw + relativeX * cosViewYaw >> 16;
@@ -2358,7 +2367,7 @@ public class Model extends Entity {
 		boolean isMouseOver = false;
 		boolean needsClipping = depthZ - (radiusZ + (super.height * sinViewPitch >> 16)) <= 50;
 
-		if (modelId > 0 && isPickingEnabled) {
+		if (modelId > 0 && isPickingEnabled && allowPicking && depthZ < CLASSIC_FAR_CLIP) {
 			int minZ = depthZ - radiusZ;
 			if (minZ <= 50)
 				minZ = 50;
