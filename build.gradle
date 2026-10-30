@@ -1,4 +1,7 @@
 import java.util.jar.JarFile
+import java.util.zip.ZipInputStream
+import java.security.MessageDigest
+import java.util.HexFormat
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
 plugins {
@@ -6,7 +9,7 @@ plugins {
 }
 
 group = 'io.luna'
-version = 'beta'
+version = '377'
 
 java {
     toolchain {
@@ -16,7 +19,7 @@ java {
 
 application {
     mainClass = 'client'
-    applicationName = 'Luna-Beta'
+    applicationName = 'Luna-Development'
 }
 
 sourceSets {
@@ -45,6 +48,10 @@ tasks.named('processResources') {
         include 'rsapub.toml'
         into 'rsa'
     }
+    from('data/bootstrap') {
+        include 'cache.zip', 'cache.sha256'
+        into 'bootstrap'
+    }
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {
@@ -53,12 +60,31 @@ tasks.withType(AbstractArchiveTask).configureEach {
 }
 
 tasks.named('jar') {
-    archiveFileName = 'Luna-Beta.jar'
+    archiveFileName = 'Luna-Development.jar'
     manifest {
         attributes('Main-Class': application.mainClass.get(),
-                'Implementation-Title': 'Luna Beta',
+                'Implementation-Title': 'luna-rs #377',
                 'Implementation-Version': project.version)
     }
+}
+
+tasks.register('betaJar', Jar) {
+    group = 'build'
+    description = 'Builds the beta executable with its beta profile selected automatically.'
+    dependsOn tasks.named('classes')
+    from sourceSets.main.output
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    archiveFileName = 'Luna-Beta.jar'
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    manifest {
+        attributes('Main-Class': 'BetaClientLauncher',
+                'Implementation-Title': 'luna-rs #377 (beta)',
+                'Implementation-Version': project.version)
+    }
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('betaJar')
 }
 
 // These regression fixtures are plain Java entry points rather than JUnit tests.
@@ -98,32 +124,116 @@ tasks.register('clientTest') {
     dependsOn clientTestTasks
 }
 
+tasks.register('verifyLocalServerToggle', JavaExec) {
+    group = 'verification'
+    description = 'Checks that the localhost switch preserves cache and endpoint configuration.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'BetaConfigurationTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '512m'
+    jvmArgs '-Djava.awt.headless=false', '-Dluna.local=true'
+    workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
+    doFirst {
+        workingDir.mkdirs()
+    }
+}
+
+['verifyBetaServerToggle': ['-Dluna.beta=true'],
+ 'verifyLocalBetaServerToggle': ['-Dluna.beta=true', '-Dluna.local=true']].each { taskName, options ->
+    tasks.register(taskName, JavaExec) {
+        group = 'verification'
+        description = 'Checks beta profile selection and the optional localhost override.'
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = 'BetaConfigurationTest'
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        maxHeapSize = '512m'
+        jvmArgs(['-Djava.awt.headless=false'] + options)
+        workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
+        doFirst {
+            workingDir.mkdirs()
+        }
+    }
+}
+
 tasks.register('verifyBetaJar') {
     group = 'verification'
-    description = 'Checks the executable manifest and packaged runtime assets.'
-    dependsOn tasks.named('jar')
-    def archive = tasks.named('jar').flatMap { it.archiveFile }
-    inputs.file(archive)
+    description = 'Checks both executable manifests and their packaged runtime assets.'
+    dependsOn tasks.named('jar'), tasks.named('betaJar')
+    def artifacts = [
+            [archive: tasks.named('jar').flatMap { it.archiveFile }, main: 'client', title: 'luna-rs #377'],
+            [archive: tasks.named('betaJar').flatMap { it.archiveFile }, main: 'BetaClientLauncher', title: 'luna-rs #377 (beta)']
+    ]
+    inputs.files(artifacts.collect { it.archive })
     doLast {
-        new JarFile(archive.get().asFile).withCloseable { jar ->
-            if (jar.manifest.mainAttributes.getValue('Main-Class') != 'client') {
-                throw new GradleException('The executable JAR must launch client.')
-            }
-            def required = ['client.class', 'luna/Constants.class', 'rsa/rsapub.toml',
-                    'data/soundbank.sf2']
-            ['christmas', 'easter', 'halloween'].each { season ->
-                ['background.png', 'logo.png'].each { image ->
-                    required.add("data/title/${season}/${image}")
+        artifacts.each { artifact ->
+            new JarFile(artifact.archive.get().asFile).withCloseable { jar ->
+                if (jar.manifest.mainAttributes.getValue('Main-Class') != artifact.main
+                        || jar.manifest.mainAttributes.getValue('Implementation-Title') != artifact.title) {
+                    throw new GradleException('The executable JAR must select its intended client profile and title.')
                 }
-            }
-            required.each { path ->
-                if (jar.getJarEntry(path.toString()) == null) {
-                    throw new GradleException("Missing packaged runtime resource: ${path}")
+                def required = ['client.class', 'BetaClientLauncher.class', 'luna/Constants.class', 'luna/CacheBootstrap.class', 'rsa/rsapub.toml',
+                        'data/soundbank.sf2', 'bootstrap/cache.zip', 'bootstrap/cache.sha256']
+                ['christmas', 'easter', 'halloween'].each { season ->
+                    ['background.png', 'logo.png'].each { image ->
+                        required.add("data/title/${season}/${image}")
+                    }
                 }
-            }
-            jar.entries().each { entry ->
-                if (entry.name.startsWith('cache/') || entry.name.startsWith('luna/cache/')) {
-                    throw new GradleException('The mutable game cache must remain outside the executable JAR.')
+                required.each { path ->
+                    if (jar.getJarEntry(path.toString()) == null) {
+                        throw new GradleException("Missing packaged runtime resource: ${path}")
+                    }
+                }
+                jar.entries().each { entry ->
+                    if (entry.name.startsWith('cache/') || entry.name.startsWith('luna/cache/')) {
+                        throw new GradleException('The mutable game cache must remain outside the executable JAR.')
+                    }
+                }
+                def expectedStores = (['main_file_cache.dat'] + (0..4).collect { "main_file_cache.idx${it}".toString() }) as Set
+                def expectedHashes = [:]
+                jar.getInputStream(jar.getJarEntry('bootstrap/cache.sha256')).withCloseable { input ->
+                    input.getText('UTF-8').readLines().each { line ->
+                        def match = line =~ /^([0-9a-f]{64})  (main_file_cache\.(?:dat|idx[0-4]))$/
+                        if (!match.matches() || expectedHashes.put(match[0][2], match[0][1]) != null) {
+                            throw new GradleException('The bundled cache manifest must contain six unique SHA-256 entries.')
+                        }
+                    }
+                }
+                if (expectedHashes.keySet() != expectedStores) {
+                    throw new GradleException('The bundled cache manifest must describe every core store exactly once.')
+                }
+                def bundledStores = [] as Set
+                new ZipInputStream(jar.getInputStream(jar.getJarEntry('bootstrap/cache.zip'))).withCloseable { zip ->
+                    def entry
+                    long totalBytes = 0
+                    byte[] buffer = new byte[8192]
+                    while ((entry = zip.nextEntry) != null) {
+                        if (entry.directory || !expectedStores.contains(entry.name) || !bundledStores.add(entry.name)) {
+                            throw new GradleException("Unexpected or duplicate bundled cache entry: ${entry.name}")
+                        }
+                        def digest = MessageDigest.getInstance('SHA-256')
+                        long storeBytes = 0
+                        int count
+                        while ((count = zip.read(buffer)) != -1) {
+                            digest.update(buffer, 0, count)
+                            storeBytes += count
+                            totalBytes += count
+                            if (totalBytes > 512L * 1024 * 1024) {
+                                throw new GradleException('The bundled cache exceeds its expected extraction limit.')
+                            }
+                        }
+                        if (storeBytes == 0 || HexFormat.of().formatHex(digest.digest()) != expectedHashes[entry.name]) {
+                            throw new GradleException("Bundled cache checksum mismatch: ${entry.name}")
+                        }
+                    }
+                }
+                if (bundledStores != expectedStores) {
+                    throw new GradleException('The bundled cache ZIP must contain every core store exactly once.')
                 }
             }
         }
@@ -131,5 +241,6 @@ tasks.register('verifyBetaJar') {
 }
 
 tasks.named('check') {
-    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar')
+    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyLocalServerToggle'),
+            tasks.named('verifyBetaServerToggle'), tasks.named('verifyLocalBetaServerToggle')
 }

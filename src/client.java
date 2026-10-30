@@ -30,6 +30,7 @@ import java.util.zip.CRC32;
 
 import luna.Constants;
 import luna.ClientPaths;
+import luna.CacheBootstrap;
 import luna.RsaParser;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
@@ -607,6 +608,7 @@ public class client extends JagApplet {
             System.out.println(Constants.CLIENT_NAME + " - release #" + 377);
             System.out.println("Server: " + Constants.CONNECT_HOST + ":" + Constants.CONNECT_PORT);
             System.out.println("Cache: " + ClientPaths.cacheDirectory());
+            CacheBootstrap.installBundledCache();
             RsaParser.parse();
             world = 10;
             portOffset = 0;
