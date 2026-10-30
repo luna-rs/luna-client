@@ -48,6 +48,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void unload() {
+		ParallelRasterizer.shutdown();
 		divTable = null;
 		divTable = null;
 		sineTable = null;
@@ -83,6 +84,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void clearTexels() {
+		ParallelRasterizer.flushBeforeTextureChange();
 		texelPool = null;
 		for (int i = 0; i < 50; i++) {
             activeTexels[i] = null;
@@ -104,6 +106,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void unpackTextures(Archive archive) {
+		ParallelRasterizer.flushBeforeTextureChange();
 		loadedTextures = 0;
 		for (int k = 0; k < 50; k++) {
             try {
@@ -143,6 +146,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void pushTexture(int i) {
+        ParallelRasterizer.flushBeforeTextureChange();
         if (activeTexels[i] != null) {
             texelPool[textureBufferSize++] = activeTexels[i];
             activeTexels[i] = null;
@@ -210,6 +214,7 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void initColorTable(double d, byte byte0) {
+		ParallelRasterizer.flushBeforeTextureChange();
 		d += Math.random() * 0.029999999999999999D - 0.014999999999999999D;
 		int i = 0;
 		for (int j = 0; j < 512; j++) {
@@ -690,6 +695,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void gouraudRaster(int ai[], int i, int j, int k, int l, int i1, int j1, int k1) {
+		if (ParallelRasterizer.recordGouraud(ai, i, j, k, l, i1, j1, k1))
+			return;
 		if (jagged) {
 			int l1;
 			if (hClip) {
@@ -1089,6 +1096,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 	}
 
 	public static void flatRaster(int ai[], int i, int j, int k, int l, int i1) {
+		if (ParallelRasterizer.recordFlat(ai, i, j, k, l, i1))
+			return;
 		if (hClip) {
 			if (i1 > Drawable.lastPixelX)
 				i1 = Drawable.lastPixelX;
@@ -1661,6 +1670,8 @@ public class ThreeDimensionalCanvas extends Drawable {
 
 	public static void textureRaster(int ai[], int ai1[], int i, int j, int k, int l, int i1, int j1, int k1, int l1,
 									 int i2, int j2, int k2, int l2, int i3) {
+		if (ParallelRasterizer.recordTexture(ai, ai1, i, j, k, l, i1, j1, k1, l1, i2, j2, k2, l2, i3))
+			return;
 		if (l >= i1) {
             return;
         }

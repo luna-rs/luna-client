@@ -11,6 +11,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 
 @SuppressWarnings("serial")
 public class JagApplet extends Applet implements Runnable, MouseListener, MouseMotionListener, KeyListener,
@@ -24,7 +25,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	/**
 	 * Target rendering rate. Game updates always run at their original 50 Hz.
 	 */
-	public static final int TARGET_FPS = 120;
+	public static final int TARGET_FPS = 60;
 	private volatile int targetFps = TARGET_FPS;
 	private volatile long stopDeadlineNanos;
 
@@ -46,6 +47,10 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	private volatile Graphics screenGraphics;
 	private volatile BufferedImage backBuffer;
 	private final Object presentLock = new Object();
+	private BufferedImage presentationBuffer;
+	private BufferedImage pendingFrameSource;
+	private long presentationGeneration;
+	private long pendingPresentationGeneration;
 
 	public int mouseX;
 	public int mouseY;
@@ -155,18 +160,75 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	 * Copies the back buffer to the window. This is the only place the game output reaches the screen.
 	 */
 	public void presentBackBuffer() {
-		presentFrame();
+		synchronized (presentLock) {
+			presentationGeneration++;
+			presentFrame(backBuffer);
+		}
 	}
 
-	private boolean presentFrame() {
+	private boolean presentFrame(BufferedImage buffer) {
 		synchronized (presentLock) {
-			BufferedImage buffer = backBuffer;
 			Graphics screen = screenGraphics;
 			if (buffer != null && screen != null) {
 				screen.drawImage(buffer, 0, 0, null);
 				return true;
 			}
 			return false;
+		}
+	}
+
+	/**
+	 * Freezes the completed pixels so game updates can safely draw loading progress before presentation.
+	 */
+	private boolean queueFrame() {
+		synchronized (presentLock) {
+			BufferedImage source = backBuffer;
+			if (source == null || screenGraphics == null)
+				return false;
+			if (presentationBuffer == null || presentationBuffer.getWidth() != source.getWidth()
+					|| presentationBuffer.getHeight() != source.getHeight())
+				presentationBuffer = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+			int[] sourcePixels = ((DataBufferInt) source.getRaster().getDataBuffer()).getData();
+			int[] presentationPixels = ((DataBufferInt) presentationBuffer.getRaster().getDataBuffer()).getData();
+			System.arraycopy(sourcePixels, 0, presentationPixels, 0, sourcePixels.length);
+			pendingFrameSource = source;
+			pendingPresentationGeneration = presentationGeneration;
+			return true;
+		}
+	}
+
+	/**
+	 * Discards snapshots invalidated by a resize or an immediate loading-screen presentation.
+	 */
+	private boolean queuedFrameIsValid() {
+		synchronized (presentLock) {
+			return pendingFrameSource != null && pendingFrameSource == backBuffer
+					&& pendingPresentationGeneration == presentationGeneration
+					&& (resizedWidth <= 0 || resizedWidth == pendingFrameSource.getWidth())
+					&& (resizedHeight <= 0 || resizedHeight == pendingFrameSource.getHeight());
+		}
+	}
+
+	private void discardQueuedFrame() {
+		synchronized (presentLock) {
+			pendingFrameSource = null;
+		}
+	}
+
+	/**
+	 * Invalidates a queued image when its layout changes without replacing the back buffer.
+	 */
+	protected final void invalidateFramePresentation() {
+		synchronized (presentLock) {
+			presentationGeneration++;
+		}
+	}
+
+	private boolean presentQueuedFrame() {
+		synchronized (presentLock) {
+			boolean presented = queuedFrameIsValid() && presentFrame(presentationBuffer);
+			pendingFrameSource = null;
+			return presented;
 		}
 	}
 
@@ -235,7 +297,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		screenGraphics = getParentComponent().getGraphics();
 		ensureBackBuffer();
 		imageProducer = new JagImageProducer(width, height, getParentComponent());
-		startThread(this, 1);
+		startThread(this, Thread.NORM_PRIORITY);
 	}
 
 	public void run() {
@@ -258,6 +320,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 			}
 			if (targetFps != scheduledFps) {
 				scheduledFps = targetFps;
+				discardQueuedFrame();
 				scheduler.setTargetFps(scheduledFps, now);
 			}
 			int updates = scheduler.pendingUpdates(now);
@@ -277,12 +340,31 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				break;
 			}
 			long frameStart = System.nanoTime();
+			if (pendingFrameSource != null && !queuedFrameIsValid()) {
+				discardQueuedFrame();
+				scheduler.frameCancelled(frameStart);
+			}
 			if (scheduler.isRenderDue(frameStart)) {
 				scheduler.frameStarted(frameStart);
 				ensureBackBuffer();
 				updateMouseInput();
 				repaintGame();
-				boolean presented = presentFrame();
+				long renderFinished = System.nanoTime();
+				if (scheduler.presentationDeadlineReached(renderFinished)) {
+					scheduler.frameRendered(renderFinished);
+					boolean presented = presentFrame(backBuffer);
+					scheduler.frameCompleted(System.nanoTime(), presented);
+					fps = scheduler.getFramesPerSecond();
+				} else if (queueFrame()) {
+					scheduler.frameRendered(System.nanoTime());
+				} else {
+					scheduler.frameRendered(System.nanoTime());
+					scheduler.frameCompleted(System.nanoTime(), false);
+				}
+			}
+			long presentationTime = System.nanoTime();
+			if (scheduler.isPresentationDue(presentationTime)) {
+				boolean presented = presentQueuedFrame();
 				scheduler.frameCompleted(System.nanoTime(), presented);
 				fps = scheduler.getFramesPerSecond();
 			}
@@ -589,8 +671,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	public void startThread(Runnable runnable, int priority) {
 		Thread thread = new Thread(runnable);
-		thread.start();
 		thread.setPriority(priority);
+		thread.start();
 	}
 
 	public void drawLoadingText(int percent, String text) {

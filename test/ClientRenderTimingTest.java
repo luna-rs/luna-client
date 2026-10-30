@@ -1,4 +1,5 @@
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
@@ -21,6 +22,7 @@ public final class ClientRenderTimingTest {
             scrollbarDragCadence();
             unchangedTextures();
             performanceCommands();
+            parallelFailureRecovery();
         } finally {
             client.pulseCycle = previousCycle;
             client.heartbeatCounter = previousHeartbeat;
@@ -56,11 +58,72 @@ public final class ClientRenderTimingTest {
         return game;
     }
 
+    private static void parallelFailureRecovery() throws Exception {
+        client game = fixture();
+        game.layout = ClientLayout.create(true, 1280, 800);
+        FailingRasterScene scene = new FailingRasterScene();
+        game.sceneGraph = scene;
+        int previousThreads = ParallelRasterizer.getThreadCount();
+        int previousHovered = Model.hoveredCount;
+        try {
+            ParallelRasterizer.setThreadCount(4);
+            Drawable.putPixels(1280, 800, new int[1280 * 800]);
+            ThreeDimensionalCanvas.init3D(1280, 800);
+            ThreeDimensionalCanvas.hClip = false;
+            ThreeDimensionalCanvas.jagged = true;
+            ThreeDimensionalCanvas.anInt1531 = 0;
+            Model.hoveredCount = 0;
+            Method render = client.class.getDeclaredMethod("renderWorldScene", int.class);
+            render.setAccessible(true);
+            render.invoke(game, 0);
+            boolean parallelAvailable = Runtime.getRuntime().availableProcessors() > 1;
+            check(scene.frames == (parallelAvailable ? 2 : 1),
+                    "a deferred cache shader failure retries the same world through the serial renderer");
+            check(Drawable.pixels[2] == 0x123456 && Drawable.pixels[9] == 0x123456
+                            && Drawable.pixels[10] == 0 && Model.hoveredCount == 1,
+                    "recovery clears partial pixels and picking before completing the original serial frame");
+            check(!ParallelRasterizer.isActive(), "recovery leaves no pending worker writes");
+            if (parallelAvailable) check(ParallelRasterizer.getThreadCount() == 1,
+                    "a bad cache shader disables parallel drawing for following frames");
+        } finally {
+            ParallelRasterizer.shutdown();
+            ParallelRasterizer.setThreadCount(previousThreads);
+            Model.hoveredCount = previousHovered;
+        }
+    }
+
+    /**
+     * Models a bad cached shader that the legacy model renderer catches locally.
+     *
+     * @author lare96
+     */
+    private static final class FailingRasterScene extends SceneGraph {
+        private int frames;
+
+        private FailingRasterScene() {
+            super(new int[4][105][105], 104, 4, 104, (byte) 5);
+        }
+
+        @Override
+        public void method280(int x, int renderPlane, int unused, int height, int y, int yaw, int pitch) {
+            frames++;
+            Model.hoveredCount++;
+            try {
+                ThreeDimensionalCanvas.gouraudRaster(Drawable.pixels, 0, 0, 0, 2, 10,
+                        70000 << 8, 70000 << 8);
+            } catch (RuntimeException ignored) {
+                // The original model renderer skips malformed shader data and continues the scene.
+            }
+            ThreeDimensionalCanvas.flatRaster(Drawable.pixels, 0, 0x123456, 0, 2, 10);
+        }
+    }
+
     private static void performanceCommands() throws Exception {
         client game = fixture();
         Field target = JagApplet.class.getDeclaredField("targetFps");
         target.setAccessible(true);
         int previousDistance = SceneGraph.getResizableDrawDistanceIncrease();
+        int previousThreads = ParallelRasterizer.getThreadCount();
         try {
             for (int rate : new int[] {60, 120, 240}) {
                 check(game.handleClientCommand("::fpslimit " + rate), "render limits are handled locally");
@@ -88,9 +151,22 @@ public final class ClientRenderTimingTest {
                 check(game.handleClientCommand(command), "missing distance is handled locally");
             }
             check(game.outBuffer.position == 0, "performance commands send no server packets");
+            for (int threads : new int[] {0, 1, 2, 4}) {
+                check(game.handleClientCommand("::renderthreads " + threads),
+                        "render-worker selection is handled locally");
+                check(ParallelRasterizer.getThreadCount() == threads,
+                        "render-worker selection can enable and disable parallel drawing");
+            }
+            for (String invalid : new String[] {"", "-1", "5", "word"}) {
+                game.handleClientCommand("::renderthreads " + invalid);
+                check(ParallelRasterizer.getThreadCount() == 4,
+                        "invalid worker counts preserve the existing choice");
+            }
+            check(game.outBuffer.position == 0, "render-worker commands send no server packets");
             check(!game.handleClientCommand("::unrelated"), "unrelated commands retain normal routing");
         } finally {
             SceneGraph.setResizableDrawDistanceIncrease(previousDistance);
+            ParallelRasterizer.setThreadCount(previousThreads);
         }
     }
 

@@ -641,6 +641,7 @@ public class client extends JagApplet {
      * Rebuilds the layout, the 3D view and the game screen for the current mode and client size.
      */
     private void updateGameArea() {
+        invalidateFramePresentation();
         layout = ClientLayout.create(clientSize == 1, clientWidth, clientHeight);
         resizableUi = layout.resizable ? new ResizableUi(layout, clientWidth, clientHeight) : null;
         // the line offsets must match the width of the image that is drawn into
@@ -712,6 +713,30 @@ public class client extends JagApplet {
         }
         if (input.equals("::resize")) {
             toggleSize(1);
+            return true;
+        }
+        if (input.equals("::defaultsize")) {
+            settings.resetResizableSize();
+            if (frame != null)
+                frame.setExtendedState(java.awt.Frame.NORMAL);
+            if (clientSize == 1) {
+                rebuildFrame(1, settings.width, settings.height);
+                settings.save();
+            } else {
+                toggleSize(1);
+            }
+            return true;
+        }
+        if (input.equals("::renderthreads") || input.startsWith("::renderthreads ")) {
+            try {
+                int threads = Integer.parseInt(input.substring("::renderthreads".length()).trim());
+                if (threads < 0 || threads > 4)
+                    throw new IllegalArgumentException();
+                ParallelRasterizer.setThreadCount(threads);
+                pushMessage("", (byte) -123, "Render threads: " + ParallelRasterizer.getThreadCount() + ".", 0);
+            } catch (IllegalArgumentException exception) {
+                pushMessage("", (byte) -123, "Usage: ::renderthreads 0..4 (0 or 1 uses one thread)", 0);
+            }
             return true;
         }
         if (input.equals("::fpslimit") || input.startsWith("::fpslimit ")) {
@@ -998,6 +1023,7 @@ public class client extends JagApplet {
     }
 
     public void cleanupShutdown() {
+        ParallelRasterizer.shutdown();
         players = null;
         localPlayers = null;
         updatedPlayers = null;
@@ -11870,7 +11896,7 @@ public class client extends JagApplet {
         Model.mouseX = super.screenMouseX - layout.viewport.x;
         Model.mouseY = super.screenMouseY - layout.viewport.y;
         Drawable.clearScreen();
-        sceneGraph.method280(anInt1216, k, 0, anInt1217, anInt1218, anInt1220, anInt1219);
+        renderWorldScene(k);
         sceneGraph.method255(anInt897);
         method121(false);
         method127(true);
@@ -11882,6 +11908,29 @@ public class client extends JagApplet {
         anInt1218 = k1;
         anInt1219 = l1;
         anInt1220 = i2;
+    }
+
+    /**
+     * Completes world pixels before overlays and retries cache rendering failures with the serial renderer.
+     */
+    private void renderWorldScene(int renderPlane) {
+        ParallelRasterizer.begin(layout.resizable, Drawable.pixels, Drawable.width, Drawable.height);
+        boolean parallel = ParallelRasterizer.isActive();
+        try {
+            try {
+                sceneGraph.method280(anInt1216, renderPlane, 0, anInt1217, anInt1218, anInt1220, anInt1219);
+            } finally {
+                ParallelRasterizer.end();
+            }
+        } catch (RuntimeException exception) {
+            if (!parallel)
+                throw exception;
+            ParallelRasterizer.setThreadCount(1);
+            Drawable.clearScreen();
+            Model.hoveredCount = 0;
+            System.err.println("Parallel rasterization failed; using the serial renderer: " + exception);
+            sceneGraph.method280(anInt1216, renderPlane, 0, anInt1217, anInt1218, anInt1220, anInt1219);
+        }
     }
 
     /**

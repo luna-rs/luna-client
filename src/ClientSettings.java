@@ -19,13 +19,23 @@ public final class ClientSettings {
 
     private static final String FILE_NAME = "client.properties";
 
-    /** Size of the resizable window the first time it is used. */
-    public static final int DEFAULT_WIDTH = 900, DEFAULT_HEIGHT = 600;
+    /**
+     * Native resizable window size chosen to leave room for steady 60 FPS rendering.
+     */
+    public static final int DEFAULT_WIDTH = 1280, DEFAULT_HEIGHT = 800;
 
     /** 0 for the fixed mode, 1 for the resizable mode. */
     public int clientSize = 0;
     public int width = DEFAULT_WIDTH;
     public int height = DEFAULT_HEIGHT;
+
+    /**
+     * Restores the resizable preset while leaving the selected mode unchanged.
+     */
+    public void resetResizableSize() {
+        width = clampWidth(DEFAULT_WIDTH);
+        height = clampHeight(DEFAULT_HEIGHT);
+    }
 
     private static File file() {
         return new File(signlink.findcachedir(), FILE_NAME);
