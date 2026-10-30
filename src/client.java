@@ -575,7 +575,7 @@ public class client extends JagApplet {
     public ClientLayout layout = ClientLayout.create(false, REGULAR_WIDTH, REGULAR_HEIGHT);
 
     /**
-     * Separate presentation buffers and input transforms for the enlarged resizable panels.
+     * Separate presentation buffers for the rounded, native-sized resizable panels.
      */
     private ResizableUi resizableUi;
 

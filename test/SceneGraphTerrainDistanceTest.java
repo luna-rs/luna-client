@@ -34,7 +34,10 @@ public final class SceneGraphTerrainDistanceTest {
                 "objects and occluders retain every original visibility bit in resizable mode");
         checkDepth(3500 + extra * 128);
         if (extra > 0) {
-            check(hasVisibleOuterTerrain(), "expanded visibility includes actual terrain beyond 25 tiles");
+            check(hasVisibleOuterTerrain(25), "expanded visibility includes actual terrain beyond 25 tiles");
+        }
+        if (extra > 7) {
+            check(hasVisibleOuterTerrain(32), "configured visibility extends beyond the previous 32 tile default");
         }
 
         SceneGraph.preCalcFrustrumTable(heights, 1290, 806, 500, 800, 0);
@@ -64,15 +67,15 @@ public final class SceneGraphTerrainDistanceTest {
         check(!SceneGraph.method278(farClip + 1, 0, 0, 0), "terrain is clipped beyond its far limit");
     }
 
-    private static boolean hasVisibleOuterTerrain() {
+    private static boolean hasVisibleOuterTerrain(int previousRadius) {
         boolean[][][][] visibility = SceneGraph.aBooleanArrayArrayArrayArray506;
         int radius = (visibility[0][0].length - 1) / 2;
         for (boolean[][][] pitch : visibility) {
             for (boolean[][] yaw : pitch) {
                 for (int x = 0; x < yaw.length; x++) {
                     for (int y = 0; y < yaw[x].length; y++) {
-                        if ((x - radius < -25 || x - radius >= 25
-                                || y - radius < -25 || y - radius >= 25) && yaw[x][y]) {
+                        if ((x - radius < -previousRadius || x - radius >= previousRadius
+                                || y - radius < -previousRadius || y - radius >= previousRadius) && yaw[x][y]) {
                             return true;
                         }
                     }
@@ -84,7 +87,8 @@ public final class SceneGraphTerrainDistanceTest {
 
     private static void terrainOnlyTraversal() {
         RecordingScene scene = new RecordingScene();
-        int[] offsets = {-33, -32, -31, -26, -25, -24, 0, 24, 25, 26, 31, 32, 33};
+        int[] offsets = {-41, -40, -39, -33, -32, -31, -26, -25, -24, 0,
+                24, 25, 26, 31, 32, 33, 39, 40, 41};
         Map<String, CountingEntity> entities = new HashMap<>();
         for (int offset : offsets) {
             addFixture(scene, 52 + offset, 52, entities);
@@ -107,23 +111,33 @@ public final class SceneGraphTerrainDistanceTest {
         check(!classicFloors.contains("0:77:52") && !classicFloors.contains("0:26:52"),
                 "classic half-open radius excludes +25 and -26");
 
-        scene.floors.clear();
-        configureVisibleTiles(7);
-        render(scene, 52, 52);
-        check(scene.floors.containsAll(classicFloors), "all original terrain remains present");
-        check(scene.floors.contains("0:20:52") && scene.floors.contains("0:83:52")
-                        && scene.floors.contains("0:52:20") && scene.floors.contains("0:52:83"),
-                "terrain renders throughout the extra seven tile band on both axes");
-        check(!scene.floors.contains("0:19:52") && !scene.floors.contains("0:84:52"),
-                "terrain still respects the extended half-open radius");
-        check(!scene.floors.contains("0:53:53"), "plane visibility still hides restricted tiles");
-        check(SceneGraph.anInt461 == 0, "expanded traversal finishes every visible tile");
-        for (Map.Entry<String, CountingEntity> entry : entities.entrySet()) {
-            check(entry.getValue().calls == classicCalls.get(entry.getKey()),
-                    "walls, decorations, piles, bridge objects and entities retain their range: " + entry.getKey());
+        int configuredExtra = Math.max(0, Math.min(SceneGraph.RESIZABLE_TERRAIN_DISTANCE_INCREASE, 27));
+        for (boolean configuredDefault : new boolean[] {false, true}) {
+            scene.floors.clear();
+            for (CountingEntity entity : entities.values()) entity.calls = 0;
+            if (configuredDefault) {
+                configureDefaultVisibleTiles();
+            } else {
+                configureVisibleTiles(7);
+            }
+            int radius = 25 + (configuredDefault ? configuredExtra : 7);
+            render(scene, 52, 52);
+            check(scene.floors.containsAll(classicFloors), "all original terrain remains present");
+            for (int offset : offsets) {
+                boolean visible = offset >= -radius && offset < radius;
+                check(scene.floors.contains("0:" + (52 + offset) + ":52") == visible
+                                && scene.floors.contains("0:52:" + (52 + offset)) == visible,
+                        "terrain respects the chosen half-open radius on both axes: " + radius + "/" + offset);
+            }
+            check(!scene.floors.contains("0:53:53"), "plane visibility still hides restricted tiles");
+            check(SceneGraph.anInt461 == 0, "expanded traversal finishes every visible tile");
+            for (Map.Entry<String, CountingEntity> entry : entities.entrySet()) {
+                check(entry.getValue().calls == classicCalls.get(entry.getKey()),
+                        "walls, decorations, piles, bridge objects and entities retain their range: " + entry.getKey());
+            }
+            check(entities.get("52:52").calls > 0, "the fixture exercises actual non-terrain render calls");
+            check(entities.get("91:52").calls == 0, "terrain beyond the previous range contains no object render calls");
         }
-        check(entities.get("52:52").calls > 0, "the fixture exercises actual non-terrain render calls");
-        check(entities.get("83:52").calls == 0, "the extra terrain band contains no object render calls");
 
         scene.floors.clear();
         configureVisibleTiles(0);
@@ -153,6 +167,10 @@ public final class SceneGraphTerrainDistanceTest {
         render(scene, 52, 52);
         check(SceneGraph.anInt490 == 3,
                 "near occluders stay active while invisible distant walls cannot hide the new terrain");
+        configureDefaultVisibleTiles();
+        render(scene, 52, 52);
+        check(SceneGraph.anInt490 == 3,
+                "the configured default does not activate invisible distant wall occluders");
         configureVisibleTiles(0);
         render(scene, 52, 52);
         check(SceneGraph.anInt490 == 3, "classic occluders retain their original radius");
@@ -160,6 +178,12 @@ public final class SceneGraphTerrainDistanceTest {
 
     private static void configureVisibleTiles(int extraTiles) {
         SceneGraph.preCalcFrustrumTable(visibilityHeights(), 1290, 806, 500, 800, extraTiles);
+        fillVisibility(SceneGraph.aBooleanArrayArrayArrayArray506);
+        fillVisibility(objectVisibilityTables());
+    }
+
+    private static void configureDefaultVisibleTiles() {
+        SceneGraph.preCalcFrustrumTable(visibilityHeights(), 1290, 806, 500, 800, true);
         fillVisibility(SceneGraph.aBooleanArrayArrayArrayArray506);
         fillVisibility(objectVisibilityTables());
     }

@@ -69,7 +69,7 @@ public final class ResizableClientInputTest {
             fixture.game.processMouseClickOnTabs21();
             check(fixture.game.tabId == tab, "actual tab consumer selects resized tab " + tab);
             fixture.game.updateMouseInput();
-            fixture.assertMapped(logical, logical, "sampling before drawing does not inverse-scale the click twice");
+            fixture.assertMapped(logical, logical, "sampling before drawing keeps native click coordinates stable");
         }
         Point world = new Point(400, 300);
         fixture.sample(world, world);
@@ -111,12 +111,12 @@ public final class ResizableClientInputTest {
                 fixture.game.layout.minimap.y + 5 + 75 + 12);
         Point physical = fixture.ui.toScreen(logical.x, logical.y, ResizableUi.MINIMAP);
         fixture.sample(physical, physical);
-        fixture.assertMapped(logical, logical, "minimap uses its own display scale");
+        fixture.assertMapped(logical, logical, "minimap retains native click coordinates");
         fixture.game.anInt28 = 1;
         fixture.game.updateMinimapClick();
         check(fixture.game.walkCalls == 1 && fixture.game.destinationX == 56 && fixture.game.destinationY == 47
                         && fixture.game.sourceX == 50 && fixture.game.sourceY == 50 && fixture.game.packetType == 1,
-                "actual minimap consumer calculates the original destination from the scaled click");
+                "actual minimap consumer calculates the original destination from the native click");
         fixture.assertRaw(physical, physical);
     }
 
@@ -136,7 +136,7 @@ public final class ResizableClientInputTest {
         fixture.game.anInt1053 = -1;
         fixture.sample(physical, physical);
         Point logical = fixture.ui.toLogical(physical.x, physical.y, ClientLayout.AREA_INVENTORY);
-        fixture.assertMapped(logical, logical, "closing a fullscreen interface restores scaled panel input");
+        fixture.assertMapped(logical, logical, "closing a fullscreen interface restores native panel input");
     }
 
     private static void dragOwnership() throws Exception {
@@ -230,13 +230,14 @@ public final class ResizableClientInputTest {
                 drawPanel.invoke(fixture.game, panel, area, resizable ? ClientLayout.OPAQUE : 128);
                 if (resizable) {
                     check((screen.getRGB(area.x + 10, area.y + 10) & 0xffffff) == background,
-                            "resizable drawPanel stages components instead of drawing at unscaled screen positions");
+                            "resizable drawPanel stages components before the final masked presentation");
                     fixture.ui.present(graphics);
-                    for (int y = 3; y < area.height; y += 8) {
-                        for (int x = 3; x < area.width; x += 8) {
+                    int margin = component == 2 ? 24 : 3;
+                    for (int y = margin; y < area.height - margin; y += 8) {
+                        for (int x = margin; x < area.width - margin; x += 8) {
                             Point shown = fixture.ui.toScreen(area.x + x, area.y + y, owners[component]);
                             check((screen.getRGB(shown.x, shown.y) & 0xffffff) == original[y * area.width + x],
-                                    "actual resizable drawPanel routes component to its scaled destination");
+                                    "actual resizable drawPanel retains the original pixel size and position");
                         }
                     }
                     check((screen.getRGB(400, 250) & 0xffffff) == background,

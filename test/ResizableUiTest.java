@@ -8,7 +8,7 @@ import java.awt.image.BufferedImage;
 import java.util.Arrays;
 
 /**
- * Checks scaled panel geometry, native artwork preservation, corner masks and input alignment headlessly.
+ * Checks native panel sizes, exact artwork preservation, corner masks and input alignment headlessly.
  *
  * @author lare96
  */
@@ -40,15 +40,19 @@ public final class ResizableUiTest {
             check(ui.minimapBounds.x + ui.minimapBounds.width == size[0] && ui.minimapBounds.y == 0,
                     "minimap remains top-right");
             check(!ui.inventoryBounds.intersects(ui.chatboxBounds) && !ui.inventoryBounds.intersects(ui.minimapBounds),
-                    "expanded panels do not overlap");
-            check(ui.scale >= 1.0 && ui.scale <= 1.25, "scale stays bounded");
+                    "native panels do not overlap");
+            check(ui.inventoryBounds.equals(layout.inventoryBlock)
+                            && ui.chatboxBounds.equals(layout.chatboxBlock)
+                            && ui.minimapBounds.equals(layout.minimap),
+                    "every panel keeps its original dimensions and position at every window size");
             check(ui.privateChatY() == ui.chatboxBounds.y - 28, "private chat clears displayed panel");
         }
         ResizableUi full = new ResizableUi(ClientLayout.create(true, 1366, 768), 1366, 768);
-        check(full.scale == 1.25 && full.inventoryBounds.width == 311 && full.chatboxBounds.width == 645,
-                "normal resized window uses the requested 125% scale");
+        check(full.inventoryBounds.width == 249 && full.chatboxBounds.width == 516
+                        && full.minimapBounds.width == 172 && full.minimapBounds.height == 156,
+                "normal resized windows retain every original panel size");
         ResizableUi minimum = new ResizableUi(ClientLayout.create(true, 765, 503), 765, 503);
-        check(minimum.scale == 1.0 && minimum.inventoryBounds.equals(new Rectangle(516, 160, 249, 343))
+        check(minimum.inventoryBounds.equals(new Rectangle(516, 160, 249, 343))
                 && minimum.chatboxBounds.equals(new Rectangle(0, 338, 516, 165)), "minimum size retains native panel geometry");
     }
 
@@ -106,7 +110,7 @@ public final class ResizableUiTest {
                         "original opaque artwork pixels retain their exact colours");
             }
         }
-        check(Arrays.equals(art, original), "masking and scaling never mutate the source art");
+        check(Arrays.equals(art, original), "masking never mutates the source art");
         check(rendered.getRGB(ui.inventoryBounds.x, ui.inventoryBounds.y) == 0,
                 "outer corner is transparent instead of a square backing");
         check(rendered.getRGB(ui.inventoryBounds.x + 21, ui.inventoryBounds.y + 21) == 0xff735638,
@@ -116,8 +120,23 @@ public final class ResizableUiTest {
         map.fillRect(layout.minimap.x, layout.minimap.y, 172, 156);
         map.dispose();
         BufferedImage withMap = render(ui, 765, 503);
-        check(withMap.getRGB(ui.minimapBounds.x, 0) == 0xffabcdef,
-                "minimap corner is unmasked so the compass art remains intact");
+        for (Point corner : new Point[] {new Point(0, 0), new Point(171, 0),
+                new Point(0, 155), new Point(171, 155)}) {
+            check(withMap.getRGB(ui.minimapBounds.x + corner.x, corner.y) == 0,
+                    "all minimap surround corners are rounded instead of square");
+        }
+        int[] compassStarts = {14, 10, 8, 7, 5, 4, 4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0,
+                0, 0, 1, 1, 1, 1, 2, 2, 3, 4, 4, 5, 7, 8, 10, 14};
+        int[] compassWidths = {5, 13, 17, 19, 23, 25, 25, 27, 29, 29, 31, 31, 31, 31, 33, 33,
+                33, 33, 33, 31, 31, 31, 31, 29, 29, 27, 25, 25, 23, 19, 17, 13, 5};
+        for (int y = 0; y < compassStarts.length; y++) {
+            for (int x = compassStarts[y]; x < compassStarts[y] + compassWidths[y]; x++) {
+                check(withMap.getRGB(ui.minimapBounds.x + x, y) == 0xffabcdef,
+                        "rounding preserves every actual compass scanline pixel");
+            }
+        }
+        check(withMap.getRGB(ui.minimapBounds.x + 90, 75) == 0xffabcdef,
+                "the minimap interior remains unchanged at native size");
     }
 
     private static void renderedInputAlignment() {
@@ -160,9 +179,8 @@ public final class ResizableUiTest {
         check(ui.mapInput(overChat.x, overChat.y, inventory, false, world)
                         .equals(ui.toLogical(overChat.x, overChat.y, inventory)),
                 "inventory drag retains its original coordinate space over chat");
-        check(!ui.mapInput(overChat.x, overChat.y, inventory, false, world)
-                        .equals(ui.toLogical(overChat.x, overChat.y, chat)),
-                "crossing a panel does not switch an active drag's coordinate space");
+        check(ui.mapInput(overChat.x, overChat.y, inventory, false, world).equals(overChat),
+                "native-sized panels keep screen pixels identical to input pixels during a drag");
         check(ui.mapInput(overChat.x, overChat.y, inventory, true, chat)
                         .equals(ui.toLogical(overChat.x, overChat.y, inventory)),
                 "drag ownership takes priority over an active menu");
@@ -197,7 +215,7 @@ public final class ResizableUiTest {
         graphics.dispose();
         Point glyph = ui.toScreen(layout.inventoryBlock.x + 84, layout.inventoryBlock.y + 64, ClientLayout.AREA_INVENTORY);
         BufferedImage image = render(ui, 1366, 768);
-        check(image.getRGB(glyph.x, glyph.y) == 0xffe6c13b, "global drawing coordinates translate into the correct scaled panel");
+        check(image.getRGB(glyph.x, glyph.y) == 0xffe6c13b, "global drawing coordinates retain the native panel position");
         int[] checker = new int[16 * 16];
         for (int y = 0; y < 16; y++) {
             for (int x = 0; x < 16; x++) checker[y * 16 + x] = (x + y) % 2 == 0 ? 0xff00ff : 0x00ffff;
@@ -211,7 +229,7 @@ public final class ResizableUiTest {
             for (int x = checkerStart.x; x < checkerEnd.x; x++) {
                 int colour = image.getRGB(x, y);
                 check(colour == 0xffff00ff || colour == 0xff00ffff,
-                        "enlargement preserves the original sprite palette without blending adjacent pixels");
+                        "native presentation preserves the original sprite palette without blending adjacent pixels");
             }
         }
         int[] pixels = new int[8 * 8];
