@@ -610,7 +610,11 @@ public class client extends JagApplet {
             switchToHighMem();
             memberServer = true;
             signlink.storeid = 32;
-            signlink.startpriv(InetAddress.getLocalHost());
+            if(Constants.CONNECT_HOST == "127.0.0.1") {
+                signlink.startpriv(InetAddress.getLocalHost());
+            } else {
+                signlink.startpriv(InetAddress.getByName(Constants.CONNECT_HOST));
+            }
             settings = ClientSettings.load();
             client cl = new client();
             cl.startupClientSize = settings.clientSize;
@@ -7419,7 +7423,7 @@ public class client extends JagApplet {
             return signlink.mainapp.getCodeBase();
         try {
             if (super.frame != null)
-                return new URL("http://127.0.0.1:" + (80 + portOffset));
+                return new URL("http://"+Constants.CONNECT_HOST+":" + (80 + portOffset));
         } catch (Exception _ex) {
         }
         return super.getCodeBase();
