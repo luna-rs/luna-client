@@ -16,8 +16,8 @@ public class MouseRecorder implements Runnable {
 		while (running) {
 			synchronized (lock) {
 				if (pos < 500) {
-					mouseX[pos] = ((JagApplet) (client)).mouseX;
-					mouseY[pos] = ((JagApplet) (client)).mouseY;
+					mouseX[pos] = client.screenMouseX;
+					mouseY[pos] = client.screenMouseY;
 					pos++;
 				}
 			}

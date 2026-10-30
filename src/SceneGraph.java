@@ -4,6 +4,19 @@
 
 public class SceneGraph {
 
+	/**
+	 * Extra terrain tiles drawn beyond the original 25 tile radius in resizable
+	 * mode. Zero disables the increase; negative values are treated as zero and
+	 * the effective increase is capped at 27 (a 52 tile radius) for the supported
+	 * 104 by 104 tile scene. Each extra tile also extends terrain visibility depth
+	 * by 128 world units. Objects and entities keep their original range.
+	 */
+	public static final int RESIZABLE_TERRAIN_DISTANCE_INCREASE = 7;
+	private static final int CLASSIC_SCENE_RADIUS = 25;
+	private static final int CLASSIC_FAR_CLIP = 3500;
+	private static final int MAX_TERRAIN_RADIUS = 52;
+	private static int terrainDrawRadius = CLASSIC_SCENE_RADIUS;
+	private static int terrainFarClip = CLASSIC_FAR_CLIP;
 	public static boolean aBoolean439;
 	public int anInt440;
 	public boolean aBoolean441;
@@ -82,8 +95,11 @@ public class SceneGraph {
 			{ 12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3 },
 			{ 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
 			{ 3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12 } };
-	public static boolean aBooleanArrayArrayArrayArray506[][][][] = new boolean[8][32][51][51];
+	public static boolean aBooleanArrayArrayArrayArray506[][][][] = new boolean[8][32]
+			[CLASSIC_SCENE_RADIUS * 2 + 1][CLASSIC_SCENE_RADIUS * 2 + 1];
 	public static boolean aBooleanArrayArray507[][];
+	private static boolean[][][][] objectVisibilityTables = aBooleanArrayArrayArrayArray506;
+	private static boolean[][] objectVisibility;
 	public static int anInt508;
 	public static int anInt509;
 	public static int anInt510;
@@ -129,6 +145,8 @@ public class SceneGraph {
 		aClass39ArrayArray489 = null;
 		aClass6_492 = null;
 		aBooleanArrayArrayArrayArray506 = null;
+		objectVisibilityTables = null;
+		objectVisibility = null;
 		if (flag) {
 			return;
 		} else {
@@ -931,13 +949,43 @@ public class SceneGraph {
 	}
 
 	public static void preCalcFrustrumTable(int[] ai, int intArg0, int intArg1, int i, int j) {
+		preCalcFrustrumTable(ai, intArg0, intArg1, i, j, false);
+	}
+
+	/**
+	 * Builds visibility for the viewport, optionally extending terrain beyond the
+	 * original object and entity range in resizable mode.
+	 */
+	public static void preCalcFrustrumTable(int[] ai, int intArg0, int intArg1, int i, int j,
+			boolean extendedTerrain) {
+		preCalcFrustrumTable(ai, intArg0, intArg1, i, j,
+				extendedTerrain ? RESIZABLE_TERRAIN_DISTANCE_INCREASE : 0);
+	}
+
+	static void preCalcFrustrumTable(int[] ai, int intArg0, int intArg1, int i, int j,
+			int terrainDistanceIncrease) {
+		int extraTiles = Math.max(0, Math.min(terrainDistanceIncrease,
+				MAX_TERRAIN_RADIUS - CLASSIC_SCENE_RADIUS));
+		terrainDrawRadius = CLASSIC_SCENE_RADIUS + extraTiles;
+		terrainFarClip = CLASSIC_FAR_CLIP + extraTiles * 128;
 		anInt510 = 0;
 		anInt511 = 0;
 		anInt512 = intArg0;
 		anInt513 = intArg1;
 		anInt508 = intArg0 / 2;
 		anInt509 = intArg1 / 2;
-		boolean aflag[][][][] = new boolean[9][32][53][53];
+		objectVisibilityTables = buildVisibilityTable(ai, i, j, CLASSIC_SCENE_RADIUS, CLASSIC_FAR_CLIP);
+		aBooleanArrayArrayArrayArray506 = extraTiles == 0 ? objectVisibilityTables
+				: buildVisibilityTable(ai, i, j, terrainDrawRadius, terrainFarClip);
+	}
+
+	/**
+	 * Precomputes the same visibility samples for a chosen tile radius and depth.
+	 */
+	private static boolean[][][][] buildVisibilityTable(int[] ai, int i, int j, int radius, int farClip) {
+		int visibilitySize = radius * 2 + 1;
+		boolean[][][][] visibility = new boolean[8][32][visibilitySize][visibilitySize];
+		boolean aflag[][][][] = new boolean[9][32][visibilitySize + 2][visibilitySize + 2];
 		for (int j1 = 128; j1 <= 384; j1 += 32) {
 			for (int k1 = 0; k1 < 2048; k1 += 64) {
 				anInt473 = Model.sineTable[j1];
@@ -946,19 +994,19 @@ public class SceneGraph {
 				anInt476 = Model.cosineTable[k1];
 				int i2 = (j1 - 128) / 32;
 				int k2 = k1 / 64;
-				for (int i3 = -26; i3 <= 26; i3++) {
-					for (int k3 = -26; k3 <= 26; k3++) {
+				for (int i3 = -radius - 1; i3 <= radius + 1; i3++) {
+					for (int k3 = -radius - 1; k3 <= radius + 1; k3++) {
 						int l3 = i3 * 128;
 						int j4 = k3 * 128;
 						boolean flag1 = false;
 						for (int l4 = -i; l4 <= j; l4 += 128) {
-							if (!method278(j4, l3, anInt444, ai[i2] + l4))
+							if (!method278(j4, l3, anInt444, ai[i2] + l4, farClip))
 								continue;
 							flag1 = true;
 							break;
 						}
 
-						aflag[i2][k2][i3 + 25 + 1][k3 + 25 + 1] = flag1;
+						aflag[i2][k2][i3 + radius + 1][k3 + radius + 1] = flag1;
 					}
 
 				}
@@ -969,19 +1017,19 @@ public class SceneGraph {
 
 		for (int l1 = 0; l1 < 8; l1++) {
 			for (int j2 = 0; j2 < 32; j2++) {
-				for (int l2 = -25; l2 < 25; l2++) {
-					for (int j3 = -25; j3 < 25; j3++) {
+				for (int l2 = -radius; l2 < radius; l2++) {
+					for (int j3 = -radius; j3 < radius; j3++) {
 						boolean flag = false;
 						label0: for (int i4 = -1; i4 <= 1; i4++) {
 							for (int k4 = -1; k4 <= 1; k4++) {
-								if (aflag[l1][j2][l2 + i4 + 25 + 1][j3 + k4 + 25 + 1])
+								if (aflag[l1][j2][l2 + i4 + radius + 1][j3 + k4 + radius + 1])
 									flag = true;
-								else if (aflag[l1][(j2 + 1) % 31][l2 + i4 + 25 + 1][j3 + k4 + 25 + 1])
+								else if (aflag[l1][(j2 + 1) % 31][l2 + i4 + radius + 1][j3 + k4 + radius + 1])
 									flag = true;
-								else if (aflag[l1 + 1][j2][l2 + i4 + 25 + 1][j3 + k4 + 25 + 1]) {
+								else if (aflag[l1 + 1][j2][l2 + i4 + radius + 1][j3 + k4 + radius + 1]) {
 									flag = true;
 								} else {
-									if (!aflag[l1 + 1][(j2 + 1) % 31][l2 + i4 + 25 + 1][j3 + k4 + 25 + 1])
+									if (!aflag[l1 + 1][(j2 + 1) % 31][l2 + i4 + radius + 1][j3 + k4 + radius + 1])
 										continue;
 									flag = true;
 								}
@@ -990,7 +1038,7 @@ public class SceneGraph {
 
 						}
 
-						aBooleanArrayArrayArrayArray506[l1][j2][l2 + 25][j3 + 25] = flag;
+						visibility[l1][j2][l2 + radius][j3 + radius] = flag;
 					}
 
 				}
@@ -998,16 +1046,21 @@ public class SceneGraph {
 			}
 
 		}
+		return visibility;
 	}
 
 	public static boolean method278(int i, int j, int k, int l) {
+		return method278(i, j, k, l, terrainFarClip);
+	}
+
+	private static boolean method278(int i, int j, int k, int l, int farClip) {
 		int i1 = i * anInt475 + j * anInt476 >> 16;
 		int j1 = i * anInt476 - j * anInt475 >> 16;
 		if (k != 0)
 			aBoolean439 = !aBoolean439;
 		int k1 = l * anInt473 + j1 * anInt474 >> 16;
 		int l1 = l * anInt474 - j1 * anInt473 >> 16;
-		if (k1 < 50 || k1 > 3500)
+		if (k1 < 50 || k1 > farClip)
 			return false;
 		int i2 = anInt508 + (i1 << 9) / k1;
 		int j2 = anInt509 + (l1 << 9) / k1;
@@ -1042,24 +1095,25 @@ public class SceneGraph {
 		anInt475 = Model.sineTable[j1];
 		anInt476 = Model.cosineTable[j1];
 		aBooleanArrayArray507 = aBooleanArrayArrayArrayArray506[(k1 - 128) / 32][j1 / 64];
+		objectVisibility = objectVisibilityTables[(k1 - 128) / 32][j1 / 64];
 		anInt470 = i;
 		anInt471 = l;
 		anInt472 = i1;
 		anInt468 = i / 128;
 		anInt469 = i1 / 128;
 		anInt462 = j;
-		anInt464 = anInt468 - 25;
+		anInt464 = anInt468 - terrainDrawRadius;
 		if (k != 0)
 			return;
 		if (anInt464 < 0)
 			anInt464 = 0;
-		anInt466 = anInt469 - 25;
+		anInt466 = anInt469 - terrainDrawRadius;
 		if (anInt466 < 0)
 			anInt466 = 0;
-		anInt465 = anInt468 + 25;
+		anInt465 = anInt468 + terrainDrawRadius;
 		if (anInt465 > anInt453)
 			anInt465 = anInt453;
-		anInt467 = anInt469 + 25;
+		anInt467 = anInt469 + terrainDrawRadius;
 		if (anInt467 > anInt454)
 			anInt467 = anInt454;
 		method286(anInt445);
@@ -1071,7 +1125,7 @@ public class SceneGraph {
 					Tile class50_sub3 = aclass50_sub3[j2][l2];
 					if (class50_sub3 != null)
 						if (class50_sub3.anInt1411 > j
-								|| !aBooleanArrayArray507[(j2 - anInt468) + 25][(l2 - anInt469) + 25]
+								|| !aBooleanArrayArray507[(j2 - anInt468) + terrainDrawRadius][(l2 - anInt469) + terrainDrawRadius]
 								&& anIntArrayArrayArray455[l1][j2][l2] - l < 2000) {
 							class50_sub3.aBoolean1412 = false;
 							class50_sub3.aBoolean1413 = false;
@@ -1079,10 +1133,14 @@ public class SceneGraph {
 						} else {
 							class50_sub3.aBoolean1412 = true;
 							class50_sub3.aBoolean1413 = true;
-							if (class50_sub3.anInt1407 > 0)
+							if (class50_sub3.anInt1407 > 0 && canRenderTileObjects(l1, j2, l2))
 								class50_sub3.aBoolean1414 = true;
 							else
 								class50_sub3.aBoolean1414 = false;
+							if (!canRenderTileObjects(l1, j2, l2)) {
+								class50_sub3.anInt1415 = 0;
+								class50_sub3.anInt1418 = 0;
+							}
 							anInt461++;
 						}
 				}
@@ -1093,11 +1151,11 @@ public class SceneGraph {
 
 		for (int i2 = anInt457; i2 < anInt452; i2++) {
 			Tile aclass50_sub3_1[][] = tiles[i2];
-			for (int i3 = -25; i3 <= 0; i3++) {
+			for (int i3 = -terrainDrawRadius; i3 <= 0; i3++) {
 				int j3 = anInt468 + i3;
 				int l3 = anInt468 - i3;
 				if (j3 >= anInt464 || l3 < anInt465) {
-					for (int j4 = -25; j4 <= 0; j4++) {
+					for (int j4 = -terrainDrawRadius; j4 <= 0; j4++) {
 						int l4 = anInt469 + j4;
 						int j5 = anInt469 - j4;
 						if (j3 >= anInt464) {
@@ -1137,11 +1195,11 @@ public class SceneGraph {
 
 		for (int k2 = anInt457; k2 < anInt452; k2++) {
 			Tile aclass50_sub3_2[][] = tiles[k2];
-			for (int k3 = -25; k3 <= 0; k3++) {
+			for (int k3 = -terrainDrawRadius; k3 <= 0; k3++) {
 				int i4 = anInt468 + k3;
 				int k4 = anInt468 - k3;
 				if (i4 >= anInt464 || k4 < anInt465) {
-					for (int i5 = -25; i5 <= 0; i5++) {
+					for (int i5 = -terrainDrawRadius; i5 <= 0; i5++) {
 						int k5 = anInt469 + i5;
 						int l5 = anInt469 - i5;
 						if (i4 >= anInt464) {
@@ -1182,6 +1240,26 @@ public class SceneGraph {
 		aBoolean482 = false;
 	}
 
+	/**
+	 * Keeps non-terrain renderables within the original half-open tile window.
+	 */
+	private static boolean isWithinObjectDistance(int tileX, int tileY) {
+		int offsetX = tileX - anInt468;
+		int offsetY = tileY - anInt469;
+		return offsetX >= -CLASSIC_SCENE_RADIUS && offsetX < CLASSIC_SCENE_RADIUS
+				&& offsetY >= -CLASSIC_SCENE_RADIUS && offsetY < CLASSIC_SCENE_RADIUS;
+	}
+
+	/**
+	 * Retains the original visibility and height exception for non-terrain models.
+	 */
+	private boolean canRenderTileObjects(int plane, int tileX, int tileY) {
+		return isWithinObjectDistance(tileX, tileY)
+				&& (objectVisibility[tileX - anInt468 + CLASSIC_SCENE_RADIUS]
+						[tileY - anInt469 + CLASSIC_SCENE_RADIUS]
+						|| anIntArrayArrayArray455[plane][tileX][tileY] - anInt471 >= 2000);
+	}
+
 	public void method281(Tile class50_sub3, boolean flag) {
 		aClass6_492.addLast(class50_sub3);
 		do {
@@ -1195,6 +1273,7 @@ public class SceneGraph {
 			int j = class50_sub3_1.anInt1399;
 			int k = class50_sub3_1.anInt1397;
 			int l = class50_sub3_1.anInt1400;
+			boolean renderObjects = canRenderTileObjects(k, i, j);
 			Tile aclass50_sub3[][] = tiles[k];
 			if (class50_sub3_1.aBoolean1412) {
 				if (flag) {
@@ -1238,12 +1317,12 @@ public class SceneGraph {
 							method282(class50_sub3_7.class3, 0, anInt473, anInt474, anInt475, anInt476, i, j);
 					} else if (class50_sub3_7.class20 != null && !method287(0, i, j))
 						method283(anInt474, anInt476, class50_sub3_7.class20, anInt473, j, i, anInt475, (byte) 3);
-					ScenegraphMember44 class44 = class50_sub3_7.aClass44_1403;
+					ScenegraphMember44 class44 = renderObjects ? class50_sub3_7.aClass44_1403 : null;
 					if (class44 != null)
 						class44.aClass50_Sub1_Sub4_724.render(0, anInt473, anInt474, anInt475, anInt476,
 								class44.anInt720 - anInt470, class44.anInt719 - anInt471, class44.anInt721 - anInt472,
 								class44.uid);
-					for (int i2 = 0; i2 < class50_sub3_7.anInt1407; i2++) {
+					for (int i2 = 0; renderObjects && i2 < class50_sub3_7.anInt1407; i2++) {
 						ScenegraphRelated5 scenegraphRelated5 = class50_sub3_7.class5[i2];
 						if (scenegraphRelated5 != null)
 							scenegraphRelated5.entity.render(scenegraphRelated5.anInt118, anInt473, anInt474, anInt475,
@@ -1264,8 +1343,8 @@ public class SceneGraph {
 				}
 				int j1 = 0;
 				int j2 = 0;
-				ScenegraphMember44 class44_3 = class50_sub3_1.aClass44_1403;
-				ScenegraphMember35 class35_1 = class50_sub3_1.aClass35_1404;
+				ScenegraphMember44 class44_3 = renderObjects ? class50_sub3_1.aClass44_1403 : null;
+				ScenegraphMember35 class35_1 = renderObjects ? class50_sub3_1.aClass35_1404 : null;
 				if (class44_3 != null || class35_1 != null) {
 					if (anInt468 == i)
 						j1++;
@@ -1342,7 +1421,7 @@ public class SceneGraph {
 									anInt475, anInt476, j11, l5, l11, class35_1.anInt609);
 						}
 					}
-				if (flag1) {
+				if (flag1 && renderObjects) {
 					ScenegraphMember28 class28 = class50_sub3_1.aClass28_1405;
 					if (class28 != null)
 						class28.aClass50_Sub1_Sub4_570.render(0, anInt473, anInt474, anInt475, anInt476,
@@ -1388,7 +1467,7 @@ public class SceneGraph {
 					}
 				}
 			}
-			if (class50_sub3_1.anInt1415 != 0) {
+			if (renderObjects && class50_sub3_1.anInt1415 != 0) {
 				boolean flag2 = true;
 				for (int k1 = 0; k1 < class50_sub3_1.anInt1407; k1++) {
 					if (class50_sub3_1.class5[k1].anInt124 == anInt463
@@ -1407,7 +1486,7 @@ public class SceneGraph {
 					class50_sub3_1.anInt1415 = 0;
 				}
 			}
-			if (class50_sub3_1.aBoolean1414)
+			if (renderObjects && class50_sub3_1.aBoolean1414)
 				try {
 					int i1 = class50_sub3_1.anInt1407;
 					class50_sub3_1.aBoolean1414 = false;
@@ -1524,7 +1603,7 @@ public class SceneGraph {
 			}
 			class50_sub3_1.aBoolean1413 = false;
 			anInt461--;
-			ScenegraphMember10 class10 = class50_sub3_1.aClass10_1406;
+			ScenegraphMember10 class10 = renderObjects ? class50_sub3_1.aClass10_1406 : null;
 			if (class10 != null && class10.anInt180 != 0) {
 				if (class10.aClass50_Sub1_Sub4_177 != null)
 					class10.aClass50_Sub1_Sub4_177.render(0, anInt473, anInt474, anInt475, anInt476,
@@ -1539,7 +1618,7 @@ public class SceneGraph {
 							class10.anInt174 - anInt470, class10.anInt173 - anInt471 - class10.anInt180,
 							class10.anInt175 - anInt472, class10.anInt179);
 			}
-			if (class50_sub3_1.anInt1418 != 0) {
+			if (renderObjects && class50_sub3_1.anInt1418 != 0) {
 				ScenegraphMember35 class35 = class50_sub3_1.aClass35_1404;
 				if (class35 != null && !method289(l, i, j, class35.aClass50_Sub1_Sub4_608.height))
 					if ((class35.anInt606 & class50_sub3_1.anInt1418) != 0)
@@ -1824,6 +1903,7 @@ public class SceneGraph {
 	}
 
 	public void method286(int i) {
+		// Distant terrain must not be hidden by walls whose models are outside the classic range.
 		int j = anIntArray488[anInt462];
 		CullingCluster aclass39[] = aClass39ArrayArray489[anInt462];
 		if (i < 2 || i > 2)
@@ -1832,18 +1912,18 @@ public class SceneGraph {
 		for (int k = 0; k < j; k++) {
 			CullingCluster class39 = aclass39[k];
 			if (class39.anInt679 == 1) {
-				int l = (class39.anInt675 - anInt468) + 25;
-				if (l < 0 || l > 50)
+				int l = (class39.anInt675 - anInt468) + CLASSIC_SCENE_RADIUS;
+				if (l < 0 || l > CLASSIC_SCENE_RADIUS * 2)
 					continue;
-				int k1 = (class39.anInt677 - anInt469) + 25;
+				int k1 = (class39.anInt677 - anInt469) + CLASSIC_SCENE_RADIUS;
 				if (k1 < 0)
 					k1 = 0;
-				int j2 = (class39.anInt678 - anInt469) + 25;
-				if (j2 > 50)
-					j2 = 50;
+				int j2 = (class39.anInt678 - anInt469) + CLASSIC_SCENE_RADIUS;
+				if (j2 > CLASSIC_SCENE_RADIUS * 2)
+					j2 = CLASSIC_SCENE_RADIUS * 2;
 				boolean flag = false;
 				while (k1 <= j2)
-					if (aBooleanArrayArray507[l][k1++]) {
+					if (objectVisibility[l][k1++]) {
 						flag = true;
 						break;
 					}
@@ -1866,18 +1946,18 @@ public class SceneGraph {
 				continue;
 			}
 			if (class39.anInt679 == 2) {
-				int i1 = (class39.anInt677 - anInt469) + 25;
-				if (i1 < 0 || i1 > 50)
+				int i1 = (class39.anInt677 - anInt469) + CLASSIC_SCENE_RADIUS;
+				if (i1 < 0 || i1 > CLASSIC_SCENE_RADIUS * 2)
 					continue;
-				int l1 = (class39.anInt675 - anInt468) + 25;
+				int l1 = (class39.anInt675 - anInt468) + CLASSIC_SCENE_RADIUS;
 				if (l1 < 0)
 					l1 = 0;
-				int k2 = (class39.anInt676 - anInt468) + 25;
-				if (k2 > 50)
-					k2 = 50;
+				int k2 = (class39.anInt676 - anInt468) + CLASSIC_SCENE_RADIUS;
+				if (k2 > CLASSIC_SCENE_RADIUS * 2)
+					k2 = CLASSIC_SCENE_RADIUS * 2;
 				boolean flag1 = false;
 				while (l1 <= k2)
-					if (aBooleanArrayArray507[l1++][i1]) {
+					if (objectVisibility[l1++][i1]) {
 						flag1 = true;
 						break;
 					}
@@ -1900,23 +1980,23 @@ public class SceneGraph {
 			} else if (class39.anInt679 == 4) {
 				int j1 = class39.anInt684 - anInt471;
 				if (j1 > 128) {
-					int i2 = (class39.anInt677 - anInt469) + 25;
+					int i2 = (class39.anInt677 - anInt469) + CLASSIC_SCENE_RADIUS;
 					if (i2 < 0)
 						i2 = 0;
-					int l2 = (class39.anInt678 - anInt469) + 25;
-					if (l2 > 50)
-						l2 = 50;
+					int l2 = (class39.anInt678 - anInt469) + CLASSIC_SCENE_RADIUS;
+					if (l2 > CLASSIC_SCENE_RADIUS * 2)
+						l2 = CLASSIC_SCENE_RADIUS * 2;
 					if (i2 <= l2) {
-						int i3 = (class39.anInt675 - anInt468) + 25;
+						int i3 = (class39.anInt675 - anInt468) + CLASSIC_SCENE_RADIUS;
 						if (i3 < 0)
 							i3 = 0;
-						int l3 = (class39.anInt676 - anInt468) + 25;
-						if (l3 > 50)
-							l3 = 50;
+						int l3 = (class39.anInt676 - anInt468) + CLASSIC_SCENE_RADIUS;
+						if (l3 > CLASSIC_SCENE_RADIUS * 2)
+							l3 = CLASSIC_SCENE_RADIUS * 2;
 						boolean flag2 = false;
 						label0: for (int i4 = i3; i4 <= l3; i4++) {
 							for (int j4 = i2; j4 <= l2; j4++) {
-								if (!aBooleanArrayArray507[i4][j4])
+								if (!objectVisibility[i4][j4])
 									continue;
 								flag2 = true;
 								break label0;

@@ -575,6 +575,16 @@ public class client extends JagApplet {
     public ClientLayout layout = ClientLayout.create(false, REGULAR_WIDTH, REGULAR_HEIGHT);
 
     /**
+     * Separate presentation buffers and input transforms for the enlarged resizable panels.
+     */
+    private ResizableUi resizableUi;
+
+    /**
+     * Coordinate space retained while a scrollbar thumb is held outside its panel.
+     */
+    private int scrollbarDragArea = ResizableUi.NONE;
+
+    /**
      * The saved mode and window size, written when the mode changes and when the client closes
      */
     public static ClientSettings settings = new ClientSettings();
@@ -619,6 +629,7 @@ public class client extends JagApplet {
             rebuildFrame(width, height, clientSize == 1);
             updateGameArea();
             super.mouseX = super.mouseY = -1;
+            super.screenMouseX = super.screenMouseY = -1;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -629,6 +640,7 @@ public class client extends JagApplet {
      */
     private void updateGameArea() {
         layout = ClientLayout.create(clientSize == 1, clientWidth, clientHeight);
+        resizableUi = layout.resizable ? new ResizableUi(layout, clientWidth, clientHeight) : null;
         // the line offsets must match the width of the image that is drawn into
         ThreeDimensionalCanvas.init3D(clientWidth, clientHeight);
         clientEntireOffsets = ThreeDimensionalCanvas.lineOffsets;
@@ -648,10 +660,13 @@ public class client extends JagApplet {
             ai[l8] = k9 * l9 >> 16;
         }
 
-        SceneGraph.preCalcFrustrumTable(ai, layout.viewport.width, layout.viewport.height, 500, 800);
+        SceneGraph.preCalcFrustrumTable(ai, layout.viewport.width, layout.viewport.height, 500, 800, layout.resizable);
 
         // the context menu belongs to the old layout
         isContextMenuActive = false;
+        anInt1113 = 0;
+        aBoolean1155 = false;
+        scrollbarDragArea = ResizableUi.NONE;
         if (isLoggedIn) {
             // rebuild the game screen for the new layout, a full screen interface is redrawn at the new size
             super.imageProducer = null;
@@ -726,6 +741,37 @@ public class client extends JagApplet {
     @Override
     public int inputOffsetY() {
         return loginScreenOffsetY();
+    }
+
+    @Override
+    protected void updateMouseInput() {
+        super.updateMouseInput();
+        if (!isLoggedIn || anInt1053 != -1 || resizableUi == null) {
+            return;
+        }
+        int dragArea = anInt1113 == 0 ? ResizableUi.NONE
+                : anInt1113 == 2 ? ClientLayout.AREA_INVENTORY
+                : anInt1113 == 3 ? ClientLayout.AREA_CHATBOX : ClientLayout.AREA_VIEWPORT;
+        if (super.anInt21 == 0) {
+            scrollbarDragArea = ResizableUi.NONE;
+        } else if (dragArea == ResizableUi.NONE && aBoolean1127) {
+            dragArea = scrollbarDragArea;
+        }
+        java.awt.Point mouse = resizableUi.mapInput(super.screenMouseX, super.screenMouseY,
+                dragArea, isContextMenuActive, anInt1304);
+        java.awt.Point click = resizableUi.mapInput(super.screenClickX, super.screenClickY,
+                dragArea, isContextMenuActive, anInt1304);
+        super.mouseX = mouse.x;
+        super.mouseY = mouse.y;
+        super.anInt29 = click.x;
+        super.anInt30 = click.y;
+    }
+
+    /**
+     * Keeps viewport text above the displayed chat panel, without scaling world overlays.
+     */
+    private int privateChatY() {
+        return resizableUi == null ? layout.privateChatY : resizableUi.privateChatY();
     }
 
     /**
@@ -1397,12 +1443,12 @@ public class client extends JagApplet {
             if (l > 4095L)
                 l = 4095L;
             aLong902 = super.aLong31;
-            int j2 = super.anInt30;
+            int j2 = super.screenClickY;
             if (j2 < 0)
                 j2 = 0;
             else if (j2 > 502)
                 j2 = 502;
-            int j3 = super.anInt29;
+            int j3 = super.screenClickX;
             if (j3 < 0)
                 j3 = 0;
             else if (j3 > 764)
@@ -3771,6 +3817,10 @@ public class client extends JagApplet {
             if (l == 2 || l == 3)
                 aBoolean1240 = true;
             aBoolean1127 = true;
+            if (resizableUi != null && scrollbarDragArea == ResizableUi.NONE) {
+                int clickedPanel = resizableUi.panelAt(super.screenClickX, super.screenClickY);
+                scrollbarDragArea = clickedPanel == ResizableUi.NONE ? ClientLayout.AREA_VIEWPORT : clickedPanel;
+            }
         }
     }
 
@@ -5960,6 +6010,13 @@ public class client extends JagApplet {
             super.imageProducer.drawImage(0, 0, super.graphics);
             return;
         }
+        if (resizableUi != null) {
+            resizableUi.beginFrame();
+            aBoolean1181 = true;
+            aBoolean1240 = true;
+            aBoolean950 = true;
+            aBoolean1212 = true;
+        }
         if (shouldRenderUI) {
             initUI();
             shouldRenderUI = false;
@@ -5991,15 +6048,9 @@ public class client extends JagApplet {
         }
         if (loadingStage == 2) {
             drawGameViewport();
-            if (clientSize == 1) {
-                // in resizable mode the viewport covers the whole window and is redrawn every frame,
-                // so the panels drawn on top of it have to be redrawn every frame too
-                aBoolean1181 = true; // inventory
-                aBoolean1240 = true; // chatbox
-                aBoolean950 = true; // tab icons
-                aBoolean1212 = true; // chat mode buttons
-                drawResizableFrame();
-            }
+        }
+        if (resizableUi != null) {
+            drawResizableFrame();
         }
         if (isContextMenuActive && anInt1304 == 1)
             aBoolean1181 = true;
@@ -6145,13 +6196,14 @@ public class client extends JagApplet {
             }
             if (layout.resizable) {
                 // the left part of the image is the chatbox corner, the rest is the inventory block
-                setPanelAlpha(ClientLayout.INVENTORY_ALPHA);
+                Graphics2D inventoryGraphics = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
                 aClass18_1109.drawImageRegion(layout.tabIconsBottom.x, layout.tabIconsBottom.y,
-                        layout.tabIconsBottomCrop, 0, layout.tabIconsBottom.width, layout.tabIconsBottom.height, super.graphics);
-                setPanelAlpha(ClientLayout.CHATBOX_ALPHA);
+                        layout.tabIconsBottomCrop, 0, layout.tabIconsBottom.width, layout.tabIconsBottom.height, inventoryGraphics);
+                inventoryGraphics.dispose();
+                Graphics2D chatGraphics = resizableUi.graphicsFor(ClientLayout.AREA_CHATBOX, ClientLayout.CHATBOX_ALPHA);
                 aClass18_1109.drawImageRegion(layout.frameChatboxRight.x, layout.tabIconsBottom.y, 0, 0,
-                        ClientLayout.CHAT_CORNER_WIDTH, layout.tabIconsBottom.height, super.graphics);
-                setPanelAlpha(ClientLayout.OPAQUE);
+                        ClientLayout.CHAT_CORNER_WIDTH, layout.tabIconsBottom.height, chatGraphics);
+                chatGraphics.dispose();
             } else {
                 aClass18_1109.drawImage(layout.tabIconsBottom, super.graphics);
             }
@@ -6190,6 +6242,9 @@ public class client extends JagApplet {
             gameViewportImage.pushPixels();
             ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
         }
+        if (resizableUi != null) {
+            resizableUi.present((Graphics2D) super.graphics);
+        }
         anInt951 = 0;
     }
 
@@ -6200,26 +6255,26 @@ public class client extends JagApplet {
      * to give each block a rectangle of its own.
      */
     private void drawResizableFrame() {
-        Graphics g = super.graphics;
         int cornerWidth = ClientLayout.CHAT_CORNER_WIDTH;
         int inventoryLeft = layout.frameRockLeft.x; // the left side of the inventory block, 516 + dx
         int chatboxFrameWidth = inventoryLeft - layout.inventoryDx; // 516, the width of the chatbox block
 
         // chatbox block: top strip, left side and the right side
-        setPanelAlpha(ClientLayout.CHATBOX_ALPHA);
+        Graphics2D g = resizableUi.graphicsFor(ClientLayout.AREA_CHATBOX, ClientLayout.CHATBOX_ALPHA);
         uiSideChatboxTop.drawImageRegion(layout.frameChatboxTop.x, layout.frameChatboxTop.y, 0, 0, chatboxFrameWidth, uiSideChatboxTop.height, g);
         uiSideChatboxLeft.drawImage(layout.frameChatboxLeft, g);
         uiSideChatboxRight.drawImageRegion(layout.frameChatboxRight.x, layout.frameChatboxRight.y, 0, 0, cornerWidth, uiSideChatboxRight.height, g);
+        g.dispose();
 
         // inventory block: left side (three pieces, the lower two are cut from the chatbox pieces) and right side
-        setPanelAlpha(ClientLayout.INVENTORY_ALPHA);
+        g = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
         uiSideRockLeft1.drawImage(layout.frameRockLeft, g);
         uiSideChatboxTop.drawImageRegion(inventoryLeft, layout.frameChatboxTop.y, chatboxFrameWidth, 0,
                 uiSideChatboxTop.width - chatboxFrameWidth, uiSideChatboxTop.height, g);
         uiSideChatboxRight.drawImageRegion(inventoryLeft, layout.frameChatboxRight.y, cornerWidth, 0,
                 uiSideChatboxRight.width - cornerWidth, uiSideChatboxRight.height, g);
         uiSideRockRight1.drawImage(layout.frameRockRight, g);
-        setPanelAlpha(ClientLayout.OPAQUE);
+        g.dispose();
     }
 
     /**
@@ -6227,6 +6282,12 @@ public class client extends JagApplet {
      * given alpha, so the game view shows through. The fixed layout always draws opaque.
      */
     private void drawPanel(JagImageProducer panel, Rectangle area, int alpha) {
+        if (resizableUi != null) {
+            int region = area == layout.minimap ? ResizableUi.MINIMAP
+                    : area == layout.chatbox || area == layout.chatButtons ? ClientLayout.AREA_CHATBOX : ClientLayout.AREA_INVENTORY;
+            resizableUi.drawPixels(panel.pixels, panel.width, panel.height, area, region, alpha);
+            return;
+        }
         setPanelAlpha(alpha);
         panel.drawImage(area, super.graphics);
         setPanelAlpha(ClientLayout.OPAQUE);
@@ -6269,7 +6330,7 @@ public class client extends JagApplet {
                     byte0 = 2;
                 }
                 if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
-                    int i1 = layout.privateChatY - j * 13;
+                    int i1 = privateChatY() - j * 13;
                     int l1 = 4;
                     class50_sub1_sub1_sub2.drawString_474("From", 2245, l1, 0, i1);
                     class50_sub1_sub1_sub2.drawString_474("From", 2245, l1, 65535, i1 - 1);
@@ -6288,14 +6349,14 @@ public class client extends JagApplet {
                         return;
                 }
                 if (l == 5 && privateChatMode < 2) {
-                    int j1 = layout.privateChatY - j * 13;
+                    int j1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 0, j1);
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 65535, j1 - 1);
                     if (++j >= 5)
                         return;
                 }
                 if (l == 6 && privateChatMode < 2) {
-                    int k1 = layout.privateChatY - j * 13;
+                    int k1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 0, k1);
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 65535, k1 - 1);
                     if (++j >= 5)
@@ -8523,9 +8584,9 @@ public class client extends JagApplet {
             int l = j / 60;
             j %= 60;
             if (j < 10)
-                fontChatboxButtons.drawString_474("System update in: " + l + ":0" + j, 2245, 4, 0xffff00, layout.privateChatY);
+                fontChatboxButtons.drawString_474("System update in: " + l + ":0" + j, 2245, 4, 0xffff00, privateChatY());
             else
-                fontChatboxButtons.drawString_474("System update in: " + l + ":" + j, 2245, 4, 0xffff00, layout.privateChatY);
+                fontChatboxButtons.drawString_474("System update in: " + l + ":" + j, 2245, 4, 0xffff00, privateChatY());
             anInt895++;
             if (anInt895 > 112) {
                 anInt895 = 0;
@@ -8575,7 +8636,7 @@ public class client extends JagApplet {
                     s = s.substring(5);
                 }
                 if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
-                    int i1 = layout.privateChatY - j * 13;
+                    int i1 = privateChatY() - j * 13;
                     if (super.mouseX > layout.viewport.x && super.mouseY - layout.viewport.y > i1 - 10 && super.mouseY - layout.viewport.y <= i1 + 3) {
                         int j1 = fontChatboxButtons.method472((byte) 35, "From:  " + s + aStringArray1298[k]) + 25;
                         if (j1 > 450)
@@ -11770,10 +11831,11 @@ public class client extends JagApplet {
         }
 
         int l2 = ThreeDimensionalCanvas.anInt1547;
-        Model.isPickingEnabled = true;
+        Model.isPickingEnabled = resizableUi == null
+                || resizableUi.panelAt(super.screenMouseX, super.screenMouseY) == ResizableUi.NONE;
         Model.hoveredCount = 0;
-        Model.mouseX = super.mouseX - layout.viewport.x;
-        Model.mouseY = super.mouseY - layout.viewport.y;
+        Model.mouseX = super.screenMouseX - layout.viewport.x;
+        Model.mouseY = super.screenMouseY - layout.viewport.y;
         Drawable.clearScreen();
         sceneGraph.method280(anInt1216, k, 0, anInt1217, anInt1218, anInt1220, anInt1219);
         sceneGraph.method255(anInt897);
