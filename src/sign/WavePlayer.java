@@ -3,6 +3,7 @@ package sign;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
+import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineEvent;
 import java.io.File;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public final class WavePlayer implements AutoCloseable {
     private final Set<Clip> clips = new LinkedHashSet<Clip>();
     private final Factory factory;
     private final int limit;
+    private int volume;
     private boolean closed;
 
     public WavePlayer() {
@@ -47,6 +49,21 @@ public final class WavePlayer implements AutoCloseable {
         }
         this.factory = factory;
         this.limit = limit;
+    }
+
+    /**
+     * Sets attenuation in hundredths of a decibel for current and future sounds.
+     */
+    public void setVolume(int hundredthsDb) {
+        synchronized (lock) {
+            if (closed) {
+                return;
+            }
+            volume = Math.max(-9600, Math.min(0, hundredthsDb));
+            for (Clip clip : clips) {
+                applyVolume(clip);
+            }
+        }
     }
 
     /**
@@ -81,6 +98,7 @@ public final class WavePlayer implements AutoCloseable {
             synchronized (lock) {
                 accepted = !closed;
                 if (accepted) {
+                    applyVolume(clip);
                     clips.add(clip);
                 }
             }
@@ -96,6 +114,21 @@ public final class WavePlayer implements AutoCloseable {
             closeClip(clip);
             System.err.println("Unable to play sound: " + failure);
         }
+    }
+
+    private void applyVolume(Clip clip) {
+        FloatControl control;
+        float value;
+        if (clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
+            control = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+            value = volume / 100.0f;
+        } else if (clip.isControlSupported(FloatControl.Type.VOLUME)) {
+            control = (FloatControl) clip.getControl(FloatControl.Type.VOLUME);
+            value = (float) Math.pow(10.0, volume / 2000.0);
+        } else {
+            throw new IllegalStateException("Audio device does not support sound volume control");
+        }
+        control.setValue(Math.max(control.getMinimum(), Math.min(control.getMaximum(), value)));
     }
 
     private void release(Clip clip) {

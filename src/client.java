@@ -4530,7 +4530,7 @@ public class client extends JagApplet {
     }
 
     public void method58(int i, int j) {
-        signlink.wavevol = j;
+        signlink.wavePlayer.setVolume(j);
         if (i <= 0) {
             anInt1051 = 57;
         }
