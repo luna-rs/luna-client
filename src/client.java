@@ -316,6 +316,7 @@ public class client extends JagApplet {
     public RgbSprite aClass50_Sub1_Sub1_Sub1_1102;
     public RgbSprite aClass50_Sub1_Sub1_Sub1_1103;
     public String chatInput;
+    private String lastCommand = "";
     /** Whether the public chat line takes keystrokes. Toggled by pressing enter, so WASD can move the camera. */
     public boolean chatActive;
     public int cameraJitter[];
@@ -1915,6 +1916,12 @@ public class client extends JagApplet {
                     aBoolean1240 = true;
                 }
             } else if (anInt988 == -1 && anInt1053 == -1) {
+                if (key == 9 && !lastCommand.isEmpty()) {
+                    chatInput = lastCommand;
+                    chatActive = true;
+                    aBoolean1240 = true;
+                    continue;
+                }
                 if (!chatActive) {
                     // keys are free for the camera until enter opens the chat line
                     if (key == 13 || key == 10) {
@@ -1939,6 +1946,12 @@ public class client extends JagApplet {
                     aBoolean1240 = true;
                 }
                 if ((key == 13 || key == 10) && chatInput.length() > 0) {
+                    if (chatInput.startsWith("::")) {
+                        int commandEnd = chatInput.indexOf(' ');
+                        String command = commandEnd == -1 ? chatInput : chatInput.substring(0, commandEnd);
+                        if (command.length() > 2)
+                            lastCommand = command;
+                    }
                     // client side commands for everyone, these are not sent to the server
                     boolean clientCommand = handleClientCommand(chatInput);
                     if (playerRights == 2) {

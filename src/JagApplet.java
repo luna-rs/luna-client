@@ -238,6 +238,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	}
 
 	private void addInputListeners() {
+		getParentComponent().setFocusTraversalKeysEnabled(false);
 		getParentComponent().addMouseListener(this);
 		getParentComponent().addMouseMotionListener(this);
 		getParentComponent().addKeyListener(this);
