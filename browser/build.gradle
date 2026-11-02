@@ -1,0 +1,148 @@
+plugins {
+    id 'java'
+    id 'org.teavm' version '0.16.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+def rawClient = providers.gradleProperty('rawClient').isPresent()
+def sharedSourceDirectory = file('../src')
+def browserSourceDirectory = file('src/main/java')
+def generatedSourceDirectory = layout.buildDirectory.dir('generated/shared')
+
+tasks.register('generateSharedSources', Sync) {
+    doFirst {
+        if (new File(browserSourceDirectory, 'client.java').exists()) {
+            throw new GradleException('The game client must come from shared src/client.java, never a browser copy.')
+        }
+    }
+    from(sharedSourceDirectory) {
+        include '**/*.java'
+        eachFile { details ->
+            if (new File(browserSourceDirectory, details.path).isFile()) {
+                details.exclude()
+            }
+        }
+        filter { String line ->
+            def generatedLine = line.replace('java.awt.', 'luna.browser.awt.')
+                    .replace('java.applet.', 'luna.browser.applet.')
+                    .replace('javax.swing.', 'luna.browser.swing.')
+                    .replace('java.net.Socket', 'luna.browser.net.Socket')
+                    .replace('java.net.InetAddress', 'luna.browser.net.InetAddress')
+                    .replace('java.io.RandomAccessFile', 'luna.browser.io.RandomAccessFile')
+            if (generatedLine.contains('signlink.reporterror("loaderror ')) {
+                return 'exception.printStackTrace(); luna.browser.BrowserDiagnostics.report(exception); ' + generatedLine
+            }
+            generatedLine
+        }
+    }
+    into generatedSourceDirectory
+    inputs.dir(browserSourceDirectory)
+}
+
+sourceSets {
+    main {
+        java.srcDirs = rawClient ? [sharedSourceDirectory] : [generatedSourceDirectory, browserSourceDirectory]
+        resources.srcDirs = ['src/main/resources']
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+if (!rawClient) {
+    tasks.named('compileJava') {
+        dependsOn tasks.named('generateSharedSources')
+    }
+}
+
+dependencies {
+    implementation teavm.libs.jsoApis
+    implementation teavm.libs.interop
+}
+
+teavm.js {
+    mainClass = rawClient ? 'client' : 'BrowserClientMain'
+    targetFileName = 'client.js'
+    outputDir = layout.buildDirectory.dir('site')
+    relativePathInOutputDir = ''
+    entryPointName = 'main'
+    sourceMap = true
+    debugInformation = true
+    strict = true
+    obfuscated = false
+    outOfProcess = true
+    processMemory = 2048
+}
+
+tasks.register('prepareBrowserAssets', Sync) {
+    from(zipTree(file('../data/bootstrap/cache.zip'))) {
+        include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
+                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4'
+        into 'cache'
+    }
+    from('../data/bootstrap') {
+        include 'cache.sha256'
+        into 'cache'
+    }
+    from('../data/title') {
+        into 'assets/title'
+    }
+    from('../rsa') {
+        include 'rsapub.toml'
+        into 'rsa'
+    }
+    into layout.buildDirectory.dir('static-assets')
+}
+
+tasks.register('browserSite', Copy) {
+    group = 'build'
+    description = 'Builds the shared Java client for TeaVM and prepares its browser assets.'
+    dependsOn tasks.named('generateJavaScript'), tasks.named('prepareBrowserAssets')
+    from(layout.buildDirectory.dir('static-assets'))
+    from('web')
+    into layout.buildDirectory.dir('site')
+}
+
+tasks.register('verifyBrowserGraphics', JavaExec) {
+    onlyIf { file('src/test/java/BrowserGraphicsParityTest.java').isFile() }
+    group = 'verification'
+    description = 'Compares browser framebuffer operations with Java2D rendering.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'BrowserGraphicsParityTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '512m'
+    jvmArgs '-Djava.awt.headless=true'
+}
+
+tasks.register('verifyBrowserCacheFile', JavaExec) {
+    onlyIf { file('src/test/java/BrowserCacheFileTest.java').isFile() }
+    group = 'verification'
+    description = 'Verifies writable browser cache files against the real shared cache format.'
+    dependsOn tasks.named('testClasses'), tasks.named('prepareBrowserAssets')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'BrowserCacheFileTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '512m'
+    jvmArgs '-Djava.awt.headless=true'
+    args layout.buildDirectory.dir('static-assets/cache').get().asFile.absolutePath
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyBrowserGraphics'), tasks.named('verifyBrowserCacheFile')
+}

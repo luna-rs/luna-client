@@ -87,6 +87,18 @@ tasks.named('assemble') {
     dependsOn tasks.named('betaJar')
 }
 
+tasks.register('browserSite') {
+    group = 'build'
+    description = 'Builds the browser client from the same current Java sources and cache as the desktop client.'
+    dependsOn ':browser:browserSite'
+}
+
+tasks.register('allClientBuilds') {
+    group = 'build'
+    description = 'Builds both desktop releases and the browser client from this checkout.'
+    dependsOn tasks.named('jar'), tasks.named('betaJar'), tasks.named('browserSite')
+}
+
 // These regression fixtures are plain Java entry points rather than JUnit tests.
 tasks.named('test') {
     enabled = false

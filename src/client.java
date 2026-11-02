@@ -4684,13 +4684,6 @@ public class client extends JagApplet {
         } catch (Exception _ex) {
         }
         if (abyte0 != null) {
-           /* aCRC32_1088.reset();
-            aCRC32_1088.update(abyte0);
-            int j1 = (int) aCRC32_1088.getValue();
-            if (j1 != j)
-                abyte0 = null;*/
-        }
-        if (abyte0 != null) {
             Archive class2 = new Archive(abyte0);
             return class2;
         }
