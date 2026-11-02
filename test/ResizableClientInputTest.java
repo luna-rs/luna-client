@@ -31,6 +31,7 @@ public final class ResizableClientInputTest {
             dragOwnership();
             scrollbarOwnership();
             menuOwnership();
+            gameMessageColourMenu();
             awtInputCapture();
             panelPresentation();
         } finally {
@@ -182,6 +183,83 @@ public final class ResizableClientInputTest {
         fixture.sample(new Point(-1, -1), outside);
         check(fixture.game.mouseX == -1 && fixture.game.mouseY == -1,
                 "mouse-exit sentinel survives active menu and drag mapping");
+    }
+
+    private static void gameMessageColourMenu() throws Exception {
+        String previousHome = System.getProperty("user.home");
+        ClientSettings previousSettings = client.settings;
+        java.nio.file.Path fixtureHome = java.nio.file.Files.createTempDirectory("luna-chat-menu-");
+        try {
+            System.setProperty("user.home", fixtureHome.toString());
+            for (boolean resizable : new boolean[] {false, true}) {
+                Fixture fixture = new Fixture(resizable);
+                fixture.game.loginScreenFont = GameMessageFormattingTest.fixtureFont();
+                client.settings = new ClientSettings();
+                Point logical = new Point(fixture.game.layout.chatbox.x + 100, fixture.game.layout.chatbox.y + 30);
+                Point physical = fixture.ui == null ? logical
+                        : fixture.ui.toScreen(logical.x, logical.y, ClientLayout.AREA_CHATBOX);
+                fixture.sample(physical, physical);
+                fixture.game.rightClickOptions[0] = "Cancel";
+                fixture.game.anIntArray981[0] = 1016;
+                fixture.game.anInt1183 = 1;
+                fixture.game.anInt28 = 1;
+                fixture.game.updateMouseClicks();
+                check(fixture.game.anInt1183 == 1 && client.settings.coloredGameMessages,
+                        "an ordinary chatbox left-click neither adds nor toggles the preference");
+
+                fixture.game.anInt28 = 2;
+                fixture.game.updateMouseClicks();
+                check(fixture.game.isContextMenuActive && fixture.game.anInt1304 == ClientLayout.AREA_CHATBOX
+                                && fixture.game.anInt1183 == 2
+                                && fixture.game.rightClickOptions[1].equals("Colored game messages: On"),
+                        "right-clicking the normal chatbox opens the colour control in either layout");
+                int action = fixture.game.anIntArray981[1];
+                int menuX = fixture.game.layout.chatbox.x + fixture.game.anInt1305 + 4;
+                int menuY = fixture.game.layout.chatbox.y + fixture.game.anInt1306 + 27;
+                Point menuLogical = new Point(menuX, menuY);
+                Point menuPhysical = fixture.ui == null ? menuLogical
+                        : fixture.ui.toScreen(menuX, menuY, ClientLayout.AREA_CHATBOX);
+                fixture.sample(menuPhysical, menuPhysical);
+                int outputPosition = fixture.game.outBuffer.position;
+                fixture.game.aBoolean1240 = false;
+                fixture.game.anInt28 = 1;
+                fixture.game.updateMouseClicks();
+                check(!client.settings.coloredGameMessages && !ClientSettings.load().coloredGameMessages
+                                && fixture.game.aBoolean1240 && !fixture.game.isContextMenuActive
+                                && fixture.game.outBuffer.position == outputPosition,
+                        "selecting the real menu row persists and redraws locally without sending a packet");
+
+                fixture.game.anIntArray981[1] = action;
+                fixture.game.anInt28 = 1;
+                fixture.game.updateMouseClicks();
+                check(!client.settings.coloredGameMessages,
+                        "a stale menu action cannot toggle on a later ordinary left-click");
+
+                for (int overlay = 0; overlay < 6; overlay++) {
+                    fixture.game.isContextMenuActive = false;
+                    fixture.game.anInt1183 = 1;
+                    fixture.game.anInt1053 = overlay == 0 ? 123 : -1;
+                    fixture.game.anInt988 = overlay == 1 ? 123 : -1;
+                    fixture.game.anInt1191 = overlay == 2 ? 123 : -1;
+                    fixture.game.chatboxInterfaceType = overlay == 3 ? 1 : 0;
+                    fixture.game.aBoolean866 = overlay == 4;
+                    fixture.game.aString1058 = overlay == 5 ? "Continue" : null;
+                    fixture.sample(physical, physical);
+                    fixture.game.anInt28 = 2;
+                    fixture.game.updateMouseClicks();
+                    check(fixture.game.anInt1183 == 1 && !client.settings.coloredGameMessages,
+                            "chatbox overlays never gain the local colour option");
+                }
+            }
+        } finally {
+            client.settings = previousSettings;
+            if (previousHome == null) System.clearProperty("user.home");
+            else System.setProperty("user.home", previousHome);
+            try (java.util.stream.Stream<java.nio.file.Path> paths = java.nio.file.Files.walk(fixtureHome)) {
+                for (java.nio.file.Path path : paths.sorted(java.util.Comparator.reverseOrder())
+                        .toArray(java.nio.file.Path[]::new)) java.nio.file.Files.delete(path);
+            }
+        }
     }
 
     private static void scrollbarOwnership() throws Exception {

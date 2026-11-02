@@ -40,6 +40,11 @@ import sign.MusicController;
 @SuppressWarnings("serial")
 public class client extends JagApplet {
 
+    /**
+     * Client-only menu action, handled before legacy server-action normalization.
+     */
+    private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
+
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
             return false;
@@ -4460,9 +4465,30 @@ public class client extends JagApplet {
                 sendOutgoingPackets(anInt1183 - 1, 8);
             }
             if (j == 2 && anInt1183 > 0) {
+                addGameMessageColorOption();
                 method108(811);
             }
         }
+    }
+
+    /**
+     * Keeps the appearance setting out of dialogue, search and text-entry chatbox overlays.
+     */
+    private boolean canToggleGameMessageColors() {
+        return isLoggedIn && anInt1053 == -1 && anInt988 == -1 && anInt1191 == -1
+                && chatboxInterfaceType == 0 && !aBoolean866 && aString1058 == null;
+    }
+
+    /**
+     * Adds the setting only while opening an actual right-click menu, never to the ordinary left-click action list.
+     */
+    private void addGameMessageColorOption() {
+        if (super.anInt28 != 2 || !canToggleGameMessageColors()
+                || !layout.isInChatbox(super.anInt29, super.anInt30)
+                || anInt1183 >= rightClickOptions.length) return;
+        rightClickOptions[anInt1183] = "Colored game messages: " + (settings.coloredGameMessages ? "On" : "Off");
+        anIntArray981[anInt1183] = GAME_MESSAGE_COLORS_ACTION;
+        anInt1183++;
     }
 
     public void method55(int i, RgbSprite class50_sub1_sub1_sub1, int j, int k) {
@@ -7080,7 +7106,8 @@ public class client extends JagApplet {
                     }
                     if (j1 == 0) {
                         if (k1 > 0 && k1 < 110)
-                            class50_sub1_sub1_sub2_1.drawString_474(aStringArray1298[i1], 2245, 4, 0, k1);
+                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], 0, 4, k1, false,
+                                    settings.coloredGameMessages);
                         k++;
                     }
                     if ((j1 == 1 || j1 == 2) && (j1 == 1 || publicChatMode == 0 || publicChatMode == 1 && method148(13292, s1))) {
@@ -9077,6 +9104,14 @@ public class client extends JagApplet {
         int interfaceId = anIntArray980[i];
         int i1 = anIntArray981[i];
         int id = anIntArray982[i];
+        if (i1 == GAME_MESSAGE_COLORS_ACTION) {
+            if (isContextMenuActive && anInt1304 == ClientLayout.AREA_CHATBOX && canToggleGameMessageColors()) {
+                settings.coloredGameMessages = !settings.coloredGameMessages;
+                aBoolean1240 = true;
+                settings.save();
+            }
+            return;
+        }
         if (j < anInt921 || j > anInt921)
             opcode = buffer.getByte();
         if (i1 >= 2000)
