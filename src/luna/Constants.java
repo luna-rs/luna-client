@@ -15,8 +15,8 @@ public final class Constants {
 
     public static final int CONNECT_PORT = 43594;
 
+
     public static final boolean DECODE_RSA = true;
-    public static final int NPC_BITS = 14;
     public static final boolean DEBUG = true;
 
     private Constants() {

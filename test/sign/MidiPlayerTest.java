@@ -66,7 +66,8 @@ public final class MidiPlayerTest {
 			player.setVolume(-400);
 			await(() -> result.get() == 500);
 			check(factory.output.volume(0) < full / 2, "new track begins quietly");
-			int attenuated = (int) Math.round(full * Math.pow(10.0, -0.2));
+			// MIDI channel volume squares its amplitude response, so a 4 dB master change scales it by 10^-0.1.
+			int attenuated = (int) Math.round(full * Math.pow(10.0, -0.1));
 			await(() -> factory.output.volume(0) == attenuated);
 			check(factory.starts.get() == 2, "fade-in completes at user's selected volume");
 			player.play(midi, true);
@@ -315,25 +316,37 @@ public final class MidiPlayerTest {
 	private static void testVolume() throws Exception {
 		Output output = new Output();
 		MidiPlayer.VolumeReceiver receiver = new MidiPlayer.VolumeReceiver(output);
-		for (int volume : new int[] { 0, -400, -800, -1200 }) {
+		int[] levels = { 0, -400, -800, -1200 };
+		// The MIDI channel gains reserve 3 dB of PCM mix headroom before the selected master attenuation.
+		double[] gains = { 0.8413951416451951, 0.6683439175686146, 0.5308844442309884, 0.4216965034285822 };
+		for (int index = 0; index < levels.length; index++) {
+			int volume = levels[index];
 			receiver.setVolume(volume);
 			receiver.send(new ShortMessage(ShortMessage.CONTROL_CHANGE, 3, 7, 80), 42);
 			receiver.send(new ShortMessage(ShortMessage.CONTROL_CHANGE, 3, 39, 23), 42);
-			int expected = (int) Math.round(((80 << 7) | 23) * Math.pow(10, volume / 2000.0));
-			check(output.volume(3) == expected, "14-bit volume at " + volume);
+			int expected = (int) Math.round(((80 << 7) | 23) * gains[index]);
+			check(output.volume(3) == expected, "mix headroom and 14-bit master volume at " + volume);
 			receiver.send(new ShortMessage(ShortMessage.CONTROL_CHANGE, 3, 11, 45), 42);
 			check(output.control(3, 11) == 45, "expression retained");
 			receiver.send(new ShortMessage(ShortMessage.CONTROL_CHANGE, 3, 121, 0), 42);
 			check(output.volume(3) == expected, "CC121 preserves authored attenuated volume");
 		}
+		receiver.setFade(0.25);
+		check(output.volume(3) == (int) Math.round(((80 << 7) | 23) * gains[3] / 2),
+				"quarter PCM fade uses half the MIDI channel volume");
+		receiver.setFade(0.0);
+		check(output.volume(3) == 0, "fully faded channel is silent");
+		receiver.setFade(1.0);
+		check(output.volume(3) == (int) Math.round(((80 << 7) | 23) * gains[3]),
+				"fade completion restores selected master volume and headroom");
 		receiver.reset();
-		check(output.volume(3) == (int) Math.round((100 << 7) * Math.pow(10, -0.6)), "track reset volume");
+		check(output.volume(3) == (int) Math.round((100 << 7) * gains[3]), "track reset volume");
 		check(output.control(3, 11) == 127 && output.control(3, 10) == 64, "track reset expression and pan");
 		check(output.control(3, 0) == 0 && output.control(3, 32) == 0, "track reset bank");
 		check(output.program[3] == 0 && output.pitch[3] == 8192, "track reset program and pitch");
 		receiver.send(new ShortMessage(ShortMessage.CONTROL_CHANGE, 3, 7, 127), -1);
 		receiver.send(new SysexMessage(new byte[] { (byte) 0xf0, 0x7e, 0x7f, 9, 1, (byte) 0xf7 }, 6), -1);
-		check(output.volume(3) == (int) Math.round((100 << 7) * Math.pow(10, -0.6)), "GM reset retains master gain");
+		check(output.volume(3) == (int) Math.round((100 << 7) * gains[3]), "GM reset retains master gain");
 		receiver.close();
 		receiver.close();
 		check(output.closed.get() == 1, "receiver closes once");

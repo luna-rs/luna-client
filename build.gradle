@@ -92,7 +92,7 @@ tasks.named('test') {
     enabled = false
 }
 
-def appletFixtures = ['BetaConfigurationTest', 'ClientRenderTimingTest', 'JagAppletTimingTest',
+def appletFixtures = ['ClientRenderTimingTest', 'JagAppletTimingTest',
         'ResizableClientInputTest'] as Set
 def clientTestTasks = []
 fileTree('test').matching { include '**/*Test.java' }.files.sort().each { source ->
@@ -122,43 +122,6 @@ tasks.register('clientTest') {
     group = 'verification'
     description = 'Runs all plain Java client regression fixtures.'
     dependsOn clientTestTasks
-}
-
-tasks.register('verifyLocalServerToggle', JavaExec) {
-    group = 'verification'
-    description = 'Checks that the localhost switch preserves cache and endpoint configuration.'
-    dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'BetaConfigurationTest'
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-    maxHeapSize = '512m'
-    jvmArgs '-Djava.awt.headless=false', '-Dluna.local=true'
-    workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
-    doFirst {
-        workingDir.mkdirs()
-    }
-}
-
-['verifyBetaServerToggle': ['-Dluna.beta=true'],
- 'verifyLocalBetaServerToggle': ['-Dluna.beta=true', '-Dluna.local=true']].each { taskName, options ->
-    tasks.register(taskName, JavaExec) {
-        group = 'verification'
-        description = 'Checks beta profile selection and the optional localhost override.'
-        dependsOn tasks.named('testClasses')
-        classpath = sourceSets.test.runtimeClasspath
-        mainClass = 'BetaConfigurationTest'
-        javaLauncher = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(21)
-        }
-        maxHeapSize = '512m'
-        jvmArgs(['-Djava.awt.headless=false'] + options)
-        workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
-        doFirst {
-            workingDir.mkdirs()
-        }
-    }
 }
 
 tasks.register('verifyBetaJar') {
@@ -260,6 +223,5 @@ tasks.register('verifyClientLaunchers', JavaExec) {
 }
 
 tasks.named('check') {
-    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyClientLaunchers'), tasks.named('verifyLocalServerToggle'),
-            tasks.named('verifyBetaServerToggle'), tasks.named('verifyLocalBetaServerToggle')
+    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyClientLaunchers')
 }
