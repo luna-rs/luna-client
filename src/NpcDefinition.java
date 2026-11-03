@@ -332,6 +332,13 @@ public class NpcDefinition {
 		bufData_657.position = npcDefIndices_650[id];
 		def.id = id;
 		def.init(bufData_657);
+		// The attack slot stays empty; the next slot sends Luna's ordinary npc2 interaction packet.
+		if (id == 1304 || id == 1385 || id == 2825 || id == 2826) {
+			if (def.aStringArray646 == null) {
+				def.aStringArray646 = new String[5];
+			}
+			def.aStringArray646[2] = "Travel";
+		}
 		return def;
 	}
 }
