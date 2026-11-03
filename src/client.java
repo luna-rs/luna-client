@@ -588,6 +588,11 @@ public class client extends JagApplet {
     private int scrollbarDragArea = ResizableUi.NONE;
 
     /**
+     * A held scrollbar must be released before it can acquire geometry from a replacement layout.
+     */
+    private boolean scrollbarResizeCancelled;
+
+    /**
      * The saved mode and window size, written when the mode changes and when the client closes
      */
     public static ClientSettings settings = new ClientSettings();
@@ -676,6 +681,13 @@ public class client extends JagApplet {
         isContextMenuActive = false;
         anInt1113 = 0;
         aBoolean1155 = false;
+        aBoolean1127 = false;
+        anInt1303 = 0;
+        anInt1094 = 0;
+        scrollbarResizeCancelled = super.anInt21 != 0;
+        super.anInt28 = 0;
+        currentlyHovered1302 = currentlyHovered1129 = 0;
+        anInt1280 = anInt1044 = anInt1106 = anInt1284 = 0;
         scrollbarDragArea = ResizableUi.NONE;
         if (isLoggedIn) {
             // rebuild the game screen for the new layout, a full screen interface is redrawn at the new size
@@ -812,6 +824,7 @@ public class client extends JagApplet {
                 : anInt1113 == 3 ? ClientLayout.AREA_CHATBOX : ClientLayout.AREA_VIEWPORT;
         if (super.anInt21 == 0) {
             scrollbarDragArea = ResizableUi.NONE;
+            scrollbarResizeCancelled = false;
         } else if (dragArea == ResizableUi.NONE && aBoolean1127) {
             dragArea = scrollbarDragArea;
         }
@@ -2229,7 +2242,7 @@ public class client extends JagApplet {
                 int k11 = buffer.getByte();
                 int i17 = buffer.getShort();
                 if (i17 == 65535) {
-                    if (anInt1035 < 50) {
+                    if (aBoolean1301 && !lowMemory && anInt1035 < 50) {
                         anIntArray1090[anInt1035] = (short) k1;
                         anIntArray1321[anInt1035] = k11;
                         anIntArray1259[anInt1035] = 0;
@@ -3807,6 +3820,11 @@ public class client extends JagApplet {
     }
 
     public void method42(int i, int j, JagInterface class13, byte byte0, int k, int l, int i1, int j1, int k1) {
+        if (scrollbarResizeCancelled) {
+            if (super.anInt21 == 0)
+                scrollbarResizeCancelled = false;
+            return;
+        }
         if (anInt1094 == 0) {
             if (super.anInt21 != 1)
                 aBoolean1127 = false;
@@ -4393,8 +4411,8 @@ public class client extends JagApplet {
         }
         if (isContextMenuActive) {
             if (j != 1) {
-                int k = super.mouseX - layout.areaX(anInt1304);
-                int j1 = super.mouseY - layout.areaY(anInt1304);
+                int k = super.mouseX - contextAreaX();
+                int j1 = super.mouseY - contextAreaY();
                 if (k < anInt1305 - 10 || k > anInt1305 + anInt1307 + 10 || j1 < anInt1306 - 10
                         || j1 > anInt1306 + anInt1308 + 10) {
                     isContextMenuActive = false;
@@ -4410,8 +4428,8 @@ public class client extends JagApplet {
                 int l = anInt1305;
                 int k1 = anInt1306;
                 int i2 = anInt1307;
-                int k2 = super.anInt29 - layout.areaX(anInt1304);
-                int l2 = super.anInt30 - layout.areaY(anInt1304);
+                int k2 = super.anInt29 - contextAreaX();
+                int l2 = super.anInt30 - contextAreaY();
                 int i3 = -1;
                 for (int j3 = 0; j3 < anInt1183; j3++) {
                     int k3 = k1 + 31 + (anInt1183 - 1 - j3) * 15;
@@ -5455,7 +5473,7 @@ public class client extends JagApplet {
             return;
         if (class13.type != 0 || class13.anIntArray258 == null || class13.aBoolean219)
             return;
-        if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height)
+        if (i1 < l || k1 < i || i1 > l + interfaceWidth(class13) || k1 > i + interfaceHeight(class13))
             return;
         int l1 = class13.anIntArray258.length;
         for (int i2 = 0; i2 < l1; i2++) {
@@ -5464,6 +5482,11 @@ public class client extends JagApplet {
             JagInterface class13_1 = JagInterface.forId(class13.anIntArray258[i2]);
             j2 += class13_1.anInt228;
             k2 += class13_1.anInt259;
+            if (layout.resizable && class13.id == walkableInterfaceId) {
+                java.awt.Point offset = ViewportHudLayout.childOffset(layout, class13.id, class13_1.id);
+                j2 += offset.x;
+                k2 += offset.y;
+            }
             if ((class13_1.anInt254 >= 0 || class13_1.anInt261 != 0) && i1 >= j2 && k1 >= k2
                     && i1 < j2 + class13_1.width && k1 < k2 + class13_1.height)
                 if (class13_1.anInt254 >= 0)
@@ -5991,18 +6014,10 @@ public class client extends JagApplet {
                 Drawable.clearScreen();
                 shouldRenderUI = true;
                 JagInterface interface_1 = JagInterface.forId(anInt1053);
-                if (interface_1.width == 512 && interface_1.height == 334 && interface_1.type == 0) {
-                    interface_1.width = 765;
-                    interface_1.height = 503;
-                }
-                drawInterface(layout.fullscreenInterfaceX, layout.fullscreenInterfaceY, interface_1, 0, 8);
+                drawInterface(layout.fullscreenInterfaceY, layout.fullscreenInterfaceX, interface_1, 0, 8);
                 if (openInterfaceID != -1) {
                     JagInterface interface_2 = JagInterface.forId(openInterfaceID);
-                    if (interface_2.width == 512 && interface_2.height == 334 && interface_2.type == 0) {
-                        interface_2.width = 765;
-                        interface_2.height = 503;
-                    }
-                    drawInterface(layout.fullscreenInterfaceX, layout.fullscreenInterfaceY, interface_2, 0, 8);
+                    drawInterface(layout.fullscreenInterfaceY, layout.fullscreenInterfaceX, interface_2, 0, 8);
                 }
                 if (!isContextMenuActive) {
                     generateContextOptions(-521);
@@ -7521,6 +7536,10 @@ public class client extends JagApplet {
             anInt915 = 0;
             anInt1315 = 0;
             method66(layout.fullscreenInterfaceY, JagInterface.forId(anInt1053), 0, 0, layout.fullscreenInterfaceX, super.mouseX, 23658, super.mouseY);
+            if (openInterfaceID != -1) {
+                method66(layout.fullscreenInterfaceY, JagInterface.forId(openInterfaceID), 0, 0,
+                        layout.fullscreenInterfaceX, super.mouseX, 23658, super.mouseY);
+            }
             if (anInt915 != currentlyHovered1302)
                 currentlyHovered1302 = anInt915;
             if (anInt1315 != currentlyHovered1129)
@@ -7532,9 +7551,16 @@ public class client extends JagApplet {
         anInt1315 = 0;
         if (layout.isInViewport(super.mouseX, super.mouseY)) {
             if (anInt1169 != -1) {
-                method66(layout.viewport.y, JagInterface.forId(anInt1169), 0, 0, layout.viewport.x, super.mouseX, 23658, super.mouseY);
+                JagInterface modal = JagInterface.forId(anInt1169);
+                java.awt.Point origin = layout.modalOrigin(modal.width, modal.height);
+                method66(layout.viewport.y + origin.y, modal, 0, 0, layout.viewport.x + origin.x,
+                        super.mouseX, 23658, super.mouseY);
             } else {
                 generateContextOptions43((byte) 7);
+                if (layout.resizable && ViewportHudLayout.supports(walkableInterfaceId)) {
+                    method66(layout.viewport.y, JagInterface.forId(walkableInterfaceId), 0, 0,
+                            layout.viewport.x, super.mouseX, 23658, super.mouseY);
+                }
             }
         }
         if (anInt915 != currentlyHovered1302) {
@@ -8437,6 +8463,9 @@ public class client extends JagApplet {
             }
             if (value == 4)
                 aBoolean1301 = false;
+            signlink.wavePlayer.setEnabled(aBoolean1301);
+            if (!aBoolean1301)
+                anInt1035 = 0;
         }
         if (varpType == 5)
             anInt1300 = value;
@@ -8483,15 +8512,27 @@ public class client extends JagApplet {
 
         j += 8;
         int i1 = 15 * anInt1183 + 21;
+        if (anInt1053 != -1) {
+            anInt1304 = ClientLayout.AREA_VIEWPORT;
+            anInt1305 = Math.max(0, Math.min(super.anInt29 - j / 2, clientWidth - j));
+            anInt1306 = Math.max(0, Math.min(super.anInt30, clientHeight - i1 - 1));
+            anInt1307 = j;
+            anInt1308 = i1 + 1;
+            isContextMenuActive = true;
+            return;
+        }
         if (layout.isInViewport(super.anInt29, super.anInt30)) {
+            int menuWidth = anInt1169 != -1 ? layout.usableGameArea.width : layout.viewport.width;
+            int menuHeight = anInt1169 != -1 ? layout.usableGameArea.height : layout.viewport.height;
             int j1 = super.anInt29 - layout.viewport.x - j / 2;
-            if (j1 + j > layout.viewport.width)
-                j1 = layout.viewport.width - j;
+            if (j1 + j > menuWidth)
+                j1 = menuWidth - j;
             if (j1 < 0)
                 j1 = 0;
             int i2 = super.anInt30 - layout.viewport.y;
-            if (i2 + i1 > layout.viewport.height)
-                i2 = layout.viewport.height - i1;
+            int menuPixels = i1 + (layout.resizable && anInt1169 != -1 ? 1 : 0);
+            if (i2 + menuPixels > menuHeight)
+                i2 = menuHeight - menuPixels;
             if (i2 < 0)
                 i2 = 0;
             isContextMenuActive = true;
@@ -8547,11 +8588,14 @@ public class client extends JagApplet {
             aClass50_Sub1_Sub1_Sub1Array896[4 + anInt1022 / 100].method461(anInt1021 - 8 - layout.viewport.y, anInt1020 - 8 - layout.viewport.x, -488);
         if (walkableInterfaceId != -1) {
             updateInterfaceAnimations(anInt951, walkableInterfaceId);
-            drawInterface(0, 0, JagInterface.forId(walkableInterfaceId), 0, 8);
+            JagInterface overlay = JagInterface.forId(walkableInterfaceId);
+            drawInterface(0, 0, overlay, 0, 8);
         }
         if (anInt1169 != -1) {
             updateInterfaceAnimations(anInt951, anInt1169);
-            drawInterface(0, 0, JagInterface.forId(anInt1169), 0, 8);
+            JagInterface modal = JagInterface.forId(anInt1169);
+            java.awt.Point origin = layout.modalOrigin(modal.width, modal.height);
+            drawInterface(origin.y, origin.x, modal, 0, 8);
         }
         method107(-7);
         if (!isContextMenuActive) {
@@ -8560,7 +8604,8 @@ public class client extends JagApplet {
         } else if (anInt1304 == 0)
             drawContextMenu();
         if (anInt1319 == 1)
-            aClass50_Sub1_Sub1_Sub1_1086.method461(296, 472, -488);
+            aClass50_Sub1_Sub1_Sub1_1086.method461(layout.multicombatPosition.y,
+                    layout.multicombatPosition.x, -488);
         if (fps) {
             char c = '\u01FB';
             int k = 20;
@@ -10318,6 +10363,17 @@ public class client extends JagApplet {
         g.setTransform(AffineTransform.getTranslateInstance(loginScreenOffsetX(), loginScreenOffsetY()));
     }
 
+    /**
+     * Full-screen interfaces own the whole canvas; ordinary menus remain relative to their panel buffers.
+     */
+    private int contextAreaX() {
+        return anInt1053 != -1 ? 0 : layout.areaX(anInt1304);
+    }
+
+    private int contextAreaY() {
+        return anInt1053 != -1 ? 0 : layout.areaY(anInt1304);
+    }
+
     public void drawContextMenu() {
         int beginX = anInt1305;
         int beginY = anInt1306;
@@ -10328,8 +10384,8 @@ public class client extends JagApplet {
         Drawable.drawFullRect(beginX + 1, beginY + 1, k - 2, 16, 0);
         Drawable.drawRect(beginX + 1, beginY + 18, k - 2, l - 19, 0);
         loginScreenFont.drawString_474("Choose Option", 2245, beginX + 3, i1, beginY + 14);
-        int j1 = super.mouseX - layout.areaX(anInt1304);
-        int k1 = super.mouseY - layout.areaY(anInt1304);
+        int j1 = super.mouseX - contextAreaX();
+        int k1 = super.mouseY - contextAreaY();
         for (int optionCounter = 0; optionCounter < anInt1183; optionCounter++) {
             int i2 = beginY + 31 + (anInt1183 - 1 - optionCounter) * 15;
             int j2 = 0xffffff;
@@ -11071,6 +11127,28 @@ public class client extends JagApplet {
         sprite_1018 = null;
     }
 
+    /**
+     * Retains the legacy full-screen clipping canvas without modifying native cache definitions or child sizes.
+     */
+    private boolean hasFullscreenBounds(JagInterface widget) {
+        return anInt1053 != -1 && (widget.id == anInt1053 || widget.id == openInterfaceID)
+                && widget.type == 0 && widget.width == 512 && widget.height == 334;
+    }
+
+    private int interfaceWidth(JagInterface widget) {
+        if (layout.resizable && widget.id == walkableInterfaceId && ViewportHudLayout.supports(widget.id)) {
+            return layout.viewport.width;
+        }
+        return hasFullscreenBounds(widget) ? REGULAR_WIDTH : widget.width;
+    }
+
+    private int interfaceHeight(JagInterface widget) {
+        if (layout.resizable && widget.id == walkableInterfaceId && ViewportHudLayout.supports(widget.id)) {
+            return layout.viewport.height;
+        }
+        return hasFullscreenBounds(widget) ? REGULAR_HEIGHT : widget.height;
+    }
+
     public void drawInterface(int x, int y, JagInterface jagInterface, int k, int l) {
         if (jagInterface.type != 0 || jagInterface.anIntArray258 == null)
             return;
@@ -11081,7 +11159,7 @@ public class client extends JagApplet {
         int j1 = Drawable.startY;
         int k1 = Drawable.endX;
         int l1 = Drawable.endY;
-        Drawable.recalcEdges(x, y, x + jagInterface.height, y + jagInterface.width, true);
+        Drawable.recalcEdges(x, y, x + interfaceHeight(jagInterface), y + interfaceWidth(jagInterface), true);
         int i2 = jagInterface.anIntArray258.length;
         if (l != 8)
             opcode = -1;
@@ -11091,6 +11169,11 @@ public class client extends JagApplet {
             JagInterface class13_1 = JagInterface.forId(jagInterface.anIntArray258[j2]);
             k2 += class13_1.anInt228;
             l2 += class13_1.anInt259;
+            if (layout.resizable && jagInterface.id == walkableInterfaceId) {
+                java.awt.Point offset = ViewportHudLayout.childOffset(layout, jagInterface.id, class13_1.id);
+                k2 += offset.x;
+                l2 += offset.y;
+            }
             if (class13_1.anInt242 > 0)
                 method103((byte) 2, class13_1);
             if (class13_1.type == 0) {
@@ -11372,10 +11455,10 @@ public class client extends JagApplet {
                         int k10 = l2 + class13_1.height + 5;
                         if (i8 < k2 + 5)
                             i8 = k2 + 5;
-                        if (i8 + l3 > y + jagInterface.width)
-                            i8 = (y + jagInterface.width) - l3;
-                        if (k10 + i5 > x + jagInterface.height)
-                            k10 = (x + jagInterface.height) - i5;
+                        if (i8 + l3 > y + interfaceWidth(jagInterface))
+                            i8 = (y + interfaceWidth(jagInterface)) - l3;
+                        if (k10 + i5 > x + interfaceHeight(jagInterface))
+                            k10 = (x + interfaceHeight(jagInterface)) - i5;
                         Drawable.drawFullRect(i8, k10, l3, i5, 0xffffa0);
                         Drawable.drawRect(i8, k10, l3, i5, 0);
                         String s2 = class13_1.aString230;
@@ -11896,6 +11979,8 @@ public class client extends JagApplet {
     public void method152(int i) {
         if (i != -23763)
             load();
+        if (!aBoolean1301)
+            anInt1035 = 0;
         for (int j = 0; j < anInt1035; j++)
             if (anIntArray1259[j] <= 0) {
                 boolean flag = false;

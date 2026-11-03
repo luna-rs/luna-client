@@ -81,6 +81,21 @@ public final class ClientLayout {
     /** Where a full screen interface (765x503) is drawn: the centre of the window in the resizable layout. */
     public final int fullscreenInterfaceX, fullscreenInterfaceY;
 
+    /**
+     * Native modal parent, relative to the viewport, clear of the chatbox and right-hand panels.
+     */
+    public final Rectangle usableGameArea;
+
+    /**
+     * Shared status area below the minimap, moved beside it when the inventory leaves insufficient room.
+     */
+    public final Rectangle statusHud;
+
+    /**
+     * Multicombat marker below the status widgets, relative to the viewport. Fixed mode keeps its native position.
+     */
+    public final Point multicombatPosition;
+
     /** The area codes used by the context menu: which panel it was opened in. */
     public static final int AREA_VIEWPORT = 0, AREA_INVENTORY = 1, AREA_CHATBOX = 2;
 
@@ -125,6 +140,21 @@ public final class ClientLayout {
         privateChatY = resizable ? chatbox.y - 28 : 329;
         fullscreenInterfaceX = resizable ? Math.max(0, (clientWidth - FIXED_WIDTH) / 2) : 0;
         fullscreenInterfaceY = resizable ? Math.max(0, (clientHeight - FIXED_HEIGHT) / 2) : 0;
+        usableGameArea = new Rectangle(0, 0,
+                resizable ? inventoryBlock.x : viewport.width,
+                resizable ? chatboxBlock.y : viewport.height);
+        if (resizable) {
+            // Adapt the native OSRS desktop wilderness inset to Luna's minimap and wider counter labels.
+            statusHud = new Rectangle(viewport.width - 68 - 48, minimap.y + minimap.height + 1, 96, 96);
+            if (statusHud.intersects(inventoryBlock) || statusHud.intersects(chatboxBlock)) {
+                statusHud.setLocation(Math.max(0, minimap.x - statusHud.width - 8), 8);
+            }
+            // Leave eight pixels below the tallest native status group (the 60-pixel Gnomeball score panel).
+            multicombatPosition = new Point(statusHud.x + (statusHud.width - 25) / 2, statusHud.y + 68);
+        } else {
+            statusHud = new Rectangle(418, 256, 94, 78);
+            multicombatPosition = new Point(472, 296);
+        }
     }
 
     /** The inventory block: both tab icon rows, the inventory and the frame pieces around it. */
@@ -132,6 +162,15 @@ public final class ClientLayout {
 
     /** The chatbox block: the chatbox, the chat buttons and the frame pieces around them. */
     public final Rectangle chatboxBlock;
+
+    /**
+     * Centers an unchanged native interface in its parent, recomputed from the current window dimensions.
+     * Fixed mode retains the cache's original offsets. Oversized roots stay pinned to the parent's top-left.
+     */
+    public Point modalOrigin(int width, int height) {
+        return resizable ? new Point(Math.max(0, (usableGameArea.width - width) / 2),
+                Math.max(0, (usableGameArea.height - height) / 2)) : new Point(0, 0);
+    }
 
     /** True if the point is over one of the panels drawn on top of the viewport (resizable layout only). */
     public boolean isOverPanel(int x, int y) {

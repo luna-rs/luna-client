@@ -30,6 +30,7 @@ public final class MidiPlayer implements AutoCloseable {
 
 	static final int MAX_MIDI_BYTES = 2 * 1024 * 1024;
 	private static final long FADE_MILLIS = 1000;
+	private static final int MIX_HEADROOM_HUNDREDTHS_DB = -300;
 
 	private final Object requests = new Object();
 	private final DeviceFactory factory;
@@ -104,7 +105,7 @@ public final class MidiPlayer implements AutoCloseable {
 	/**
 	 * Sets master attenuation in hundredths of a decibel, preserving track volume
 	 * and expression. Zero is full volume; the client's other levels are -400,
-	 * -800, and -1200.
+	 * -800, and -1200. An additional 3 dB leaves room for effects in the output mix.
 	 */
 	public void setVolume(int hundredthsDb) {
 		synchronized (requests) {
@@ -467,7 +468,7 @@ public final class MidiPlayer implements AutoCloseable {
 	static final class VolumeReceiver implements Receiver {
 		private final Receiver output;
 		private final int[] channelVolume = new int[16];
-		private double gain = 1.0;
+		private double gain = Math.pow(10.0, MIX_HEADROOM_HUNDREDTHS_DB / 4000.0);
 		private double fade = 1.0;
 		private boolean closed;
 
@@ -477,7 +478,9 @@ public final class MidiPlayer implements AutoCloseable {
 		}
 
 		synchronized void setVolume(int hundredthsDb) {
-			gain = Math.pow(10.0, hundredthsDb / 2000.0);
+			// MIDI channel volume has a squared amplitude response. Scaling it as PCM
+			// amplitude doubles attenuation compared with the effects master gain.
+			gain = Math.pow(10.0, (hundredthsDb + MIX_HEADROOM_HUNDREDTHS_DB) / 4000.0);
 			if (!closed)
 				for (int channel = 0; channel < 16; channel++)
 					sendVolume(channel, -1);
@@ -549,7 +552,7 @@ public final class MidiPlayer implements AutoCloseable {
 		}
 
 		private void sendVolume(int channel, long timestamp) {
-			int scaled = (int) Math.round(channelVolume[channel] * gain * fade);
+			int scaled = (int) Math.round(channelVolume[channel] * gain * Math.sqrt(fade));
 			control(channel, 7, scaled >> 7, timestamp);
 			control(channel, 39, scaled & 127, timestamp);
 		}
