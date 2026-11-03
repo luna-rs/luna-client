@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class ParallelRasterizer {
 
-    public static final int DEFAULT_THREAD_COUNT = 4;
+    public static final int DEFAULT_THREAD_COUNT = luna.ClientConfiguration.get().integer("renderThreads", 0, 4);
     public static final int MIN_PARALLEL_PIXELS = 900 * 600;
     static final int CLIPPED = 4;
     static final int JAGGED = 8;

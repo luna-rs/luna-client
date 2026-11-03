@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import luna.SeasonalTitleTheme;
 import luna.ClientResources;
 
@@ -24,21 +25,23 @@ import java.util.stream.Stream;
 public final class TitleArtworkTest {
 
     public static void main(String[] args) throws Exception {
-        Path directory = Files.createTempDirectory("luna-title-art-test-");
-        try {
-            FixtureArchive archive = archive();
-            legacyIdentity(archive, directory);
-            seasonalComposition(archive, directory);
-            independentFallbacks(archive, directory);
-            boundedLoading(archive, directory);
-            sessionCaching(archive, directory);
-            bundledComposition(archive, directory.resolve("packaged-assets"));
-        } finally {
-            try (Stream<Path> paths = Files.walk(directory)) {
-                for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(path);
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            Path directory = Files.createTempDirectory("luna-title-art-test-");
+            try {
+                FixtureArchive archive = archive();
+                legacyIdentity(archive, directory);
+                seasonalComposition(archive, directory);
+                independentFallbacks(archive, directory);
+                boundedLoading(archive, directory);
+                sessionCaching(archive, directory);
+                bundledComposition(archive, directory.resolve("packaged-assets"));
+            } finally {
+                try (Stream<Path> paths = Files.walk(directory)) {
+                    for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(path);
+                }
             }
+            System.out.println("TitleArtworkTest passed");
         }
-        System.out.println("TitleArtworkTest passed");
     }
 
     private static void legacyIdentity(Archive archive, Path directory) {

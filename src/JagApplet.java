@@ -25,7 +25,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	/**
 	 * Target rendering rate. Game updates always run at their original 50 Hz.
 	 */
-	public static final int TARGET_FPS = 60;
+	public static final int TARGET_FPS = luna.ClientConfiguration.get().integer("targetFps", 1, 1000);
 	private volatile int targetFps = TARGET_FPS;
 	private volatile long stopDeadlineNanos;
 	private volatile boolean minimized;

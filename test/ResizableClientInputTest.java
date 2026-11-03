@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -18,28 +19,30 @@ import java.util.Arrays;
 public final class ResizableClientInputTest {
 
     public static void main(String[] args) throws Exception {
-        check(!GraphicsEnvironment.isHeadless(), "Run this Applet fixture with -Djava.awt.headless=false");
-        int previousWidth = client.clientWidth;
-        int previousHeight = client.clientHeight;
-        Player previousPlayer = client.thisPlayer;
-        try {
-            fixedModeInput();
-            resizedTabs();
-            resizedChatButtons();
-            minimapDestination();
-            loginAndFullscreenInput();
-            dragOwnership();
-            scrollbarOwnership();
-            menuOwnership();
-            gameMessageColourMenu();
-            awtInputCapture();
-            panelPresentation();
-        } finally {
-            client.clientWidth = previousWidth;
-            client.clientHeight = previousHeight;
-            client.thisPlayer = previousPlayer;
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            check(!GraphicsEnvironment.isHeadless(), "Run this Applet fixture with -Djava.awt.headless=false");
+            int previousWidth = client.clientWidth;
+            int previousHeight = client.clientHeight;
+            Player previousPlayer = client.thisPlayer;
+            try {
+                fixedModeInput();
+                resizedTabs();
+                resizedChatButtons();
+                minimapDestination();
+                loginAndFullscreenInput();
+                dragOwnership();
+                scrollbarOwnership();
+                menuOwnership();
+                gameMessageColourMenu();
+                awtInputCapture();
+                panelPresentation();
+            } finally {
+                client.clientWidth = previousWidth;
+                client.clientHeight = previousHeight;
+                client.thisPlayer = previousPlayer;
+            }
+            System.out.println("ResizableClientInputTest passed");
         }
-        System.out.println("ResizableClientInputTest passed");
     }
 
     private static void fixedModeInput() throws Exception {
@@ -186,15 +189,14 @@ public final class ResizableClientInputTest {
     }
 
     private static void gameMessageColourMenu() throws Exception {
-        String previousHome = System.getProperty("user.home");
         ClientSettings previousSettings = client.settings;
-        java.nio.file.Path fixtureHome = java.nio.file.Files.createTempDirectory("luna-chat-menu-");
         try {
-            System.setProperty("user.home", fixtureHome.toString());
             for (boolean resizable : new boolean[] {false, true}) {
                 Fixture fixture = new Fixture(resizable);
                 fixture.game.loginScreenFont = GameMessageFormattingTest.fixtureFont();
                 client.settings = new ClientSettings();
+                client.settings.coloredGameMessages = true;
+                client.settings.save();
                 Point logical = new Point(fixture.game.layout.chatbox.x + 100, fixture.game.layout.chatbox.y + 30);
                 Point physical = fixture.ui == null ? logical
                         : fixture.ui.toScreen(logical.x, logical.y, ClientLayout.AREA_CHATBOX);
@@ -253,12 +255,6 @@ public final class ResizableClientInputTest {
             }
         } finally {
             client.settings = previousSettings;
-            if (previousHome == null) System.clearProperty("user.home");
-            else System.setProperty("user.home", previousHome);
-            try (java.util.stream.Stream<java.nio.file.Path> paths = java.nio.file.Files.walk(fixtureHome)) {
-                for (java.nio.file.Path path : paths.sorted(java.util.Comparator.reverseOrder())
-                        .toArray(java.nio.file.Path[]::new)) java.nio.file.Files.delete(path);
-            }
         }
     }
 

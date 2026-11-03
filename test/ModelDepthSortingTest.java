@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.util.Arrays;
 
 /**
@@ -16,21 +17,23 @@ public final class ModelDepthSortingTest {
     private static final int[] DEPTH_ORDER = {14, 5, 10, 1, 3, 9, 13, 12, 15, 8, 11, 6, 4, 0};
     private static final int[] PRIORITY_ORDER = {14, 10, 12, 0, 1, 15, 3, 13, 4, 11, 5, 6, 8, 9};
 
-    public static void main(String[] args) {
-        Drawable.putPixels(WIDTH, HEIGHT, new int[WIDTH * HEIGHT]);
-        ThreeDimensionalCanvas.init3D(WIDTH, HEIGHT);
-        for (int index = 1; index <= DEPTHS.length; index++) {
-            Model.colorLookupTable[index] = index * 0x13579 & 0xffffff;
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            Drawable.putPixels(WIDTH, HEIGHT, new int[WIDTH * HEIGHT]);
+            ThreeDimensionalCanvas.init3D(WIDTH, HEIGHT);
+            for (int index = 1; index <= DEPTHS.length; index++) {
+                Model.colorLookupTable[index] = index * 0x13579 & 0xffffff;
+            }
+            Model.mouseX = 25;
+            Model.mouseY = 25;
+            checkFixture(false, false, 383131537);
+            checkFixture(true, false, 1413093295);
+            checkFixture(false, true, 360076629);
+            checkFixture(true, true, 1157897586);
+            denseBuckets();
+            emptyAndReusedBuckets();
+            System.out.println("ModelDepthSortingTest passed");
         }
-        Model.mouseX = 25;
-        Model.mouseY = 25;
-        checkFixture(false, false, 383131537);
-        checkFixture(true, false, 1413093295);
-        checkFixture(false, true, 360076629);
-        checkFixture(true, true, 1157897586);
-        denseBuckets();
-        emptyAndReusedBuckets();
-        System.out.println("ModelDepthSortingTest passed");
     }
 
     private static void checkFixture(boolean priorities, boolean clipped, int expectedPixels) {

@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.awt.Graphics2D;
@@ -12,27 +13,79 @@ import java.util.Arrays;
 public final class ClientRenderTimingTest {
 
     public static void main(String[] args) throws Exception {
-        int previousCycle = client.pulseCycle;
-        int previousHeartbeat = client.heartbeatCounter;
-        Player previousPlayer = client.thisPlayer;
-        SpotAnimation[] previousAnimations = SpotAnimation.spotAnimations;
-        try {
-            heartbeatCadence();
-            roofHeartbeatCadence();
-            projectilePresentation();
-            cameraShakeCadence();
-            scrollbarDragCadence();
-            unchangedTextures();
-            performanceCommands();
-            parallelFailureRecovery();
-            titleAnimationCadence();
-        } finally {
-            client.pulseCycle = previousCycle;
-            client.heartbeatCounter = previousHeartbeat;
-            client.thisPlayer = previousPlayer;
-            SpotAnimation.spotAnimations = previousAnimations;
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            java.util.Properties configured = ClientConfigurationFixture.read(configurationFixture.path());
+            configured.setProperty("brightness", "4");
+            configured.setProperty("mouseButtons", "1");
+            configured.setProperty("chatEffects", "1");
+            configured.setProperty("splitPrivateChat", "1");
+            configured.setProperty("bankInsertMode", "1");
+            configured.setProperty("publicChatMode", "3");
+            configured.setProperty("privateChatMode", "2");
+            configured.setProperty("tradeChatMode", "1");
+            ClientConfigurationFixture.write(configurationFixture.path(), configured);
+            int previousCycle = client.pulseCycle;
+            int previousHeartbeat = client.heartbeatCounter;
+            Player previousPlayer = client.thisPlayer;
+            SpotAnimation[] previousAnimations = SpotAnimation.spotAnimations;
+            try {
+                heartbeatCadence();
+                roofHeartbeatCadence();
+                projectilePresentation();
+                cameraShakeCadence();
+                scrollbarDragCadence();
+                unchangedTextures();
+                performanceCommands();
+                parallelFailureRecovery();
+                titleAnimationCadence();
+                accountOptionDefaultsAndServerOverrides();
+            } finally {
+                client.pulseCycle = previousCycle;
+                client.heartbeatCounter = previousHeartbeat;
+                client.thisPlayer = previousPlayer;
+                SpotAnimation.spotAnimations = previousAnimations;
+            }
+            System.out.println("ClientRenderTimingTest passed");
         }
-        System.out.println("ClientRenderTimingTest passed");
+    }
+
+    private static void accountOptionDefaultsAndServerOverrides() throws Exception {
+        client game = fixture();
+        Varp[] previousDefinitions = Varp.varpTable;
+        int[] previousColors = ThreeDimensionalCanvas.anIntArray1548.clone();
+        try {
+            int[] types = {1, 5, 6, 8, 9};
+            Varp.varpTable = new Varp[types.length];
+            for (int index = 0; index < types.length; index++) {
+                Varp.varpTable[index] = new Varp();
+                Varp.varpTable[index].type = types[index];
+            }
+            Method defaults = client.class.getDeclaredMethod("applyDefaultAccountOptions");
+            defaults.setAccessible(true);
+            defaults.invoke(game);
+            check(Arrays.equals(Arrays.copyOf(game.localVarps, types.length), new int[] {4, 1, 1, 1, 1})
+                            && game.anInt1300 == 1 && game.anInt998 == 1
+                            && game.splitPrivateChat == 1 && game.anInt955 == 1,
+                    "configured account defaults reach the cache-defined options and their actual client consumers");
+            check(game.publicChatMode == 3 && game.privateChatMode == 2 && game.tradeMode == 1,
+                    "initial chat visibility follows the selected properties");
+            int initialRed = ThreeDimensionalCanvas.anIntArray1548[64] >> 16 & 255;
+            check(initialRed > 165, "configured brightness four reaches the rendered palette");
+            game.localVarps[0] = 2;
+            game.handleVarp(0);
+            int serverRed = ThreeDimensionalCanvas.anIntArray1548[64] >> 16 & 255;
+            check(serverRed < 165,
+                    "a server brightness-two update overrides a different startup brightness in the actual palette");
+            for (int index = 1; index < types.length; index++) {
+                game.localVarps[index] = 0;
+                game.handleVarp(index);
+            }
+            check(game.anInt1300 == 0 && game.anInt998 == 0 && game.splitPrivateChat == 0 && game.anInt955 == 0,
+                    "server updates can also replace configured mouse, chat, split-chat and bank defaults");
+        } finally {
+            Varp.varpTable = previousDefinitions;
+            System.arraycopy(previousColors, 0, ThreeDimensionalCanvas.anIntArray1548, 0, previousColors.length);
+        }
     }
 
     private static void titleAnimationCadence() throws Exception {
@@ -238,6 +291,11 @@ public final class ClientRenderTimingTest {
                         "invalid worker counts preserve the existing choice");
             }
             check(game.outBuffer.position == 0, "render-worker commands send no server packets");
+            java.util.Properties saved = luna.ClientConfigurationFixture.read(luna.ClientConfiguration.get().path());
+            check(saved.getProperty("targetFps").equals("240")
+                            && saved.getProperty("renderThreads").equals("4")
+                            && saved.getProperty("drawDistance").equals("27"),
+                    "successful performance commands persist together in the selected root file");
             check(!game.handleClientCommand("::unrelated"), "unrelated commands retain normal routing");
         } finally {
             SceneGraph.setResizableDrawDistanceIncrease(previousDistance);

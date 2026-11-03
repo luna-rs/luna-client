@@ -16,7 +16,6 @@ import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URL;
@@ -28,10 +27,9 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.zip.CRC32;
 
-import luna.Constants;
+import luna.ClientConfiguration;
 import luna.ClientPaths;
 import luna.CacheBootstrap;
-import luna.RsaParser;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
 import sign.signlink;
@@ -66,8 +64,6 @@ public class client extends JagApplet {
     public int archiveHashes[];
     public byte aByteArrayArray838[][];
     public String aString839;
-    public static BigInteger JAGEX_MODULUS = new BigInteger(
-            "7162900525229798032761816791230527296329313291232324290237849263501208207972894053929065636522363163621000728841182238772712427862772219676577293600221789");
     public static int anInt841;
     public int anIntArray842[] = {0xffff00, 0xff0000, 65280, 65535, 0xff00ff, 0xffffff};
     public int anIntArray843[];
@@ -95,7 +91,7 @@ public class client extends JagApplet {
     public int anInt865;
     public boolean aBoolean866;
     public int playerRights;
-    public static boolean fps;
+    public static boolean fps = ClientConfiguration.get().bool("showFps");
     public int size;
     public int opcode;
     public int anInt871;
@@ -543,8 +539,6 @@ public class client extends JagApplet {
     public int anIntArray1312[];
     public int anIntArray1313[];
     public int anInt1315;
-    public static BigInteger JAGEX_PUBLIC_KEY = new BigInteger(
-            "58778699976184461502525193738213253649000149147835990136706041084440742975821");
     public byte aByte1317;
     public int anInt1318;
     public int anInt1319;
@@ -612,27 +606,61 @@ public class client extends JagApplet {
      */
     private boolean loginScreenCleared = false;
 
+    /**
+     * Applies properties-backed startup options shared by native and applet entry points.
+     */
+    private static void configureDefaults() {
+        ClientConfiguration configuration = ClientConfiguration.get();
+        world = configuration.integer("world", 0, 65535);
+        portOffset = configuration.integer("portOffset", 0, 65534);
+        if (configuration.bool("lowMemory")) switchToLowMem();
+        else switchToHighMem();
+        memberServer = configuration.bool("members");
+        signlink.storeid = configuration.integer("cacheStoreId", 0, 255);
+    }
+
+    /**
+     * Seeds cache-defined account options; incoming server values continue to replace them normally.
+     */
+    private void applyDefaultAccountOptions() {
+        ClientConfiguration configuration = ClientConfiguration.get();
+        for (int id = 0; id < Varp.varpTable.length && id < localVarps.length; id++) {
+            String key = switch (Varp.varpTable[id].type) {
+                case 1 -> "brightness";
+                case 3 -> "musicVolume";
+                case 4 -> "soundVolume";
+                case 5 -> "mouseButtons";
+                case 6 -> "chatEffects";
+                case 8 -> "splitPrivateChat";
+                case 9 -> "bankInsertMode";
+                default -> null;
+            };
+            if (key != null) {
+                int maximum = Varp.varpTable[id].type <= 4 ? 4 : 1;
+                int minimum = Varp.varpTable[id].type == 1 ? 1 : 0;
+                localVarps[id] = defaultLocalVarps[id] = configuration.integer(key, minimum, maximum);
+                handleVarp(id);
+            }
+        }
+    }
+
     public static void main(String args[]) {
+        ClientLauncher.validateArguments(args);
         ClientLauncher.configureGraphics();
         try {
-            System.out.println(Constants.CLIENT_NAME + " - release #" + 377);
-            System.out.println("Server: " + Constants.CONNECT_HOST + ":" + Constants.CONNECT_PORT);
+            System.out.println(ClientConfiguration.get().string("clientName") + " - release #" + 377);
+            System.out.println("Server: " + ClientConfiguration.get().string("connectHost") + ":" + ClientConfiguration.get().integer("connectPort", 1, 65535));
             System.out.println("Cache: " + ClientPaths.cacheDirectory());
             CacheBootstrap.installBundledCache();
-            RsaParser.parse();
-            world = 10;
-            portOffset = 0;
-            switchToHighMem();
-            memberServer = true;
-            signlink.storeid = 32;
-            signlink.startpriv(InetAddress.getByName(Constants.CONNECT_HOST));
+            configureDefaults();
+            signlink.startpriv(InetAddress.getByName(ClientConfiguration.get().string("connectHost")));
             settings = ClientSettings.load();
             client cl = new client();
             cl.startupClientSize = settings.clientSize;
             Runtime.getRuntime().addShutdownHook(new Thread(() -> settings.save()));
             cl.start(765, 503);
         } catch (Exception exception) {
-            System.err.println(Constants.CLIENT_NAME + " could not start: " + exception.getMessage());
+            System.err.println(ClientConfiguration.get().string("clientName") + " could not start: " + exception.getMessage());
             exception.printStackTrace();
             System.exit(1);
         }
@@ -757,6 +785,7 @@ public class client extends JagApplet {
                 if (threads < 0 || threads > 4)
                     throw new IllegalArgumentException();
                 ParallelRasterizer.setThreadCount(threads);
+                saveClientPreference("renderThreads", threads);
                 pushMessage("", (byte) -123, "Render threads: " + ParallelRasterizer.getThreadCount() + ".", 0);
             } catch (IllegalArgumentException exception) {
                 pushMessage("", (byte) -123, "Usage: ::renderthreads 0..4 (0 or 1 uses one thread)", 0);
@@ -767,6 +796,7 @@ public class client extends JagApplet {
             try {
                 int target = Integer.parseInt(input.substring("::fpslimit".length()).trim());
                 setFramerate(target);
+                saveClientPreference("targetFps", target);
                 pushMessage("", (byte) -123, "Render target: " + target + " FPS.", 0);
             } catch (IllegalArgumentException exception) {
                 pushMessage("", (byte) -123, "Usage: ::fpslimit 1..1000", 0);
@@ -781,6 +811,7 @@ public class client extends JagApplet {
                 if (extra < 0 || extra > 27)
                     throw new IllegalArgumentException();
                 SceneGraph.setResizableDrawDistanceIncrease(extra);
+                saveClientPreference("drawDistance", extra);
                 pushMessage("", (byte) -123, "Resizable terrain and scenery: " + (25 + extra) + " tiles.", 0);
             } catch (IllegalArgumentException exception) {
                 pushMessage("", (byte) -123, "Usage: ::drawdistance 0..27 extra tiles", 0);
@@ -788,6 +819,17 @@ public class client extends JagApplet {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Persists an in-game client preference without changing connection or server-owned account settings.
+     */
+    private static void saveClientPreference(String key, Object value) {
+        try {
+            ClientConfiguration.get().savePreferences(java.util.Map.of(key, String.valueOf(value)));
+        } catch (IOException exception) {
+            System.err.println("Unable to save client preference '" + key + "'.");
+        }
     }
 
     /**
@@ -2023,10 +2065,14 @@ public class client extends JagApplet {
                                 throw new RuntimeException(e);
                             }
                         }
-                        if (chatInput.equals("::fpson"))
+                        if (chatInput.equals("::fpson")) {
                             fps = true;
-                        if (chatInput.equals("::fpsoff"))
+                            saveClientPreference("showFps", true);
+                        }
+                        if (chatInput.equals("::fpsoff")) {
                             fps = false;
+                            saveClientPreference("showFps", false);
+                        }
                         if (chatInput.equals("::noclip")) {
                             for (int j1 = 0; j1 < 4; j1++) {
                                 for (int k1 = 1; k1 < 103; k1++) {
@@ -2157,7 +2203,7 @@ public class client extends JagApplet {
             }
             aSocket1224 = null;
         }
-        aSocket1224 = openSocket(Constants.CONNECT_PORT + 1);
+        aSocket1224 = openSocket(ClientConfiguration.get().integer("jaggrabPort", 1, 65535));
         aSocket1224.setSoTimeout(10000);
         java.io.InputStream inputstream = aSocket1224.getInputStream();
         OutputStream outputstream = aSocket1224.getOutputStream();
@@ -2169,7 +2215,7 @@ public class client extends JagApplet {
         if (signlink.mainapp != null)
             return signlink.opensocket(i);
         else
-            return new Socket(InetAddress.getByName(Constants.CONNECT_HOST), i);
+            return new Socket(InetAddress.getByName(ClientConfiguration.get().string("connectHost")), i);
     }
 
     public boolean parseIncomingPacket() {
@@ -3648,7 +3694,7 @@ public class client extends JagApplet {
         if (signlink.mainapp != null) {
             return signlink.mainapp.getDocumentBase().getHost().toLowerCase();
         }
-        return Constants.CONNECT_HOST;
+        return ClientConfiguration.get().string("connectHost");
     }
 
     public void method38(int i, int j, int k, Player player, int l) {
@@ -3945,7 +3991,7 @@ public class client extends JagApplet {
                             }
 
                     }
-                    rightClickOptions[anInt1183] = Constants.DEBUG ? "Examine @cya@" + def.name + " id(" + def.id + "), pos(" + (x + nextTopLeftTileX) + ", " + (y + nextTopLeftTileY) + ")" : "Examine @cya@" + def.name;
+                    rightClickOptions[anInt1183] = ClientConfiguration.get().bool("debug") ? "Examine @cya@" + def.name + " id(" + def.id + "), pos(" + (x + nextTopLeftTileX) + ", " + (y + nextTopLeftTileY) + ")" : "Examine @cya@" + def.name;
                     anIntArray981[anInt1183] = 1412;
                     anIntArray982[anInt1183] = def.id << 14;
                     anIntArray979[anInt1183] = x;
@@ -4053,7 +4099,7 @@ public class client extends JagApplet {
                                     anInt1183++;
                                 }
 
-                            rightClickOptions[anInt1183] = Constants.DEBUG ? "Examine @lre@" + def.name + " id(" + def.id + ")" : "Examine @lre@" + def.name;
+                            rightClickOptions[anInt1183] = ClientConfiguration.get().bool("debug") ? "Examine @lre@" + def.name + " id(" + def.id + ")" : "Examine @lre@" + def.name;
                             anIntArray981[anInt1183] = 1564;
                             anIntArray982[anInt1183] = class50_sub1_sub4_sub1.id;
                             anIntArray979[anInt1183] = x;
@@ -5119,7 +5165,7 @@ public class client extends JagApplet {
             return;
         }
         started = true;
-        if (!Constants.CONNECT_HOST.equalsIgnoreCase(method37(-42588))) {
+        if (!ClientConfiguration.get().string("connectHost").equalsIgnoreCase(method37(-42588))) {
             aBoolean1097 = true;
             return;
         }
@@ -5379,7 +5425,7 @@ public class client extends JagApplet {
 
             drawLoadingText(83, "Unpacking textures");
             ThreeDimensionalCanvas.unpackTextures(textureArchive);
-            ThreeDimensionalCanvas.initColorTable(0.80000000000000004D, (byte) 6);
+            ThreeDimensionalCanvas.initColorTable(1.0 - ClientConfiguration.get().integer("brightness", 1, 4) / 10.0, (byte) 6);
             ThreeDimensionalCanvas.initTextureBufferPool(20);
             drawLoadingText(86, "Unpacking config");
             Animation.unpack(configArchive);
@@ -5390,6 +5436,7 @@ public class client extends JagApplet {
             IdentityKit.unpack(configArchive);
             SpotAnimation.unpack(configArchive);
             Varp.unpack(configArchive);
+            applyDefaultAccountOptions();
             Varbit.unpack(configArchive);
             ItemDefinition.memberServer = memberServer;
             if (!lowMemory) {
@@ -5690,7 +5737,7 @@ public class client extends JagApplet {
                                                 }
 
                                         }
-                                        rightClickOptions[anInt1183] = Constants.DEBUG ? "Examine @lre@" + def.name + " id(" + def.id + ")" : "Examine @lre@" + def.name;
+                                        rightClickOptions[anInt1183] = ClientConfiguration.get().bool("debug") ? "Examine @lre@" + def.name + " id(" + def.id + ")" : "Examine @lre@" + def.name;
                                         anIntArray981[anInt1183] = 1094;
                                         anIntArray982[anInt1183] = def.id;
                                         anIntArray979[anInt1183] = l2;
@@ -6414,10 +6461,7 @@ public class client extends JagApplet {
     }
 
     public void init() {
-        world = Integer.parseInt(getParameter("nodeid"));
-        portOffset = Integer.parseInt(getParameter("portoff"));
-        switchToHighMem();
-        memberServer = true;
+        configureDefaults();
         start(765, 503);
     }
 
@@ -6496,7 +6540,7 @@ public class client extends JagApplet {
                 statusLineTwo = "Connecting to server...";
                 drawLoginScreen(true);
             }
-            connection = new JagSocket((byte) 2, openSocket(Constants.CONNECT_PORT + portOffset), this);
+            connection = new JagSocket((byte) 2, openSocket(ClientConfiguration.get().integer("connectPort", 1, 65535) + portOffset), this);
             long base37name = StringUtils.encodeBase37(username);
             int hash = (int) (base37name >> 16 & 31L);
             outBuffer.position = 0;
@@ -6526,7 +6570,7 @@ public class client extends JagApplet {
                 outBuffer.putInt(signlink.uid);
                 outBuffer.putString(username);
                 outBuffer.putString(password);
-                outBuffer.rsa(JAGEX_MODULUS, JAGEX_PUBLIC_KEY);
+                outBuffer.rsa();
                 tempBuffer.position = 0;
                 if (reconnecting)
                     tempBuffer.putByte(18);
@@ -7432,7 +7476,7 @@ public class client extends JagApplet {
         if (signlink.mainapp != null)
             return signlink.mainapp.getCodeBase();
         try {
-            return new URL("http", Constants.CONNECT_HOST, 80 + portOffset, "/");
+            return new URL("http", ClientConfiguration.get().string("connectHost"), ClientConfiguration.get().integer("httpPort", 1, 65535) + portOffset, "/");
         } catch (Exception _ex) {
             throw new IllegalStateException("Invalid configured server address", _ex);
         }
@@ -12224,7 +12268,7 @@ public class client extends JagApplet {
         clippingPlanes = new ClippingPlane[4];
         gameObjectSpawnsRequestList = new LinkedList();
         aBoolean1265 = false;
-        musicEnabled = true;
+        musicEnabled = ClientConfiguration.get().integer("musicVolume", 0, 4) < 4;
         anIntArray1267 = new int[200];
         anInt1272 = -1;
         aBoolean1274 = true;
@@ -12244,7 +12288,10 @@ public class client extends JagApplet {
         anIntArray1296 = new int[100];
         aStringArray1297 = new String[100];
         aStringArray1298 = new String[100];
-        aBoolean1301 = true;
+        aBoolean1301 = ClientConfiguration.get().integer("soundVolume", 0, 4) < 4;
+        publicChatMode = ClientConfiguration.get().integer("publicChatMode", 0, 3);
+        privateChatMode = ClientConfiguration.get().integer("privateChatMode", 0, 2);
+        tradeMode = ClientConfiguration.get().integer("tradeChatMode", 0, 2);
         aByte1317 = -58;
         anInt1318 = 416;
         anIntArray1321 = new int[50];

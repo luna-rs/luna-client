@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,13 +15,15 @@ public final class CachedSceneryDistanceTest {
     private static final int ACTOR_UID = 0x20004000;
     private static final int CAMERA = 52;
 
-    public static void main(String[] args) {
-        sceneryPathsAndBoundaries();
-        visibilityAndCameraChanges();
-        sharedFootprintsAndDeferredWalls();
-        liveDrawDistance();
-        outerFootprintAdmission();
-        System.out.println("CachedSceneryDistanceTest passed");
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            sceneryPathsAndBoundaries();
+            visibilityAndCameraChanges();
+            sharedFootprintsAndDeferredWalls();
+            liveDrawDistance();
+            outerFootprintAdmission();
+            System.out.println("CachedSceneryDistanceTest passed");
+        }
     }
 
     private static void sceneryPathsAndBoundaries() {

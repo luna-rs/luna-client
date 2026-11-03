@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
@@ -18,32 +19,34 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class JagAppletTimingTest {
 
     public static void main(String[] args) throws Exception {
-        JagApplet applet = new JagApplet();
-        check(JagApplet.TARGET_FPS == 60, "default presentation target is 60 FPS");
-        for (int target : new int[] {60, 120, 144, 1}) {
-            applet.setFramerate(target);
-            check(applet.delayTime == 20, "render changes retain the 20 millisecond game step");
-            check(field("targetFps").getInt(applet) == target, "requested render rate is applied");
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            JagApplet applet = new JagApplet();
+            check(JagApplet.TARGET_FPS == 60, "default presentation target is 60 FPS");
+            for (int target : new int[] {60, 120, 144, 1}) {
+                applet.setFramerate(target);
+                check(applet.delayTime == 20, "render changes retain the 20 millisecond game step");
+                check(field("targetFps").getInt(applet) == target, "requested render rate is applied");
+            }
+            long before = System.nanoTime();
+            applet.stop();
+            long after = System.nanoTime();
+            long deadline = field("stopDeadlineNanos").getLong(applet);
+            check(deadline - before >= 4_000_000_000L && deadline - after <= 4_000_000_000L,
+                    "stop uses a four second deadline even with rendering set to one FPS");
+            check(applet.gameState > 0, "stop requests delayed shutdown");
+            applet.start();
+            check(applet.gameState == 0 && field("stopDeadlineNanos").getLong(applet) == 0L,
+                    "start cancels the pending shutdown");
+            applet.gameState = -1;
+            applet.start();
+            applet.stop();
+            check(applet.gameState == -1, "lifecycle callbacks do not revive a destroyed applet");
+            immutableQueuedFrames();
+            idleFramerates();
+            scheduledPresentation();
+            priorityBeforeCallback();
+            System.out.println("JagAppletTimingTest passed");
         }
-        long before = System.nanoTime();
-        applet.stop();
-        long after = System.nanoTime();
-        long deadline = field("stopDeadlineNanos").getLong(applet);
-        check(deadline - before >= 4_000_000_000L && deadline - after <= 4_000_000_000L,
-                "stop uses a four second deadline even with rendering set to one FPS");
-        check(applet.gameState > 0, "stop requests delayed shutdown");
-        applet.start();
-        check(applet.gameState == 0 && field("stopDeadlineNanos").getLong(applet) == 0L,
-                "start cancels the pending shutdown");
-        applet.gameState = -1;
-        applet.start();
-        applet.stop();
-        check(applet.gameState == -1, "lifecycle callbacks do not revive a destroyed applet");
-        immutableQueuedFrames();
-        idleFramerates();
-        scheduledPresentation();
-        priorityBeforeCallback();
-        System.out.println("JagAppletTimingTest passed");
     }
 
     private static void idleFramerates() {
