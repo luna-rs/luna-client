@@ -5968,6 +5968,7 @@ public class client extends JagApplet {
     }
 
     public void drawGame() {
+        long interfaceStarted = ClientPerformance.begin(ClientPerformance.UI);
         // the login screen may have moved the origin to the centre of the window
         ((Graphics2D) super.graphics).setTransform(new AffineTransform());
         loginScreenCleared = false;
@@ -6005,6 +6006,7 @@ public class client extends JagApplet {
                 }
             }
             super.imageProducer.drawImage(0, 0, super.graphics);
+            ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
             return;
         }
         if (resizableUi != null) {
@@ -6044,7 +6046,9 @@ public class client extends JagApplet {
             }
         }
         if (loadingStage == 2) {
+            ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
             drawGameViewport();
+            interfaceStarted = ClientPerformance.begin(ClientPerformance.UI);
         }
         if (resizableUi != null) {
             drawResizableFrame();
@@ -6243,6 +6247,7 @@ public class client extends JagApplet {
             resizableUi.present((Graphics2D) super.graphics);
         }
         anInt951 = 0;
+        ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
     }
 
     /**
@@ -11774,6 +11779,7 @@ public class client extends JagApplet {
     }
 
     public void drawGameViewport() {
+        long preparationStarted = ClientPerformance.begin(ClientPerformance.SCENE_PREP);
         tickCounter1138++;
         addPlayersToSceneGraph(true);
         addNpcsToScenegraph(true);
@@ -11834,13 +11840,24 @@ public class client extends JagApplet {
         Model.mouseX = super.screenMouseX - layout.viewport.x;
         Model.mouseY = super.screenMouseY - layout.viewport.y;
         Drawable.clearScreen();
+        ClientPerformance.end(ClientPerformance.SCENE_PREP, preparationStarted);
+        long sceneStarted = ClientPerformance.begin(ClientPerformance.SCENE);
         renderWorldScene(k);
         sceneGraph.method255(anInt897);
+        ClientPerformance.end(ClientPerformance.SCENE, sceneStarted);
+        long overlayStarted = ClientPerformance.begin(ClientPerformance.OVERLAYS);
         method121(false);
         method127(true);
+        ClientPerformance.end(ClientPerformance.OVERLAYS, overlayStarted);
+        long textureStarted = ClientPerformance.begin(ClientPerformance.TEXTURES);
         animateTexture_65(l2);
+        ClientPerformance.end(ClientPerformance.TEXTURES, textureStarted);
+        overlayStarted = ClientPerformance.begin(ClientPerformance.OVERLAYS);
         draw3dScreen();
+        ClientPerformance.end(ClientPerformance.OVERLAYS, overlayStarted);
+        long copyStarted = ClientPerformance.begin(ClientPerformance.FRAMEBUFFER_COPY);
         gameViewportImage.drawImage(layout.viewport, super.graphics);
+        ClientPerformance.end(ClientPerformance.FRAMEBUFFER_COPY, copyStarted);
         anInt1216 = i1;
         anInt1217 = j1;
         anInt1218 = k1;

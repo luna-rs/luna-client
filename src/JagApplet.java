@@ -175,7 +175,10 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		synchronized (presentLock) {
 			Graphics screen = screenGraphics;
 			if (buffer != null && screen != null) {
+				long started = ClientPerformance.begin(ClientPerformance.PRESENT);
 				screen.drawImage(buffer, 0, 0, null);
+				ClientPerformance.end(ClientPerformance.PRESENT, started);
+				ClientPerformance.presented();
 				return true;
 			}
 			return false;
@@ -195,7 +198,9 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				presentationBuffer = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
 			int[] sourcePixels = ((DataBufferInt) source.getRaster().getDataBuffer()).getData();
 			int[] presentationPixels = ((DataBufferInt) presentationBuffer.getRaster().getDataBuffer()).getData();
+			long started = ClientPerformance.begin(ClientPerformance.FRAMEBUFFER_COPY);
 			System.arraycopy(sourcePixels, 0, presentationPixels, 0, sourcePixels.length);
+			ClientPerformance.end(ClientPerformance.FRAMEBUFFER_COPY, started);
 			pendingFrameSource = source;
 			pendingPresentationGeneration = presentationGeneration;
 			return true;
@@ -318,6 +323,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		FrameScheduler scheduler = new FrameScheduler(System.nanoTime(), scheduledFps);
 
 		while (gameState >= 0) {
+			NativePerformance.poll(this, this instanceof client game && game.isLoggedIn);
+			long performanceLoopStarted = ClientPerformance.loopStarted();
 			long now = System.nanoTime();
 			long stopDeadline = stopDeadlineNanos;
 			if (gameState > 0 && stopDeadline != 0L && now - stopDeadline >= 0) {
@@ -325,12 +332,14 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				return;
 			}
 			int effectiveFps = getEffectiveFramerate();
+			ClientPerformance.observeTargetFps(effectiveFps);
 			if (effectiveFps != scheduledFps) {
 				scheduledFps = effectiveFps;
 				discardQueuedFrame();
 				scheduler.setTargetFps(scheduledFps, now);
 			}
 			int updates = scheduler.pendingUpdates(now);
+			long updateStarted = ClientPerformance.begin(ClientPerformance.UPDATE);
 			for (int update = 0; update < updates && gameState >= 0; update++) {
 				anInt28 = anInt24;
 				anInt29 = anInt25;
@@ -343,6 +352,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				method7((byte) -111);
 				anInt34 = anInt35;
 			}
+			ClientPerformance.end(ClientPerformance.UPDATE, updateStarted);
+			ClientPerformance.updated(updates);
 			if (gameState < 0) {
 				break;
 			}
@@ -352,10 +363,12 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				scheduler.frameCancelled(frameStart);
 			}
 			if (scheduler.isRenderDue(frameStart)) {
+				long performanceFrameStarted = ClientPerformance.frameStarted();
 				scheduler.frameStarted(frameStart);
 				ensureBackBuffer();
 				updateMouseInput();
 				renderScheduledFrame();
+				ClientPerformance.frameRendered(performanceFrameStarted);
 				long renderFinished = System.nanoTime();
 				if (scheduler.presentationDeadlineReached(renderFinished)) {
 					scheduler.frameRendered(renderFinished);
@@ -379,6 +392,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 				System.out.println("fps:" + fps + " target:" + scheduledFps + " updates:" + updates);
 				aBoolean11 = false;
 			}
+			ClientPerformance.loopFinished(performanceLoopStarted);
 			long waitNanos = scheduler.nanosUntilWork(System.nanoTime());
 			if (waitNanos > 0) {
 				try {
