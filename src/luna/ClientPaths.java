@@ -3,7 +3,6 @@ package luna;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Defines the single writable cache directory shared by client services.
@@ -16,10 +15,10 @@ public final class ClientPaths {
     }
 
     /**
-     * Resolves the cache directly beneath the current user's Luna directory.
+     * Resolves the cache path selected in the root properties file.
      */
     public static Path cacheDirectory() {
-        return Paths.get(System.getProperty("user.home"), "luna", "cache").toAbsolutePath().normalize();
+        return ClientConfiguration.get().cacheDirectory();
     }
 
     /**

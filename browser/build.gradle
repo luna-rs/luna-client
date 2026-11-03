@@ -18,6 +18,42 @@ def sharedSourceDirectory = file('../src')
 def browserSourceDirectory = file('src/main/java')
 def generatedSourceDirectory = layout.buildDirectory.dir('generated/shared')
 
+def replaceBrowserMethod = { String source, String signature, String replacement ->
+    int method = source.indexOf(signature)
+    if (method < 0 || source.indexOf(signature, method + signature.length()) >= 0) {
+        throw new GradleException("The shared configuration method changed: ${signature}")
+    }
+    int start = source.indexOf('{', method + signature.length())
+    int depth = 1
+    int end = start + 1
+    char quote = (char) 0
+    boolean escaped = false, lineComment = false, blockComment = false
+    while (end < source.length() && depth > 0) {
+        char value = source.charAt(end)
+        char next = end + 1 < source.length() ? source.charAt(end + 1) : (char) 0
+        if (lineComment) {
+            if (value == ('\n' as char)) lineComment = false
+        } else if (blockComment) {
+            if (value == ('*' as char) && next == ('/' as char)) { blockComment = false; end++ }
+        } else if (quote != (char) 0) {
+            if (escaped) escaped = false
+            else if (value == ('\\' as char)) escaped = true
+            else if (value == quote) quote = (char) 0
+        } else if (value == ('/' as char) && next == ('/' as char)) {
+            lineComment = true
+            end++
+        } else if (value == ('/' as char) && next == ('*' as char)) {
+            blockComment = true
+            end++
+        } else if (value == ('"' as char) || value == ('\'' as char)) quote = value
+        else if (value == ('{' as char)) depth++
+        else if (value == ('}' as char)) depth--
+        end++
+    }
+    if (depth != 0) throw new GradleException("The shared configuration method is incomplete: ${signature}")
+    source.substring(0, start + 1) + '\n' + replacement.stripIndent() + '    }' + source.substring(end)
+}
+
 tasks.register('generateSharedSources', Sync) {
     doFirst {
         if (new File(browserSourceDirectory, 'client.java').exists()) {
@@ -46,6 +82,62 @@ tasks.register('generateSharedSources', Sync) {
     }
     into generatedSourceDirectory
     inputs.dir(browserSourceDirectory)
+    doLast {
+        // Keep the release's properties parser and validation; adapt only browser persistence and startup I/O.
+        def configuration = generatedSourceDirectory.get().file('luna/ClientConfiguration.java').asFile
+        def source = configuration.getText('UTF-8')
+        def templateAssignment = 'this.template = contents.lines().toList();'
+        if (source.count(templateAssignment) != 1) {
+            throw new GradleException('The shared configuration template initialization changed.')
+        }
+        source = source.replace(templateAssignment, 'this.template = List.of();')
+        source = replaceBrowserMethod(source, 'public static synchronized ClientConfiguration get()', '''
+                if (current == null) {
+                    String contents = luna.browser.BrowserConfiguration.contents();
+                    try {
+                        Properties defaults = parse(contents);
+                        Path location = rootDirectory().resolve("client.properties");
+                        current = new ClientConfiguration(location, defaults, contents);
+                        String saved = luna.browser.BrowserConfiguration.savedPreferences();
+                        if (saved != null) {
+                            try {
+                                Properties preferences = parse(saved);
+                                if (!PREFERENCES.containsAll(preferences.stringPropertyNames()))
+                                    throw new IllegalArgumentException("Only browser client preferences may be restored.");
+                                Properties updated = new Properties();
+                                updated.putAll(defaults);
+                                updated.putAll(preferences);
+                                current = new ClientConfiguration(location, updated, contents);
+                            } catch (IOException | IllegalArgumentException invalidPreferences) {
+                                luna.browser.BrowserConfiguration.clearPreferences();
+                                System.err.println("Discarded invalid saved browser preferences.");
+                            }
+                        }
+                    } catch (IOException exception) {
+                        throw new IllegalArgumentException("Unable to read the bundled client.properties.", exception);
+                    }
+                }
+                return current;
+        ''')
+        source = replaceBrowserMethod(source, 'public static Path rootDirectory()', '''
+                return Path.of("/files");
+        ''')
+        source = replaceBrowserMethod(source,
+                'public synchronized void savePreferences(Map<String, String> preferences) throws IOException', '''
+                if (!PREFERENCES.containsAll(preferences.keySet()))
+                    throw new IllegalArgumentException("Only client preferences may be saved automatically.");
+                Properties updated = new Properties();
+                updated.putAll(values);
+                updated.putAll(preferences);
+                new ClientConfiguration(path, updated, "");
+                StringBuilder output = new StringBuilder();
+                for (String key : PREFERENCES)
+                    output.append(key).append('=').append(updated.getProperty(key).trim()).append('\\n');
+                luna.browser.BrowserConfiguration.savePreferences(output.toString());
+                values.putAll(preferences);
+        ''')
+        configuration.setText(source, 'UTF-8')
+    }
 }
 
 sourceSets {
@@ -122,9 +214,8 @@ tasks.register('prepareBrowserAssets', Sync) {
     from('../data/title') {
         into 'assets/title'
     }
-    from('../rsa') {
-        include 'rsapub.toml'
-        into 'rsa'
+    from('../client (2).properties') {
+        rename { 'client.properties' }
     }
     into layout.buildDirectory.dir('static-assets')
 }

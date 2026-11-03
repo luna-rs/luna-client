@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.util.Arrays;
 
 /**
@@ -14,21 +15,23 @@ public final class ModelSceneryPickingTest {
     private static final int FACE_COLOR = 0x29b74f;
     private static final int UNPROJECTED = Integer.MIN_VALUE;
 
-    public static void main(String[] args) {
-        Drawable.putPixels(WIDTH, HEIGHT, new int[WIDTH * HEIGHT]);
-        ThreeDimensionalCanvas.init3D(WIDTH, HEIGHT);
-        Model.colorLookupTable[1] = FACE_COLOR;
-        Model.mouseX = WIDTH / 2;
-        Model.mouseY = HEIGHT / 2 - 8;
-        boolean previousPicking = Model.isPickingEnabled;
-        Model.isPickingEnabled = true;
-        try {
-            checkPickingPath(false);
-            checkPickingPath(true);
-        } finally {
-            Model.isPickingEnabled = previousPicking;
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            Drawable.putPixels(WIDTH, HEIGHT, new int[WIDTH * HEIGHT]);
+            ThreeDimensionalCanvas.init3D(WIDTH, HEIGHT);
+            Model.colorLookupTable[1] = FACE_COLOR;
+            Model.mouseX = WIDTH / 2;
+            Model.mouseY = HEIGHT / 2 - 8;
+            boolean previousPicking = Model.isPickingEnabled;
+            Model.isPickingEnabled = true;
+            try {
+                checkPickingPath(false);
+                checkPickingPath(true);
+            } finally {
+                Model.isPickingEnabled = previousPicking;
+            }
+            System.out.println("ModelSceneryPickingTest passed");
         }
-        System.out.println("ModelSceneryPickingTest passed");
     }
 
     private static void checkPickingPath(boolean priorityPicking) {

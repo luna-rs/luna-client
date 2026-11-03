@@ -2,7 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3)
 
-import luna.Constants;
+import luna.ClientConfiguration;
 
 import java.awt.Frame;
 import java.awt.Graphics;
@@ -15,7 +15,7 @@ public class JagFrame extends Frame {
 
 	public JagFrame(int width, int height, JagApplet applet, boolean resizable) {
 		this.applet = applet;
-		setTitle(Constants.CLIENT_NAME);
+		setTitle(ClientConfiguration.get().string("clientName"));
 		setResizable(resizable);
 		// create the native peer first so the real window insets are known
 		addNotify();

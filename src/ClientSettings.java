@@ -1,95 +1,77 @@
 import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
 import java.awt.Toolkit;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Properties;
+import java.util.Map;
 
-import sign.signlink;
+import luna.ClientConfiguration;
 
 /**
- * Remembers the client mode (fixed or resizable) and the size of the resizable window between launches.
- * Stored in the cache directory as client.properties.
+ * Remembers window and game-message preferences in the selected root configuration.
+ *
+ * @author lare96
  */
 public final class ClientSettings {
-
-    private static final String FILE_NAME = "client.properties";
+    public static final int DEFAULT_WIDTH = ClientConfiguration.get().integer("defaultWidth", 765, 32768);
+    public static final int DEFAULT_HEIGHT = ClientConfiguration.get().integer("defaultHeight", 503, 32768);
 
     /**
-     * Native resizable window size chosen to leave room for steady 60 FPS rendering.
+     * Zero selects fixed mode and one selects resizable mode.
      */
-    public static final int DEFAULT_WIDTH = 1280, DEFAULT_HEIGHT = 800;
-
-    /** 0 for the fixed mode, 1 for the resizable mode. */
-    public int clientSize = 0;
-    public int width = DEFAULT_WIDTH;
-    public int height = DEFAULT_HEIGHT;
+    public int clientSize = ClientConfiguration.get().integer("clientSize", 0, 1);
+    public int width = clampWidth(ClientConfiguration.get().integer("width", 765, 32768));
+    public int height = clampHeight(ClientConfiguration.get().integer("height", 503, 32768));
+    public boolean coloredGameMessages = ClientConfiguration.get().bool("coloredGameMessages");
 
     /**
-     * Restores the resizable preset while leaving the selected mode unchanged.
+     * Restores the configured resizable preset while leaving the selected mode unchanged.
      */
     public void resetResizableSize() {
         width = clampWidth(DEFAULT_WIDTH);
         height = clampHeight(DEFAULT_HEIGHT);
     }
 
-    private static File file() {
-        return new File(signlink.findcachedir(), FILE_NAME);
-    }
-
     /**
-     * Reads the saved settings. A missing or unreadable file gives the defaults (fixed mode).
+     * Reads saved preferences independently of the game cache.
      */
     public static ClientSettings load() {
         ClientSettings settings = new ClientSettings();
-        File file = file();
-        if (!file.isFile()) {
-            return settings;
-        }
-        Properties properties = new Properties();
-        try (InputStream in = new FileInputStream(file)) {
-            properties.load(in);
-            settings.clientSize = Integer.parseInt(properties.getProperty("clientSize", "0")) == 1 ? 1 : 0;
-            settings.width = Integer.parseInt(properties.getProperty("width", String.valueOf(DEFAULT_WIDTH)));
-            settings.height = Integer.parseInt(properties.getProperty("height", String.valueOf(DEFAULT_HEIGHT)));
-        } catch (IOException | NumberFormatException e) {
-            return new ClientSettings();
-        }
-        settings.width = clampWidth(settings.width);
-        settings.height = clampHeight(settings.height);
+        ClientConfiguration selected = ClientConfiguration.get();
+        ClientConfiguration configuration = java.nio.file.Files.exists(selected.path())
+                ? ClientConfiguration.load(selected.path()) : selected;
+        settings.clientSize = configuration.integer("clientSize", 0, 1);
+        settings.width = clampWidth(configuration.integer("width", 765, 32768));
+        settings.height = clampHeight(configuration.integer("height", 503, 32768));
+        settings.coloredGameMessages = configuration.bool("coloredGameMessages");
         return settings;
     }
 
     public void save() {
-        Properties properties = new Properties();
-        properties.setProperty("clientSize", String.valueOf(clientSize));
-        properties.setProperty("width", String.valueOf(width));
-        properties.setProperty("height", String.valueOf(height));
-        File file = file();
-        try (OutputStream out = new FileOutputStream(file)) {
-            properties.store(out, "Luna client settings");
-        } catch (IOException e) {
-            // the settings are not important enough to bother the player
+        try {
+            ClientConfiguration.get().savePreferences(Map.of(
+                    "clientSize", String.valueOf(clientSize), "width", String.valueOf(width),
+                    "height", String.valueOf(height), "coloredGameMessages", String.valueOf(coloredGameMessages)));
+        } catch (IOException exception) {
+            System.err.println("Unable to save client preferences to " + ClientConfiguration.get().path());
         }
     }
 
-    /** Keeps a saved window size between the fixed size and the size of the screen. */
+    /**
+     * Keeps a saved window width between the native minimum and the current screen.
+     */
     public static int clampWidth(int width) {
         return Math.max(JagApplet.MIN_CONTENT_WIDTH, Math.min(width, screenSize().width));
     }
 
+    /**
+     * Keeps a saved window height between the native minimum and the current screen.
+     */
     public static int clampHeight(int height) {
         return Math.max(JagApplet.MIN_CONTENT_HEIGHT, Math.min(height, screenSize().height));
     }
 
     private static Dimension screenSize() {
-        if (GraphicsEnvironment.isHeadless()) {
-            return new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE);
-        }
+        if (GraphicsEnvironment.isHeadless()) return new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE);
         return Toolkit.getDefaultToolkit().getScreenSize();
     }
 }

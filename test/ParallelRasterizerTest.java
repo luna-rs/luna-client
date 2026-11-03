@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.util.Arrays;
@@ -11,30 +12,32 @@ import java.util.Random;
 public final class ParallelRasterizerTest {
 
     public static void main(String[] args) throws Exception {
-        try {
-            palette();
-            for (boolean lowMemory : new boolean[] {false, true}) {
-                for (int[] size : new int[][] {{127, 79}, {1280, 720}}) {
-                    int[] expected = workload(size[0], size[1], 1, lowMemory, 12000);
-                    for (int threads : new int[] {2, 3, 4}) {
-                        check(Arrays.equals(expected, workload(size[0], size[1], threads, lowMemory, 12000)),
-                                "all span types retain exact pixels at " + threads + " lanes");
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            try {
+                palette();
+                for (boolean lowMemory : new boolean[] {false, true}) {
+                    for (int[] size : new int[][] {{127, 79}, {1280, 720}}) {
+                        int[] expected = workload(size[0], size[1], 1, lowMemory, 12000);
+                        for (int threads : new int[] {2, 3, 4}) {
+                            check(Arrays.equals(expected, workload(size[0], size[1], threads, lowMemory, 12000)),
+                                    "all span types retain exact pixels at " + threads + " lanes");
+                        }
                     }
+                    texturePressure(lowMemory);
                 }
-                texturePressure(lowMemory);
+                check(Arrays.equals(triangleFrame(1), triangleFrame(4)),
+                        "original triangle setup and clipping retain exact painter pixels");
+                fallbackOrdering();
+                queuePressure();
+                textureMutationBarrier();
+                interruptionBarrier();
+                failureBarrier();
+                serialSelection();
+            } finally {
+                ParallelRasterizer.shutdown();
             }
-            check(Arrays.equals(triangleFrame(1), triangleFrame(4)),
-                    "original triangle setup and clipping retain exact painter pixels");
-            fallbackOrdering();
-            queuePressure();
-            textureMutationBarrier();
-            interruptionBarrier();
-            failureBarrier();
-            serialSelection();
-        } finally {
-            ParallelRasterizer.shutdown();
+            System.out.println("ParallelRasterizerTest passed");
         }
-        System.out.println("ParallelRasterizerTest passed");
     }
 
     static void palette() {

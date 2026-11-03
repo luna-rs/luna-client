@@ -1,4 +1,4 @@
-import luna.Constants;
+import luna.ClientConfiguration;
 import luna.browser.awt.BrowserDisplay;
 import luna.browser.awt.Component;
 
@@ -14,8 +14,9 @@ public class JagFrame extends Component {
         this.applet = applet;
         this.resizable = resizable;
         setContentSize(width, height);
-        BrowserDisplay.setTitle(Constants.CLIENT_NAME);
-        System.out.println("Browser title: " + Constants.CLIENT_NAME);
+        String title = ClientConfiguration.get().string("clientName");
+        BrowserDisplay.setTitle(title);
+        System.out.println("Browser title: " + title);
     }
     public void setContentSize(int width, int height) { setSize(width, height); }
     public int getContentWidth() { return getWidth(); }

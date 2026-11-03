@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.util.Arrays;
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -12,12 +13,14 @@ import java.util.Set;
  */
 public final class SceneGraphTerrainDistanceTest {
 
-    public static void main(String[] args) {
-        visibilityAndDepthLimits();
-        liveDrawDistance();
-        terrainOnlyTraversal();
-        sceneEdgesAndOccluders();
-        System.out.println("SceneGraphTerrainDistanceTest passed");
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            visibilityAndDepthLimits();
+            liveDrawDistance();
+            terrainOnlyTraversal();
+            sceneEdgesAndOccluders();
+            System.out.println("SceneGraphTerrainDistanceTest passed");
+        }
     }
 
     private static void liveDrawDistance() {

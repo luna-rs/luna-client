@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import java.awt.AlphaComposite;
 import java.awt.Canvas;
 import java.awt.Color;
@@ -16,12 +17,14 @@ import java.util.Hashtable;
  */
 public final class JagImageProducerTest {
 
-    public static void main(String[] args) {
-        nativeDrawing();
-        changingPixels();
-        replacementPixels();
-        consumerCompatibility();
-        System.out.println("JagImageProducerTest passed");
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            nativeDrawing();
+            changingPixels();
+            replacementPixels();
+            consumerCompatibility();
+            System.out.println("JagImageProducerTest passed");
+        }
     }
 
     private static void nativeDrawing() {

@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import javax.sound.midi.MidiSystem;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -15,34 +16,36 @@ import java.util.zip.GZIPOutputStream;
 public final class OnDemandFetcherTest {
 
     public static void main(String[] args) throws Exception {
-        requestBounds();
-        responseReads();
-        byte[] largeMidi = midi(70_000);
-        check(MidiSystem.getSequence(new ByteArrayInputStream(largeMidi)).getTracks().length == 1,
-                "large fixture must be valid MIDI");
-        check(Arrays.equals(largeMidi, complete(2, gzip(largeMidi)).buf),
-                "valid MIDI larger than 65,000 bytes must decompress");
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            requestBounds();
+            responseReads();
+            byte[] largeMidi = midi(70_000);
+            check(MidiSystem.getSequence(new ByteArrayInputStream(largeMidi)).getTracks().length == 1,
+                    "large fixture must be valid MIDI");
+            check(Arrays.equals(largeMidi, complete(2, gzip(largeMidi)).buf),
+                    "valid MIDI larger than 65,000 bytes must decompress");
 
-        byte[] maximumMidi = midi(2 * 1024 * 1024);
-        check(Arrays.equals(maximumMidi, complete(2, gzip(maximumMidi)).buf),
-                "exact music size limit must be accepted");
-        check(complete(2, gzip(midi(2 * 1024 * 1024 + 1))).buf == null,
-                "oversized music must fail without throwing into the game thread");
-        check(complete(2, new byte[]{1, 2, 3, 4}).buf == null,
-                "invalid music gzip must fail without throwing into the game thread");
-        byte[] truncated = gzip(largeMidi);
-        check(complete(2, Arrays.copyOf(truncated, truncated.length / 2)).buf == null,
-                "truncated music gzip must fail without throwing into the game thread");
-        check(complete(2, null).buf == null, "missing music must remain missing");
+            byte[] maximumMidi = midi(2 * 1024 * 1024);
+            check(Arrays.equals(maximumMidi, complete(2, gzip(maximumMidi)).buf),
+                    "exact music size limit must be accepted");
+            check(complete(2, gzip(midi(2 * 1024 * 1024 + 1))).buf == null,
+                    "oversized music must fail without throwing into the game thread");
+            check(complete(2, new byte[]{1, 2, 3, 4}).buf == null,
+                    "invalid music gzip must fail without throwing into the game thread");
+            byte[] truncated = gzip(largeMidi);
+            check(complete(2, Arrays.copyOf(truncated, truncated.length / 2)).buf == null,
+                    "truncated music gzip must fail without throwing into the game thread");
+            check(complete(2, null).buf == null, "missing music must remain missing");
 
-        byte[] smallModel = new byte[128];
-        Arrays.fill(smallModel, (byte) 17);
-        check(Arrays.equals(smallModel, complete(0, gzip(smallModel)).buf),
-                "nonmusic decompression must remain unchanged");
-        expectRuntime(() -> complete(0, new byte[]{1, 2, 3, 4}), "error unzipping");
-        byte[] oversizedModel = gzip(new byte[65_000]);
-        expectRuntime(() -> complete(0, oversizedModel), "buffer overflow!");
-        System.out.println("OnDemandFetcherTest: all checks passed");
+            byte[] smallModel = new byte[128];
+            Arrays.fill(smallModel, (byte) 17);
+            check(Arrays.equals(smallModel, complete(0, gzip(smallModel)).buf),
+                    "nonmusic decompression must remain unchanged");
+            expectRuntime(() -> complete(0, new byte[]{1, 2, 3, 4}), "error unzipping");
+            byte[] oversizedModel = gzip(new byte[65_000]);
+            expectRuntime(() -> complete(0, oversizedModel), "buffer overflow!");
+            System.out.println("OnDemandFetcherTest: all checks passed");
+        }
     }
 
     private static void requestBounds() {

@@ -1,7 +1,7 @@
 import luna.CacheBootstrap;
+import luna.ClientConfiguration;
 import luna.ClientPaths;
-import luna.Constants;
-import luna.RsaParser;
+import luna.browser.BrowserConfiguration;
 import org.teavm.jso.JSBody;
 import sign.signlink;
 
@@ -22,25 +22,28 @@ public final class BrowserClientMain {
         if (started) return;
         started = true;
         startedAt = System.currentTimeMillis();
-        boolean beta = betaProfile();
-        System.setProperty("luna.beta", Boolean.toString(beta));
-        System.setProperty("luna.local", Boolean.toString(!beta));
-        System.setProperty("luna.host", configuredHost(beta));
-        System.setProperty("luna.port", Integer.toString(configuredPort(beta)));
         System.setProperty("user.home", "/files");
-        System.out.println("TeaVM: shared Java client starting");
-        System.out.println(Constants.CLIENT_NAME);
-        System.out.println("Server: " + Constants.CONNECT_HOST + ":" + Constants.CONNECT_PORT);
-        System.out.println("Browser cache: " + ClientPaths.cacheDirectory());
         try {
+            BrowserConfiguration.load();
+            ClientConfiguration configuration = ClientConfiguration.get();
+            String host = configuration.string("connectHost");
+            int portOffset = configuration.integer("portOffset", 0, 65534);
+            int port = configuration.integer("connectPort", 1, 65535) + portOffset;
+            if (!gatewayMatches(host, port)) {
+                throw new IllegalStateException("The browser gateway must match the released beta client.properties.");
+            }
+            System.out.println("TeaVM: shared Java client starting");
+            System.out.println(configuration.string("clientName"));
+            System.out.println("Server: " + host + ":" + port);
+            System.out.println("Browser cache: " + ClientPaths.cacheDirectory());
             CacheBootstrap.installBundledCache();
-            RsaParser.parse();
-            client.world = 10;
-            client.portOffset = 0;
-            client.switchToHighMem();
-            client.memberServer = true;
-            signlink.storeid = 32;
-            signlink.startpriv(luna.browser.net.InetAddress.getByName(Constants.CONNECT_HOST));
+            client.world = configuration.integer("world", 0, 65535);
+            client.portOffset = portOffset;
+            if (configuration.bool("lowMemory")) client.switchToLowMem();
+            else client.switchToHighMem();
+            client.memberServer = configuration.bool("members");
+            signlink.storeid = configuration.integer("cacheStoreId", 0, 255);
+            signlink.startpriv(luna.browser.net.InetAddress.getByName(host));
             byte[] title = new FileStore(1, 0x927c0, signlink.cache_dat, signlink.cache_idx[0]).get(1);
             if (title == null) {
                 throw new IllegalStateException("The verified browser cache could not read its title archive");
@@ -69,20 +72,13 @@ public final class BrowserClientMain {
         showStatus("Client could not load; see startup log");
     }
 
-    @JSBody(script = "return document.getElementById('server').value === 'beta';")
-    private static native boolean betaProfile();
-
-    @JSBody(params = "beta", script = """
-            var c=window.LUNA_CLIENT_CONFIG;
-            return c?c[beta?'beta':'development'].host:(beta?'85.155.184.204':'127.0.0.1');
+    @JSBody(params = {"host", "port"}, script = """
+            var lunaBetaGatewayConfig = window.LUNA_CLIENT_CONFIG;
+            return !!window.LUNA_WEBSOCKET_URL && !!lunaBetaGatewayConfig
+                && !!lunaBetaGatewayConfig.beta && lunaBetaGatewayConfig.beta.host === host
+                && lunaBetaGatewayConfig.beta.port === port;
             """)
-    private static native String configuredHost(boolean beta);
-
-    @JSBody(params = "beta", script = """
-            var c=window.LUNA_CLIENT_CONFIG;
-            return c?c[beta?'beta':'development'].port:43594;
-            """)
-    private static native int configuredPort(boolean beta);
+    private static native boolean gatewayMatches(String host, int port);
 
     @JSBody(params = "message", script = "document.getElementById('status').textContent = message;")
     private static native void showStatus(String message);

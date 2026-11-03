@@ -27,23 +27,25 @@ import java.util.zip.ZipOutputStream;
 public final class CacheBootstrapTest {
 
     public static void main(String[] args) throws Exception {
-        Path fixture = Files.createTempDirectory("luna-cache-bootstrap-test-");
-        String previousHome = System.getProperty("user.home");
-        try {
-            freshAndRepeatedInstall(fixture.resolve("fresh"));
-            rejectedArchives(fixture.resolve("invalid"));
-            publicationRollback(fixture.resolve("rollback-before-new"), "before-new");
-            publicationRollback(fixture.resolve("rollback-after-new"), "after-new");
-            publicationRollback(fixture.resolve("rollback-before-old"), "before-old");
-            publicationRollback(fixture.resolve("rollback-after-old"), "after-old");
-            blockedStore(fixture.resolve("blocked"));
-            concurrentInstall(fixture.resolve("concurrent"));
-            linkedStore(fixture.resolve("links"));
-            packagedPayload(fixture.resolve("packaged"));
-        } finally {
-            System.setProperty("user.home", previousHome);
-            try (Stream<Path> paths = Files.walk(fixture)) {
-                for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(path);
+        try (ClientConfigurationFixture configuration = ClientConfigurationFixture.install()) {
+            Path fixture = Files.createTempDirectory("luna-cache-bootstrap-test-");
+            String previousHome = System.getProperty("user.home");
+            try {
+                freshAndRepeatedInstall(fixture.resolve("fresh"));
+                rejectedArchives(fixture.resolve("invalid"));
+                publicationRollback(fixture.resolve("rollback-before-new"), "before-new");
+                publicationRollback(fixture.resolve("rollback-after-new"), "after-new");
+                publicationRollback(fixture.resolve("rollback-before-old"), "before-old");
+                publicationRollback(fixture.resolve("rollback-after-old"), "after-old");
+                blockedStore(fixture.resolve("blocked"));
+                concurrentInstall(fixture.resolve("concurrent"));
+                linkedStore(fixture.resolve("links"));
+                packagedPayload(fixture.resolve("packaged"));
+            } finally {
+                System.setProperty("user.home", previousHome);
+                try (Stream<Path> paths = Files.walk(fixture)) {
+                    for (Path path : paths.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(path);
+                }
             }
         }
         System.out.println("CacheBootstrapTest passed");

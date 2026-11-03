@@ -25,6 +25,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class WavePlayerTest {
     private static final File SOUND = new File("test.wav");
+    private static final float MIX_HEADROOM_DB = -18.06179974f;
+    private static final float TWO_CLIP_ATTENUATION_DB = 6.02059991f;
+    private static final float THREE_CLIP_ATTENUATION_DB = 9.54242509f;
 
     public static void main(String[] args) throws Exception {
         soundLevelsApplyBeforePlayback();
@@ -52,7 +55,8 @@ public final class WavePlayerTest {
             player.play(SOUND);
             FakeClip clip = factory.last();
             check(clip.started, "Each enabled sound level plays");
-            checkClose(clip.gainAtStart, decibels[i], "Selected attenuation applies before playback starts");
+            checkClose(clip.gainAtStart, decibels[i] + MIX_HEADROOM_DB,
+                    "Selected attenuation and mixer headroom apply before playback starts");
             clip.finish();
         }
         player.close();
@@ -67,14 +71,23 @@ public final class WavePlayerTest {
         player.play(SOUND);
         FakeClip second = factory.last();
         player.setVolume(-800);
-        checkClose(first.masterGain.getValue(), -8.0f, "First active sound updates immediately");
-        checkClose(second.masterGain.getValue(), -8.0f, "Overlapping active sound updates immediately");
+        checkClose(first.masterGain.getValue(), MIX_HEADROOM_DB - 8.0f - TWO_CLIP_ATTENUATION_DB,
+                "First active sound shares the mixer budget immediately");
+        checkClose(second.masterGain.getValue(), MIX_HEADROOM_DB - 8.0f - TWO_CLIP_ATTENUATION_DB,
+                "Overlapping active sound shares the mixer budget immediately");
         player.play(SOUND);
-        checkClose(factory.last().gainAtStart, -8.0f, "New sound inherits selected volume");
+        float threeClipGain = MIX_HEADROOM_DB - 8.0f - THREE_CLIP_ATTENUATION_DB;
+        checkClose(factory.last().gainAtStart, threeClipGain, "New sound inherits its share of the selected volume");
+        checkClose(first.masterGain.getValue(), threeClipGain, "New sound rebalances the first active sound");
+        checkClose(second.masterGain.getValue(), threeClipGain, "New sound rebalances the second active sound");
+        float completedGain = first.masterGain.getValue();
         first.finish();
+        checkClose(second.masterGain.getValue(), MIX_HEADROOM_DB - 8.0f - TWO_CLIP_ATTENUATION_DB,
+                "Completion returns the released share to remaining sounds");
         player.setVolume(-400);
-        checkClose(first.masterGain.getValue(), -8.0f, "Completed sound no longer receives volume updates");
-        checkClose(second.masterGain.getValue(), -4.0f, "Remaining active sound continues receiving updates");
+        checkClose(first.masterGain.getValue(), completedGain, "Completed sound no longer receives volume updates");
+        checkClose(second.masterGain.getValue(), MIX_HEADROOM_DB - 4.0f - TWO_CLIP_ATTENUATION_DB,
+                "Remaining active sound continues receiving master volume updates");
         factory.callbackOnAnotherThread = true;
         player.close();
         for (FakeClip clip : factory.created) {
@@ -98,7 +111,8 @@ public final class WavePlayerTest {
             producer.join(2000);
         }
         check(!producer.isAlive() && factory.last().started, "Producer starts after opening completes");
-        checkClose(factory.last().gainAtStart, -12.0f, "Opening sound starts at latest selected volume");
+        checkClose(factory.last().gainAtStart, MIX_HEADROOM_DB - 12.0f,
+                "Opening sound starts with latest master volume and mixer headroom");
         player.close();
     }
 
@@ -108,20 +122,21 @@ public final class WavePlayerTest {
         player.setVolume(Integer.MIN_VALUE);
         player.play(SOUND);
         FakeClip clip = factory.last();
-        checkClose(clip.gainAtStart, -96.0f, "Attenuation is bounded at minus 96 decibels");
+        checkClose(clip.gainAtStart, MIX_HEADROOM_DB - 96.0f,
+                "Master attenuation is bounded at minus 96 decibels before mixer headroom");
         player.setVolume(Integer.MAX_VALUE);
-        checkClose(clip.masterGain.getValue(), 0.0f, "Volume never boosts above full volume");
+        checkClose(clip.masterGain.getValue(), MIX_HEADROOM_DB, "Full master volume retains mixer headroom");
         player.close();
 
         factory = new FakeFactory();
-        factory.gainMinimum = -10.0f;
-        factory.gainMaximum = -2.0f;
+        factory.gainMinimum = -25.0f;
+        factory.gainMaximum = -20.0f;
         player = new WavePlayer(factory, 2);
         player.play(SOUND);
         clip = factory.last();
-        checkClose(clip.gainAtStart, -2.0f, "Full volume respects provider maximum");
+        checkClose(clip.gainAtStart, -20.0f, "Full volume respects provider maximum");
         player.setVolume(-1200);
-        checkClose(clip.masterGain.getValue(), -10.0f, "Attenuation respects provider minimum");
+        checkClose(clip.masterGain.getValue(), -25.0f, "Attenuation respects provider minimum");
         player.close();
     }
 
@@ -131,7 +146,7 @@ public final class WavePlayerTest {
         factory.volumeSupported = true;
         WavePlayer player = new WavePlayer(factory, 2);
         int[] levels = {-1200, -800, -400, 0};
-        float[] amplitudes = {0.25118864f, 0.39810717f, 0.63095734f, 1.0f};
+        float[] amplitudes = {0.03139858f, 0.04976340f, 0.07886967f, 0.125f};
         for (int i = 0; i < levels.length; i++) {
             player.setVolume(levels[i]);
             player.play(SOUND);
@@ -147,13 +162,13 @@ public final class WavePlayerTest {
         factory = new FakeFactory();
         factory.masterGainSupported = false;
         factory.volumeSupported = true;
-        factory.volumeMinimum = 0.3f;
-        factory.volumeMaximum = 0.75f;
+        factory.volumeMinimum = 0.05f;
+        factory.volumeMaximum = 0.1f;
         player = new WavePlayer(factory, 2);
         player.play(SOUND);
-        checkClose(factory.last().volumeAtStart, 0.75f, "Fallback respects provider maximum");
+        checkClose(factory.last().volumeAtStart, 0.1f, "Fallback respects provider maximum");
         player.setVolume(-1200);
-        checkClose(factory.last().volume.getValue(), 0.3f, "Fallback respects provider minimum");
+        checkClose(factory.last().volume.getValue(), 0.05f, "Fallback respects provider minimum");
         player.close();
     }
 
@@ -163,7 +178,8 @@ public final class WavePlayerTest {
         WavePlayer player = new WavePlayer(factory, 2);
         player.setVolume(-400);
         player.play(SOUND);
-        checkClose(factory.last().gainAtStart, -4.0f, "Master gain is preferred when both controls exist");
+        checkClose(factory.last().gainAtStart, MIX_HEADROOM_DB - 4.0f,
+                "Master gain is preferred when both controls exist");
         checkClose(factory.last().volumeAtStart, 1.0f, "Linear volume does not add a second attenuation");
         player.close();
     }
@@ -180,7 +196,8 @@ public final class WavePlayerTest {
         factory.masterGainSupported = true;
         player.play(SOUND);
         check(factory.last().started, "Playback recovers when volume control is available");
-        checkClose(factory.last().gainAtStart, -12.0f, "Recovered sound retains selected volume");
+        checkClose(factory.last().gainAtStart, MIX_HEADROOM_DB - 12.0f,
+                "Recovered sound retains selected volume and mixer headroom");
         player.close();
     }
 
@@ -207,6 +224,12 @@ public final class WavePlayerTest {
             if (i >= 2) {
                 check(factory.created.get(i - 2).closes == 1, "Oldest clip evicted");
             }
+            double combinedGain = 0.0;
+            for (FakeClip clip : factory.created) {
+                if (clip.open) combinedGain += Math.pow(10.0, clip.masterGain.getValue() / 20.0);
+            }
+            check(Math.abs(combinedGain - 0.125) < 0.000001,
+                    "Overlapping sounds preserve the reserved combined PCM mixer gain");
         }
         player.close();
         check(factory.openClips == 0, "Overlapping clips closed");

@@ -1,3 +1,8 @@
+import java.io.IOException;
+import java.util.Map;
+
+import luna.ClientConfiguration;
+
 /**
  * Keeps the browser at the classic fixed dimensions without changing desktop preferences.
  *
@@ -9,6 +14,7 @@ public final class ClientSettings {
     public int clientSize;
     public int width = DEFAULT_WIDTH;
     public int height = DEFAULT_HEIGHT;
+    public boolean coloredGameMessages = ClientConfiguration.get().bool("coloredGameMessages");
 
     public static ClientSettings load() {
         return new ClientSettings();
@@ -18,6 +24,12 @@ public final class ClientSettings {
         clientSize = 0;
         width = DEFAULT_WIDTH;
         height = DEFAULT_HEIGHT;
+        try {
+            ClientConfiguration.get().savePreferences(Map.of("clientSize", "0", "width", "765", "height", "503",
+                    "coloredGameMessages", Boolean.toString(coloredGameMessages)));
+        } catch (IOException exception) {
+            System.err.println("Unable to save browser client preferences.");
+        }
     }
 
     public void resetResizableSize() {

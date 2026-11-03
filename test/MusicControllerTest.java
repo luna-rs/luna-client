@@ -1,3 +1,4 @@
+import luna.ClientConfigurationFixture;
 import sign.MusicController;
 
 import java.util.ArrayList;
@@ -10,12 +11,14 @@ import java.util.function.LongConsumer;
  * @author lare96
  */
 public final class MusicControllerTest {
-    public static void main(String[] args) {
-        protocol();
-        cancellation();
-        jingles();
-        failures();
-        System.out.println("MusicControllerTest passed");
+    public static void main(String[] args) throws Exception {
+        try (ClientConfigurationFixture configurationFixture = ClientConfigurationFixture.install()) {
+            protocol();
+            cancellation();
+            jingles();
+            failures();
+            System.out.println("MusicControllerTest passed");
+        }
     }
 
     private static void protocol() {

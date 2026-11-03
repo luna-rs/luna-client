@@ -15,9 +15,14 @@ import java.io.InputStream;
 public final class ClientResourcesTest {
 
     public static void main(String[] args) throws Exception {
-        RsaParser.parse();
-        check(RsaParser.getModulus().signum() > 0 && RsaParser.getExponent().signum() > 0,
-                "the public login key loads from packaged resources");
+        try (ClientConfigurationFixture fixture = ClientConfigurationFixture.install()) {
+            ClientConfiguration configuration = ClientConfiguration.load(fixture.path());
+            check(configuration.rsaModulus().intValueExact() == 3233
+                            && configuration.rsaExponent().intValueExact() == 17,
+                    "the public login key comes from the selected root configuration");
+        }
+        check(ClientResourcesTest.class.getClassLoader().getResource("rsa/rsapub.toml") == null,
+                "the public key is no longer supplied by an invisible packaged TOML fallback");
         try (InputStream stream = ClientResources.openBundled("data/soundbank.sf2")) {
             Soundbank soundbank = MidiSystem.getSoundbank(stream);
             check(soundbank != null && soundbank.getInstruments().length > 0,

@@ -2,8 +2,7 @@
 // Jad home page: http://www.kpdus.com/jad.html
 // Decompiler options: packimports(3) 
 
-import luna.Constants;
-import luna.RsaParser;
+import luna.ClientConfiguration;
 
 import java.math.BigInteger;
 
@@ -286,19 +285,22 @@ public class JagBuffer extends QueueNode {
             return getShort() - 32768;
     }
 
-    public void rsa(BigInteger modulus, BigInteger key) {
+    public void rsa() {
         int len = position;
         position = 0;
         byte rawBytes[] = new byte[len];
         getBytes(rawBytes, 0, len);
         BigInteger rawInteger = new BigInteger(rawBytes);
         BigInteger encryptedInteger;
-        if (Constants.DECODE_RSA) {
-            encryptedInteger = rawInteger.modPow(RsaParser.getExponent(), RsaParser.getModulus());
+        ClientConfiguration configuration = ClientConfiguration.get();
+        if (configuration.bool("rsaEnabled")) {
+            encryptedInteger = rawInteger.modPow(configuration.rsaExponent(), configuration.rsaModulus());
         } else {
             encryptedInteger = rawInteger;
         }
         byte encryptedBytes[] = encryptedInteger.toByteArray();
+        if (encryptedBytes.length > 255)
+            throw new IllegalArgumentException("The configured RSA key exceeds the native login block size.");
         position = 0;
         putByte(encryptedBytes.length);
         putBytes(encryptedBytes, 0, encryptedBytes.length);

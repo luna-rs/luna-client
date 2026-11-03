@@ -95,7 +95,7 @@ public class signlink implements Runnable {
 					}
 				}
 				if (waveplay && saved) {
-						wavePlayer.play(new File(s, savereq));
+						wavePlayer.play(new File(s, savereq), waveGeneration);
 				}
 				waveplay = false;
 				savebuf = null;
@@ -189,6 +189,7 @@ public class signlink implements Runnable {
 			wavepos = (wavepos + 1) % 5;
 			savelen = i;
 			savebuf = Arrays.copyOf(abyte0, i);
+			waveGeneration = wavePlayer.generation();
 			waveplay = true;
 			savereq = "sound" + wavepos + ".wav";
 			return true;
@@ -200,6 +201,7 @@ public class signlink implements Runnable {
 			return false;
 		} else {
 			savebuf = null;
+			waveGeneration = wavePlayer.generation();
 			waveplay = true;
 			savereq = "sound" + wavepos + ".wav";
 			return true;
@@ -252,6 +254,7 @@ public class signlink implements Runnable {
 	public static byte savebuf[] = null;
 	public static boolean waveplay;
 	public static int wavepos;
+	private static long waveGeneration;
 	public static String wave = null;
 	public static boolean reporterror = true;
 	public static String errorname = "";
