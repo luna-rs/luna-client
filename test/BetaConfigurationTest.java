@@ -11,10 +11,10 @@ public final class BetaConfigurationTest {
     public static void main(String[] args) {
         int previousOffset = client.portOffset;
         try {
-            String expectedTitle = "luna-rs #377" + (Boolean.getBoolean("luna.beta") ? " (beta)" : "");
+            boolean local = Boolean.getBoolean("luna.local");
+            String expectedTitle = "luna-rs #377" + (local ? "" : " (beta)");
             check(expectedTitle.equals(Constants.CLIENT_NAME), "window branding identifies the selected release");
-            String expectedHost = Boolean.getBoolean("luna.local") ? "127.0.0.1"
-                    : Boolean.getBoolean("luna.beta") ? "85.155.184.204" : "127.0.0.1";
+            String expectedHost = local ? "127.0.0.1" : "85.155.184.204";
             check(expectedHost.equals(Constants.CONNECT_HOST) && Constants.CONNECT_PORT == 43594,
                     "the selected endpoint retains the existing game port");
             check(Constants.USE_LOCAL_SERVER == Boolean.getBoolean("luna.local"),

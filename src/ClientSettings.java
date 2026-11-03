@@ -12,7 +12,7 @@ import java.util.Properties;
 import sign.signlink;
 
 /**
- * Remembers the client mode (fixed or resizable) and the size of the resizable window between launches.
+ * Remembers the window mode, resizable size and game-message appearance between launches.
  * Stored in the cache directory as client.properties.
  */
 public final class ClientSettings {
@@ -28,6 +28,11 @@ public final class ClientSettings {
     public int clientSize = 0;
     public int width = DEFAULT_WIDTH;
     public int height = DEFAULT_HEIGHT;
+
+    /**
+     * Applies server-supplied formatting to game messages; disabled messages still hide their formatting tags.
+     */
+    public boolean coloredGameMessages = true;
 
     /**
      * Restores the resizable preset while leaving the selected mode unchanged.
@@ -56,6 +61,8 @@ public final class ClientSettings {
             settings.clientSize = Integer.parseInt(properties.getProperty("clientSize", "0")) == 1 ? 1 : 0;
             settings.width = Integer.parseInt(properties.getProperty("width", String.valueOf(DEFAULT_WIDTH)));
             settings.height = Integer.parseInt(properties.getProperty("height", String.valueOf(DEFAULT_HEIGHT)));
+            settings.coloredGameMessages = !"false".equalsIgnoreCase(
+                    properties.getProperty("coloredGameMessages", "true").trim());
         } catch (IOException | NumberFormatException e) {
             return new ClientSettings();
         }
@@ -69,6 +76,7 @@ public final class ClientSettings {
         properties.setProperty("clientSize", String.valueOf(clientSize));
         properties.setProperty("width", String.valueOf(width));
         properties.setProperty("height", String.valueOf(height));
+        properties.setProperty("coloredGameMessages", String.valueOf(coloredGameMessages));
         File file = file();
         try (OutputStream out = new FileOutputStream(file)) {
             properties.store(out, "Luna client settings");

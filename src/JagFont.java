@@ -199,6 +199,14 @@ public class JagFont extends Drawable {
 	}
 
 	public void drawString(String text, int i, int j, int k, boolean flag) {
+		drawString(text, i, j, k, flag, true);
+	}
+
+	/**
+	 * Draws text while consuming formatting tags in either mode. Disabling formatting keeps the supplied colour and
+	 * suppresses other tag effects, so plain game messages never expose raw formatting codes.
+	 */
+	public void drawString(String text, int i, int j, int k, boolean flag, boolean formatting) {
 		strikethrough = false;
 		int i1 = j;
 		if (text == null)
@@ -206,9 +214,11 @@ public class JagFont extends Drawable {
 		k -= anInt1506;
 		for (int j1 = 0; j1 < text.length(); j1++)
 			if (text.charAt(j1) == '@' && j1 + 4 < text.length() && text.charAt(j1 + 4) == '@') {
-				int k1 = processFormattingCode(text.substring(j1 + 1, j1 + 4));
-				if (k1 != -1)
-					i = k1;
+				if (formatting) {
+					int k1 = processFormattingCode(text.substring(j1 + 1, j1 + 4));
+					if (k1 != -1)
+						i = k1;
+				}
 				j1 += 4;
 			} else {
 				char c = text.charAt(j1);

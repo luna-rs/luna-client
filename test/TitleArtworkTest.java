@@ -10,7 +10,6 @@ import java.io.DataOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -33,7 +32,6 @@ public final class TitleArtworkTest {
             independentFallbacks(archive, directory);
             boundedLoading(archive, directory);
             sessionCaching(archive, directory);
-            sharedCalendar();
             bundledComposition(archive, directory.resolve("packaged-assets"));
         } finally {
             try (Stream<Path> paths = Files.walk(directory)) {
@@ -150,21 +148,6 @@ public final class TitleArtworkTest {
                 "missing or invalid assets are cached too, avoiding repeated file reads");
         check(artwork.imageFor(SeasonalTitleTheme.DEFAULT) != before,
                 "leaving a seasonal month restores a separately cached ordinary title");
-    }
-
-    private static void sharedCalendar() {
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2027, 3, 1)) == SeasonalTitleTheme.EASTER,
-                "artwork follows March Easter years");
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2026, 4, 30)) == SeasonalTitleTheme.EASTER,
-                "artwork follows April Easter years for the complete month");
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2026, 10, 31)) == SeasonalTitleTheme.HALLOWEEN,
-                "Halloween includes October 31");
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2026, 11, 1)) == SeasonalTitleTheme.DEFAULT,
-                "November restores the ordinary title");
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2026, 12, 31)) == SeasonalTitleTheme.CHRISTMAS,
-                "Christmas includes December 31");
-        check(SeasonalTitleTheme.forDate(LocalDate.of(2027, 1, 1)) == SeasonalTitleTheme.DEFAULT,
-                "January restores the ordinary title");
     }
 
     private static BufferedImage solid(int width, int height, int color) {

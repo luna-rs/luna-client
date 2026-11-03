@@ -87,12 +87,14 @@ public final class ClientLayout {
     public final Rectangle usableGameArea;
 
     /**
-     * Shared status area below the minimap, moved beside it when the inventory leaves insufficient room.
+     * Stable status row above the five-line private-message area, with room for native HUD groups up to sixty
+     * pixels high.
      */
     public final Rectangle statusHud;
 
     /**
-     * Multicombat marker below the status widgets, relative to the viewport. Fixed mode keeps its native position.
+     * Multicombat marker at the start of the status row when no walkable HUD is active. Fixed mode keeps its
+     * native position.
      */
     public final Point multicombatPosition;
 
@@ -144,13 +146,10 @@ public final class ClientLayout {
                 resizable ? inventoryBlock.x : viewport.width,
                 resizable ? chatboxBlock.y : viewport.height);
         if (resizable) {
-            // Adapt the native OSRS desktop wilderness inset to Luna's minimap and wider counter labels.
-            statusHud = new Rectangle(viewport.width - 68 - 48, minimap.y + minimap.height + 1, 96, 96);
-            if (statusHud.intersects(inventoryBlock) || statusHud.intersects(chatboxBlock)) {
-                statusHud.setLocation(Math.max(0, minimap.x - statusHud.width - 8), 8);
-            }
-            // Leave eight pixels below the tallest native status group (the 60-pixel Gnomeball score panel).
-            multicombatPosition = new Point(statusHud.x + (statusHud.width - 25) / 2, statusHud.y + 68);
+            int privateMessageTop = chatboxBlock.y - 28 - 5 * 13;
+            statusHud = new Rectangle(chatboxBlock.x + 8, Math.max(0, privateMessageTop - 8 - 60),
+                    chatboxBlock.width - 16, 60);
+            multicombatPosition = new Point(statusHud.x, statusHud.y + statusHud.height - 25);
         } else {
             statusHud = new Rectangle(418, 256, 94, 78);
             multicombatPosition = new Point(472, 296);
