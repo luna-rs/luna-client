@@ -2569,8 +2569,12 @@ public class client extends JagApplet {
                 return true;
             }
             if (opcode == 82) { // make interface (in)visible maybe?
-                boolean flag = buffer.getByte() == 1;
-                int interfaceId = buffer.getShort();
+                // Decode from one cursor snapshot before loading the interface.
+                int offset = buffer.position;
+                byte[] payload = buffer.buffer;
+                boolean flag = payload[offset] == 1;
+                int interfaceId = ((payload[offset + 1] & 0xff) << 8) | (payload[offset + 2] & 0xff);
+                buffer.position = offset + 3;
                 JagInterface.forId(interfaceId).aBoolean219 = flag;
                 opcode = -1;
                 return true;
