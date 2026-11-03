@@ -110,6 +110,10 @@ final class FrameScheduler {
         return Math.max(0L, Math.min(nextUpdate - now, nextFrameWork - now));
     }
 
+    long nanosUntilUpdate(long now) {
+        return Math.max(0L, nextUpdate - now);
+    }
+
     void setTargetFps(int targetFps, long now) {
         if (targetFps < 1 || targetFps > 1000) {
             throw new IllegalArgumentException("Frame rate must be between 1 and 1000");

@@ -17,7 +17,10 @@ import org.teavm.jso.typedarrays.Int32Array;
 public final class BrowserDisplay {
     private BrowserDisplay() { }
 
-    @JSBody(params = "title", script = "document.title=title+' · TeaVM';document.getElementById('title').textContent=title+' · TeaVM';")
+    @JSBody(params = "title", script = """
+            document.title=title+' · TeaVM';
+            document.getElementById('title').textContent=title+' · TeaVM';
+            """)
     public static native void setTitle(String title);
 
     /**
@@ -59,42 +62,74 @@ public final class BrowserDisplay {
     @JSBody(script = "return document.hidden;")
     public static native boolean hidden();
 
-    @JSBody(params = {"updates", "frames", "totalUpdates", "loggedIn", "loadingStage", "outboundBytes", "opcode", "lastOpcode", "packetSize", "silentTicks"}, script = """
-            var socket = window._lunaSocket;
-            var queued = 0;
-            if (socket && socket.queue) {
-                for (var index = 0; index < socket.queue.length; index++) queued += socket.queue[index].length;
-                queued -= socket.offset || 0;
+    @JSBody(params = {"updates", "frames", "totalUpdates", "loggedIn", "loadingStage", "outboundBytes", "opcode",
+            "lastOpcode", "packetSize", "silentTicks"}, script = """
+            var lunaFrameSocket = window._lunaSocket;
+            var lunaQueuedBytes = 0;
+            if (lunaFrameSocket && lunaFrameSocket.queue) {
+                for (var lunaQueueIndex = 0; lunaQueueIndex < lunaFrameSocket.queue.length; lunaQueueIndex++) {
+                    lunaQueuedBytes += lunaFrameSocket.queue[lunaQueueIndex].length;
+                }
+                lunaQueuedBytes -= lunaFrameSocket.offset || 0;
             }
-            var status = {updates: updates, frames: frames, totalUpdates: totalUpdates, loggedIn: loggedIn,
+            var lunaRuntimeStatus = {updates: updates, frames: frames, totalUpdates: totalUpdates, loggedIn: loggedIn,
                 loadingStage: loadingStage, outboundBytes: outboundBytes, opcode: opcode, lastOpcode: lastOpcode,
-                packetSize: packetSize, silentTicks: silentTicks, socketQueuedBytes: queued,
-                socketReceivedBytes: socket ? socket.receivedBytes || 0 : 0,
-                socketSentBytes: socket ? socket.sentBytes || 0 : 0,
-                socketReadyState: socket && socket.socket ? socket.socket.readyState : -1};
-            window.LUNA_RUNTIME_STATUS = status;
-            var label = document.getElementById('runtime-stats');
-            if (label) label.textContent = updates + ' updates/s · ' + frames + ' FPS · ' + (loggedIn ? 'logged in' : 'login screen');
-            console.log('TeaVM runtime: ' + JSON.stringify(status));
+                packetSize: packetSize, silentTicks: silentTicks, socketQueuedBytes: lunaQueuedBytes,
+                socketReceivedBytes: lunaFrameSocket ? lunaFrameSocket.receivedBytes || 0 : 0,
+                socketSentBytes: lunaFrameSocket ? lunaFrameSocket.sentBytes || 0 : 0,
+                socketReadyState: lunaFrameSocket && lunaFrameSocket.socket ? lunaFrameSocket.socket.readyState : -1};
+            window.LUNA_RUNTIME_STATUS = lunaRuntimeStatus;
+            var lunaRuntimeLabel = document.getElementById('runtime-stats');
+            if (lunaRuntimeLabel) lunaRuntimeLabel.textContent = updates + ' updates/s · ' + frames + ' FPS · '
+                + (loggedIn ? 'logged in' : 'login screen');
+            console.log('TeaVM runtime: ' + JSON.stringify(lunaRuntimeStatus));
             """)
     public static native void stats(int updates, int frames, int totalUpdates, boolean loggedIn,
                                    int loadingStage, int outboundBytes, int opcode, int lastOpcode,
                                    int packetSize, int silentTicks);
 
-    @JSBody(script = "const c=document.getElementById('game');if(c)c.focus();")
+    @JSBody(script = """
+            var lunaCanvasElement=document.getElementById('game');
+            if(lunaCanvasElement)lunaCanvasElement.focus();
+            """)
     public static native void focus();
 
-    @JSBody(params = {"pixels", "width", "height"}, script = "window.LunaBrowser.present(pixels,width,height);")
-    public static native void present(@JSByRef int[] pixels, int width, int height);
+    public static void present(int[] pixels, int width, int height) {
+        BrowserFramePresenter.present(pixels, width, height);
+    }
 
-    @JSBody(params = {"text", "font"}, script = "const c=document.createElement('canvas');const g=c.getContext('2d');g.font=font;return Math.ceil(g.measureText(text).width);")
+    @JSBody(params = {"text", "font"}, script = """
+            var lunaCanvasElement=document.createElement('canvas');
+            var lunaCanvasGraphics=lunaCanvasElement.getContext('2d');
+            lunaCanvasGraphics.font=font;
+            return Math.ceil(lunaCanvasGraphics.measureText(text).width);
+            """)
     public static native int measureText(String text, String font);
 
-    @JSBody(params = {"text", "font", "size", "color", "sink"}, script = "const c=document.createElement('canvas');let g=c.getContext('2d');g.font=font;"
-            + "c.width=Math.ceil(g.measureText(text).width)+4;c.height=size*2+8;g=c.getContext('2d');g.font=font;g.textBaseline='alphabetic';"
-            + "g.fillStyle='#'+(color&0xffffff).toString(16).padStart(6,'0');g.fillText(text,0,size+2);"
-            + "const data=g.getImageData(0,0,c.width,c.height).data;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4;"
-            + "if(data[i+3])sink(x,y-size-2,(data[i+3]<<24)|(data[i]<<16)|(data[i+1]<<8)|data[i+2]);}")
+    @JSBody(params = {"text", "font", "size", "color", "sink"}, script = """
+            var lunaCanvasElement=document.createElement('canvas');
+            var lunaCanvasGraphics=lunaCanvasElement.getContext('2d');
+            lunaCanvasGraphics.font=font;
+            lunaCanvasElement.width=Math.ceil(lunaCanvasGraphics.measureText(text).width)+4;
+            lunaCanvasElement.height=size*2+8;
+            lunaCanvasGraphics=lunaCanvasElement.getContext('2d');
+            lunaCanvasGraphics.font=font;
+            lunaCanvasGraphics.textBaseline='alphabetic';
+            lunaCanvasGraphics.fillStyle='#'+(color&0xffffff).toString(16).padStart(6,'0');
+            lunaCanvasGraphics.fillText(text,0,size+2);
+            var lunaDecodedPixels=lunaCanvasGraphics.getImageData(0,0,
+                lunaCanvasElement.width,lunaCanvasElement.height).data;
+            for(var lunaPixelY=0;lunaPixelY<lunaCanvasElement.height;lunaPixelY++){
+                for(var lunaPixelX=0;lunaPixelX<lunaCanvasElement.width;lunaPixelX++){
+                    var lunaPixelIndex=(lunaPixelY*lunaCanvasElement.width+lunaPixelX)*4;
+                    if(lunaDecodedPixels[lunaPixelIndex+3]){
+                        sink(lunaPixelX,lunaPixelY-size-2,(lunaDecodedPixels[lunaPixelIndex+3]<<24)
+                            |(lunaDecodedPixels[lunaPixelIndex]<<16)|(lunaDecodedPixels[lunaPixelIndex+1]<<8)
+                            |lunaDecodedPixels[lunaPixelIndex+2]);
+                    }
+                }
+            }
+            """)
     public static native void rasterText(String text, String font, int size, int color, PixelSink sink);
 
     @Async
@@ -124,16 +159,60 @@ public final class BrowserDisplay {
         };
     }
 
-    @JSBody(params = {"bytes", "callback"}, script = "const url=URL.createObjectURL(new Blob([bytes]));const img=new Image();"
-            + "img.onload=()=>{try{const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const g=c.getContext('2d');g.drawImage(img,0,0);"
-            + "const data=g.getImageData(0,0,c.width,c.height).data;const out=new Int32Array(c.width*c.height);"
-            + "for(let i=0,p=0;i<out.length;i++,p+=4)out[i]=(data[p+3]<<24)|(data[p]<<16)|(data[p+1]<<8)|data[p+2];callback(c.width,c.height,out,null);}"
-            + "catch(e){callback(0,0,null,String(e));}finally{URL.revokeObjectURL(url);}};img.onerror=()=>{URL.revokeObjectURL(url);callback(0,0,null,'Unable to decode cached image');};img.src=url;")
-    private static native void decodeBytesNative(@JSByRef byte[] bytes, ImageCallback callback);
+    @JSBody(params = {"bytes", "callback"}, script = """
+            var lunaImageObjectUrl=URL.createObjectURL(new Blob([bytes]));
+            var lunaImageElement=new Image();
+            lunaImageElement.onload=function(){
+                try{
+                    var lunaCanvasElement=document.createElement('canvas');
+                    lunaCanvasElement.width=lunaImageElement.width;
+                    lunaCanvasElement.height=lunaImageElement.height;
+                    var lunaCanvasGraphics=lunaCanvasElement.getContext('2d');
+                    lunaCanvasGraphics.drawImage(lunaImageElement,0,0);
+                    var lunaDecodedPixels=lunaCanvasGraphics.getImageData(0,0,
+                        lunaCanvasElement.width,lunaCanvasElement.height).data;
+                    var lunaDecodedWords=new Int32Array(lunaCanvasElement.width*lunaCanvasElement.height);
+                    for(var lunaPixelIndex=0,lunaByteIndex=0;lunaPixelIndex<lunaDecodedWords.length;
+                            lunaPixelIndex++,lunaByteIndex+=4){
+                        lunaDecodedWords[lunaPixelIndex]=(lunaDecodedPixels[lunaByteIndex+3]<<24)
+                            |(lunaDecodedPixels[lunaByteIndex]<<16)|(lunaDecodedPixels[lunaByteIndex+1]<<8)
+                            |lunaDecodedPixels[lunaByteIndex+2];
+                    }
+                    callback(lunaCanvasElement.width,lunaCanvasElement.height,lunaDecodedWords,null);
+                }catch(lunaImageFailure){callback(0,0,null,String(lunaImageFailure));}
+                finally{URL.revokeObjectURL(lunaImageObjectUrl);}
+            };
+            lunaImageElement.onerror=function(){
+                URL.revokeObjectURL(lunaImageObjectUrl);
+                callback(0,0,null,'Unable to decode cached image');
+            };
+            lunaImageElement.src=lunaImageObjectUrl;
+            """)
+    private static native void decodeBytesNative(@JSByRef(optional = true) byte[] bytes, ImageCallback callback);
 
-    @JSBody(params = {"url", "callback"}, script = "const img=new Image();img.onload=()=>{try{const c=document.createElement('canvas');c.width=img.width;c.height=img.height;"
-            + "const g=c.getContext('2d');g.drawImage(img,0,0);const data=g.getImageData(0,0,c.width,c.height).data;const out=new Int32Array(c.width*c.height);"
-            + "for(let i=0,p=0;i<out.length;i++,p+=4)out[i]=(data[p+3]<<24)|(data[p]<<16)|(data[p+1]<<8)|data[p+2];callback(c.width,c.height,out,null);}"
-            + "catch(e){callback(0,0,null,String(e));}};img.onerror=()=>callback(0,0,null,'Unable to load '+url);img.src=url;")
+    @JSBody(params = {"url", "callback"}, script = """
+            var lunaImageElement=new Image();
+            lunaImageElement.onload=function(){
+                try{
+                    var lunaCanvasElement=document.createElement('canvas');
+                    lunaCanvasElement.width=lunaImageElement.width;
+                    lunaCanvasElement.height=lunaImageElement.height;
+                    var lunaCanvasGraphics=lunaCanvasElement.getContext('2d');
+                    lunaCanvasGraphics.drawImage(lunaImageElement,0,0);
+                    var lunaDecodedPixels=lunaCanvasGraphics.getImageData(0,0,
+                        lunaCanvasElement.width,lunaCanvasElement.height).data;
+                    var lunaDecodedWords=new Int32Array(lunaCanvasElement.width*lunaCanvasElement.height);
+                    for(var lunaPixelIndex=0,lunaByteIndex=0;lunaPixelIndex<lunaDecodedWords.length;
+                            lunaPixelIndex++,lunaByteIndex+=4){
+                        lunaDecodedWords[lunaPixelIndex]=(lunaDecodedPixels[lunaByteIndex+3]<<24)
+                            |(lunaDecodedPixels[lunaByteIndex]<<16)|(lunaDecodedPixels[lunaByteIndex+1]<<8)
+                            |lunaDecodedPixels[lunaByteIndex+2];
+                    }
+                    callback(lunaCanvasElement.width,lunaCanvasElement.height,lunaDecodedWords,null);
+                }catch(lunaImageFailure){callback(0,0,null,String(lunaImageFailure));}
+            };
+            lunaImageElement.onerror=function(){callback(0,0,null,'Unable to load '+url);};
+            lunaImageElement.src=url;
+            """)
     private static native void decodeUrlNative(String url, ImageCallback callback);
 }

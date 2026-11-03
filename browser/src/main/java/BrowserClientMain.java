@@ -42,7 +42,9 @@ public final class BrowserClientMain {
             signlink.storeid = 32;
             signlink.startpriv(luna.browser.net.InetAddress.getByName(Constants.CONNECT_HOST));
             byte[] title = new FileStore(1, 0x927c0, signlink.cache_dat, signlink.cache_idx[0]).get(1);
-            if (title == null) throw new IllegalStateException("The verified browser cache could not read its title archive");
+            if (title == null) {
+                throw new IllegalStateException("The verified browser cache could not read its title archive");
+            }
             Archive titleArchive = new Archive(title);
             if (titleArchive.get("p11_full.dat") == null)
                 throw new IllegalStateException("The browser cache title archive is missing its font data");
@@ -70,10 +72,16 @@ public final class BrowserClientMain {
     @JSBody(script = "return document.getElementById('server').value === 'beta';")
     private static native boolean betaProfile();
 
-    @JSBody(params = "beta", script = "const c=window.LUNA_CLIENT_CONFIG;return c?c[beta?'beta':'development'].host:(beta?'85.155.184.204':'127.0.0.1');")
+    @JSBody(params = "beta", script = """
+            var c=window.LUNA_CLIENT_CONFIG;
+            return c?c[beta?'beta':'development'].host:(beta?'85.155.184.204':'127.0.0.1');
+            """)
     private static native String configuredHost(boolean beta);
 
-    @JSBody(params = "beta", script = "const c=window.LUNA_CLIENT_CONFIG;return c?c[beta?'beta':'development'].port:43594;")
+    @JSBody(params = "beta", script = """
+            var c=window.LUNA_CLIENT_CONFIG;
+            return c?c[beta?'beta':'development'].port:43594;
+            """)
     private static native int configuredPort(boolean beta);
 
     @JSBody(params = "message", script = "document.getElementById('status').textContent = message;")

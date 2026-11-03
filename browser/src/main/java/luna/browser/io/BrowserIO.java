@@ -66,47 +66,57 @@ public final class BrowserIO {
     }
 
     @JSBody(params = {"host", "port", "callback"}, script = """
-            const endpoint = window.LUNA_WEBSOCKET_URL;
+            var endpoint = window.LUNA_WEBSOCKET_URL;
             if (!endpoint) {
                 callback(null, 'Browser networking gateway is not configured for ' + host + ':' + port);
                 return;
             }
             try {
-                const url = new URL(endpoint, location.href);
-                const config = window.LUNA_CLIENT_CONFIG;
-                const beta = config ? host === config.beta.host && port === config.beta.port : host === '85.155.184.204';
+                var url = new URL(endpoint, location.href);
+                var config = window.LUNA_CLIENT_CONFIG;
+                var beta = config ? host === config.beta.host && port === config.beta.port
+                    : host === '85.155.184.204';
                 if (config && !beta && (host !== config.development.host || port !== config.development.port)) {
                     callback(null, 'No browser gateway target configured for ' + host + ':' + port);
                     return;
                 }
                 url.searchParams.set('server', beta ? 'beta' : 'development');
-                const socket = new WebSocket(url);
+                var socket = new WebSocket(url);
                 socket.binaryType = 'arraybuffer';
-                const state = {socket: socket, queue: [], offset: 0, closed: false, waiting: [], receivedBytes:0, sentBytes:0};
+                var state = {socket: socket, queue: [], offset: 0, closed: false, waiting: [],
+                    receivedBytes:0, sentBytes:0};
                 window._lunaSocket = state;
-                let completed = false;
-                const finish = error => {
+                var completed = false;
+                var finish = function(error) {
                     if (!completed) {
                         completed = true;
                         clearTimeout(timer);
                         callback(error ? null : state, error);
                     }
                 };
-                const notify = () => {
-                    const waiting = state.waiting.splice(0);
-                    waiting.forEach(waiter => waiter());
+                var notify = function() {
+                    var waiting = state.waiting.splice(0);
+                    waiting.forEach(function(waiter) { waiter(); });
                 };
-                const timer = setTimeout(() => { finish('Browser gateway connection timed out'); socket.close(); }, 30000);
-                socket.onopen = () => finish(null);
-                socket.onmessage = event => {
+                var timer = setTimeout(function() {
+                    finish('Browser gateway connection timed out'); socket.close();
+                }, 30000);
+                socket.onopen = function() { finish(null); };
+                socket.onmessage = function(event) {
                     state.receivedBytes += event.data.byteLength;
-                    if (state.queue.reduce((count, data) => count + data.length, 0) - state.offset + event.data.byteLength > 8 * 1024 * 1024) {
-                        state.closed = true; socket.close(1009, 'Game receive queue exceeded its limit'); notify(); return;
+                    var queued = state.queue.reduce(function(count, data) { return count + data.length; }, 0);
+                    if (queued - state.offset + event.data.byteLength > 8 * 1024 * 1024) {
+                        state.closed = true;
+                        socket.close(1009, 'Game receive queue exceeded its limit');
+                        notify();
+                        return;
                     }
                     state.queue.push(new Int8Array(event.data)); notify();
                 };
-                socket.onerror = () => finish('Unable to connect to browser networking gateway');
-                socket.onclose = () => { state.closed = true; finish('Browser networking gateway closed'); notify(); };
+                socket.onerror = function() { finish('Unable to connect to browser networking gateway'); };
+                socket.onclose = function() {
+                    state.closed = true; finish('Browser networking gateway closed'); notify();
+                };
             } catch (error) {
                 callback(null, String(error));
             }
@@ -121,35 +131,39 @@ public final class BrowserIO {
     }
 
     @JSBody(params = {"state", "length", "timeout", "callback"}, script = """
-            let finished = false;
-            let timer = null;
-            const finish = (data, error) => {
+            var finished = false;
+            var timer = null;
+            var finish = function(data, error) {
                 if (finished) return;
                 finished = true;
                 if (timer !== null) clearTimeout(timer);
-                const index = state.waiting.indexOf(poll);
+                var index = state.waiting.indexOf(poll);
                 if (index >= 0) state.waiting.splice(index, 1);
                 callback(data, error);
             };
-            const poll = () => {
+            var poll = function() {
                 while (state.queue.length && state.offset >= state.queue[0].length) {
                     state.queue.shift(); state.offset = 0;
                 }
                 if (state.queue.length) {
-                    const first = state.queue[0];
-                    const count = Math.min(length, first.length - state.offset);
-                    const data = first.subarray(state.offset, state.offset + count);
+                    var first = state.queue[0];
+                    var count = Math.min(length, first.length - state.offset);
+                    var data = first.subarray(state.offset, state.offset + count);
                     state.offset += count;
                     finish(data, null);
                 } else if (state.closed) finish(null, null);
                 else state.waiting.push(poll);
             };
-            if (timeout > 0) timer = setTimeout(() => finish(null, 'Browser socket read timed out'), timeout);
+            if (timeout > 0) timer = setTimeout(function() {
+                finish(null, 'Browser socket read timed out');
+            }, timeout);
             poll();
             """)
     private static native void receive(JSObject state, int length, int timeout, Completion callback);
 
-    @JSBody(params = "state", script = "return state.queue.reduce((count, data) => count + data.length, 0) - state.offset;")
+    @JSBody(params = "state", script = """
+            return state.queue.reduce(function(count, data) { return count + data.length; }, 0) - state.offset;
+            """)
     public static native int available(JSObject state);
 
     public static void writeSocket(JSObject state, byte[] bytes, int offset, int length) throws IOException {
@@ -169,7 +183,8 @@ public final class BrowserIO {
             try {
                 if (state.closed || state.socket.readyState !== WebSocket.OPEN) return 'Browser socket is closed';
                 if (state.socket.bufferedAmount + data.length > 1024 * 1024) {
-                    state.socket.close(1009, 'Game send queue exceeded its limit'); return 'Browser socket send queue is full';
+                    state.socket.close(1009, 'Game send queue exceeded its limit');
+                    return 'Browser socket send queue is full';
                 }
                 state.socket.send(data);
                 state.sentBytes += data.length;
@@ -183,7 +198,7 @@ public final class BrowserIO {
 
     @JSBody(script = """
             try {
-                let value = Number(localStorage.getItem('luna.teavm.uid'));
+                var value = Number(localStorage.getItem('luna.teavm.uid'));
                 if (!Number.isInteger(value) || value <= 0 || value > 99999999) {
                     value = 1 + Math.floor(Math.random() * 99999999);
                     localStorage.setItem('luna.teavm.uid', String(value));

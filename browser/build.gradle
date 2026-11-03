@@ -71,18 +71,42 @@ dependencies {
     implementation teavm.libs.interop
 }
 
+def browserDebug = providers.gradleProperty('browserDebug').isPresent()
+def javaScriptOutput = layout.buildDirectory.dir('generated-browser/js')
+def wasmOutput = layout.buildDirectory.dir('generated-browser/wasm')
+
 teavm.js {
     mainClass = rawClient ? 'client' : 'BrowserClientMain'
     targetFileName = 'client.js'
-    outputDir = layout.buildDirectory.dir('site')
+    outputDir = javaScriptOutput
     relativePathInOutputDir = ''
     entryPointName = 'main'
-    sourceMap = true
-    debugInformation = true
+    sourceMap = browserDebug
+    debugInformation = browserDebug
     strict = true
-    obfuscated = false
+    obfuscated = !browserDebug
     outOfProcess = true
     processMemory = 2048
+}
+
+teavm.wasmGC {
+    mainClass = 'BrowserClientMain'
+    targetFileName = 'client.wasm'
+    outputDir = wasmOutput
+    relativePathInOutputDir = ''
+    sourceMap = browserDebug
+    debugInformation = browserDebug
+    strict = true
+    obfuscated = !browserDebug
+    outOfProcess = true
+    processMemory = 2048
+    minDirectBuffersSize = 16
+    sharedBuffer = false
+}
+
+tasks.named('copyWasmGCRuntime') {
+    outputFile.set(layout.buildDirectory.file('generated-browser/wasm/client.wasm-runtime.js'))
+    deobfuscatorOutputFile.set(layout.buildDirectory.file('generated-browser/wasm/client.wasm-deobfuscator.wasm'))
 }
 
 tasks.register('prepareBrowserAssets', Sync) {
@@ -105,10 +129,19 @@ tasks.register('prepareBrowserAssets', Sync) {
     into layout.buildDirectory.dir('static-assets')
 }
 
-tasks.register('browserSite', Copy) {
+tasks.register('browserSite', Sync) {
     group = 'build'
     description = 'Builds the shared Java client for TeaVM and prepares its browser assets.'
-    dependsOn tasks.named('generateJavaScript'), tasks.named('prepareBrowserAssets')
+    dependsOn tasks.named('generateJavaScript'), tasks.named('generateWasmGC')
+    dependsOn tasks.named('copyWasmGCRuntime'), tasks.named('prepareBrowserAssets')
+    from(javaScriptOutput) {
+        into 'js'
+        if (!browserDebug) include 'client.js'
+    }
+    from(wasmOutput) {
+        into 'wasm'
+        if (!browserDebug) include 'client.wasm', 'client.wasm-runtime.js'
+    }
     from(layout.buildDirectory.dir('static-assets'))
     from('web')
     into layout.buildDirectory.dir('site')

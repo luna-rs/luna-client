@@ -8,16 +8,14 @@
         body { margin: 0; padding: 16px; background: #171714; color: #e9e4d7; font: 15px system-ui, sans-serif; }
         main { margin: auto; }
         h1 { font-size: 24px; font-weight: 600; }
-        button, select { padding: 10px 18px; border: 1px solid #a28b54; border-radius: 6px; background: #4b4129; color: inherit; font: inherit; }
+        button, select { padding: 10px 18px; border: 1px solid #a28b54; border-radius: 6px;
+            background: #4b4129; color: inherit; font: inherit; }
         button { cursor: pointer; }
         :disabled { opacity: .6; cursor: default; }
         #status { margin-left: 14px; }
-        #game-container { width: 765px; height: 503px; margin: 16px auto; overflow: auto; background: #000; }
-        #game-container.resizable { width: 100%; height: max(503px, calc(100dvh - 190px)); min-width: 765px; min-height: 503px; resize: both; }
-        #game-container:fullscreen { width: 100vw; height: 100vh; margin: 0; position: relative; display: grid; place-items: center; overflow: hidden; }
-        #exit-fullscreen { display: none; }
-        #game-container:fullscreen #exit-fullscreen { display: block; position: absolute; top: 8px; right: 8px; z-index: 10; }
-        canvas { display: block; background: #000; outline: none; image-rendering: pixelated; }
+        #game-container { width: 765px; height: 503px; margin: 16px auto; background: #000; }
+        canvas { display: block; width: 765px; height: 503px; background: #000; outline: none;
+            image-rendering: pixelated; }
         #viewport-size { margin-left: 12px; color: #c9bd9f; }
         pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px ui-monospace, monospace; }
     </style>
@@ -25,14 +23,15 @@
 <body>
 <main>
     <h1 id="title">luna-rs #377 · TeaVM</h1>
-    <select id="server" aria-label="Server"><option value="development">Development</option><option value="beta">Beta</option></select>
+    <select id="server" aria-label="Server"><option value="development">Development</option>
+        <option value="beta">Beta</option></select>
     <button id="start" disabled>Start client</button><span id="status" role="status">Loading client code…</span>
-    <label for="display-mode">Display</label>
-    <select id="display-mode" aria-label="Display mode"><option value="fixed">Fixed</option><option value="resizable">Resizable</option></select>
-    <button id="fullscreen">Fullscreen</button><span id="viewport-size">Fixed · 765 × 503</span>
+    <span id="viewport-size">Fixed · 765 × 503</span>
     <span id="runtime-stats" aria-label="Client performance"></span>
-    <div id="game-container"><button id="exit-fullscreen">Exit fullscreen</button><canvas id="game" width="765" height="503" tabindex="0" aria-label="Luna game client"></canvas></div>
-    <details open><summary>Startup log</summary><pre id="log"></pre></details>
+    <div id="game-container">
+        <canvas id="game" width="765" height="503" tabindex="0" aria-label="Luna game client"></canvas>
+    </div>
+    <details><summary>Startup log</summary><pre id="log"></pre></details>
 </main>
 <script>
     const log = document.getElementById('log');
@@ -74,13 +73,17 @@
         try {
             if (!window.LUNA_CLIENT_CONFIG) {
                 const response = await fetch('client-config.json', {cache: 'no-store'});
-                if (!response.ok) throw new Error('Client endpoint configuration could not load (HTTP ' + response.status + ')');
+                if (!response.ok) {
+                    throw new Error('Client endpoint configuration could not load (HTTP ' + response.status + ')');
+                }
                 window.LUNA_CLIENT_CONFIG = await response.json();
             }
             for (const profile of ['development', 'beta']) {
                 const endpoint = window.LUNA_CLIENT_CONFIG[profile];
                 if (!endpoint || typeof endpoint.host !== 'string' || !Number.isInteger(endpoint.port)
-                    || endpoint.port < 1 || endpoint.port > 65535) throw new Error('Invalid ' + profile + ' endpoint');
+                    || endpoint.port < 1 || endpoint.port > 65535) {
+                    throw new Error('Invalid ' + profile + ' endpoint');
+                }
             }
             document.getElementById('start').disabled = false;
             status.textContent = 'Ready';
@@ -92,6 +95,14 @@
 </script>
 <script src="cache.js"></script>
 <script src="platform.js"></script>
-<script src="client.js" onload="codeLoaded()" onerror="document.getElementById('status').textContent='Client code download failed'"></script>
+<script src="performance.js"></script>
+<script>
+    if (new URLSearchParams(location.search).has('profile')) {
+        const profiling = document.createElement('script');
+        profiling.src = 'profiling.js';
+        document.head.append(profiling);
+    }
+</script>
+<script src="client-loader.js"></script>
 </body>
 </html>

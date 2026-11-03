@@ -22,6 +22,7 @@ export function createPreviewServer({ root = defaultRoot, port = 8090, targets =
         }
     }
     const server = http.createServer(async (request, response) => {
+        if (process.env.LUNA_PROFILE === '1') response.setHeader('Document-Policy', 'js-profiling');
         try {
             if (request.method !== 'GET' && request.method !== 'HEAD') {
                 response.writeHead(405).end();

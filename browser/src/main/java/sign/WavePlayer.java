@@ -45,32 +45,46 @@ public final class WavePlayer implements AutoCloseable {
 
     @JSBody(params = "data", script = """
             try {
-                const Audio = window.AudioContext || window.webkitAudioContext;
+                var Audio = window.AudioContext || window.webkitAudioContext;
                 if (!Audio) return;
-                const a = window._lunaAudio || (window._lunaAudio = new Audio());
-                if (!window._lunaGain) { window._lunaGain = a.createGain(); window._lunaGain.gain.value=typeof window._lunaVolume === 'number' ? window._lunaVolume : 1; window._lunaGain.connect(a.destination); }
+                var a = window._lunaAudio || (window._lunaAudio = new Audio());
+                if (!window._lunaGain) {
+                    window._lunaGain = a.createGain();
+                    window._lunaGain.gain.value=typeof window._lunaVolume === 'number' ? window._lunaVolume : 1;
+                    window._lunaGain.connect(a.destination);
+                }
                 if (!window._lunaSounds) window._lunaSounds = new Set();
-                const generation = window._lunaSoundGeneration || 0;
-                if (a.state === 'suspended') a.resume().catch(() => {});
-                a.decodeAudioData(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)).then(buffer => {
+                var generation = window._lunaSoundGeneration || 0;
+                if (a.state === 'suspended') a.resume().catch(function() {});
+                a.decodeAudioData(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
+                    .then(function(buffer) {
                     if ((window._lunaSoundGeneration || 0) !== generation) return;
-                    const s = a.createBufferSource(); s.buffer = buffer; s.connect(window._lunaGain);
+                    var s = a.createBufferSource(); s.buffer = buffer; s.connect(window._lunaGain);
                     if (window._lunaSounds.size >= 16) {
-                        const oldest = window._lunaSounds.values().next().value;
+                        var oldest = window._lunaSounds.values().next().value;
                         window._lunaSounds.delete(oldest);
                         oldest.stop(); oldest.disconnect();
                     }
-                    window._lunaSounds.add(s); s.onended = () => { window._lunaSounds.delete(s); s.disconnect(); };
+                    window._lunaSounds.add(s);
+                    s.onended = function() { window._lunaSounds.delete(s); s.disconnect(); };
                     s.start();
-                }).catch(error => console.warn('Browser effect playback: ' + error));
+                }).catch(function(error) { console.warn('Browser effect playback: ' + error); });
             } catch (error) { console.warn('Browser effect playback: ' + error); }
             """)
-    private static native void playBytes(@JSByRef byte[] data);
+    private static native void playBytes(@JSByRef(optional = true) byte[] data);
 
-    @JSBody(params = "gain", script = "window._lunaVolume=Math.max(0,Math.min(1,gain));if(window._lunaGain)window._lunaGain.gain.value=window._lunaVolume;")
+    @JSBody(params = "gain", script = """
+            window._lunaVolume=Math.max(0,Math.min(1,gain));
+            if(window._lunaGain)window._lunaGain.gain.value=window._lunaVolume;
+            """)
     private static native void setGain(double gain);
 
-    @JSBody(script = "window._lunaSoundGeneration=(window._lunaSoundGeneration||0)+1;"
-            + "if(window._lunaSounds){window._lunaSounds.forEach(sound => {sound.stop();sound.disconnect();});window._lunaSounds.clear();}")
+    @JSBody(script = """
+            window._lunaSoundGeneration=(window._lunaSoundGeneration||0)+1;
+            if(window._lunaSounds){
+                window._lunaSounds.forEach(function(sound) {sound.stop();sound.disconnect();});
+                window._lunaSounds.clear();
+            }
+            """)
     private static native void stopAll();
 }
