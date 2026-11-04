@@ -5,6 +5,7 @@
     const HEIGHT = 503;
     const PIXELS = WIDTH * HEIGHT;
     const canvas = document.getElementById('game');
+    const container = document.getElementById('game-container');
     const littleEndian = new Uint8Array(new Uint32Array([0x01020304]).buffer)[0] === 4;
     let input;
     let bound = false;
@@ -23,6 +24,62 @@
     let waiting;
     let workTimer = 0;
     let waitTicket = 0;
+    let displayRatio;
+    let displayViewportWidth;
+    let displayViewportHeight;
+    let displayRequest = 0;
+    let displayRatioQuery;
+
+    /**
+     * Keeps one game pixel equal to one physical display pixel without changing the Java framebuffer.
+     * Browser zoom and monitor scaling affect devicePixelRatio, so their CSS magnification is cancelled here.
+     * Layout is measured only when that ratio or the viewport changes, never during frame presentation.
+     */
+    function layoutDisplay() {
+        const reportedRatio = window.devicePixelRatio;
+        const ratio = Number.isFinite(reportedRatio) && reportedRatio > 0 ? reportedRatio : 1;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        if (displayRatio === ratio && displayViewportWidth === viewportWidth
+                && displayViewportHeight === viewportHeight) return;
+
+        const ratioChanged = displayRatio !== ratio;
+        displayRatio = ratio;
+        displayViewportWidth = viewportWidth;
+        displayViewportHeight = viewportHeight;
+        canvas.style.width = container.style.width = WIDTH / ratio + 'px';
+        canvas.style.height = container.style.height = HEIGHT / ratio + 'px';
+
+        // Centering and surrounding text can place the canvas between device pixels. Translate only its origin;
+        // applying a scale transform would reintroduce magnification and disturb the native pixel mapping.
+        canvas.style.transform = 'none';
+        const bounds = canvas.getBoundingClientRect();
+        const snapX = (Math.round(bounds.left * ratio) - bounds.left * ratio) / ratio;
+        const snapY = (Math.round(bounds.top * ratio) - bounds.top * ratio) / ratio;
+        canvas.style.transform = 'translate(' + snapX + 'px,' + snapY + 'px)';
+
+        if (ratioChanged && typeof window.matchMedia === 'function') {
+            if (displayRatioQuery) {
+                if (displayRatioQuery.removeEventListener) displayRatioQuery.removeEventListener('change', requestDisplayLayout);
+                else displayRatioQuery.removeListener(requestDisplayLayout);
+            }
+            // A resolution query detects monitor/zoom changes that do not emit a window resize. Re-arm at the new DPR.
+            displayRatioQuery = window.matchMedia('(resolution: ' + ratio + 'dppx)');
+            if (displayRatioQuery.addEventListener) displayRatioQuery.addEventListener('change', requestDisplayLayout);
+            else displayRatioQuery.addListener(requestDisplayLayout);
+        }
+    }
+
+    /**
+     * Coalesces display-only resize notifications into one layout update, independent of the game frame loop.
+     */
+    function requestDisplayLayout() {
+        if (displayRequest) return;
+        displayRequest = requestAnimationFrame(() => {
+            displayRequest = 0;
+            layoutDisplay();
+        });
+    }
 
     function point(event) {
         const rect = canvas.getBoundingClientRect();
@@ -194,8 +251,7 @@
             send(8, 0);
         },
         layout(resizable, width, height) {
-            canvas.style.width = WIDTH + 'px';
-            canvas.style.height = HEIGHT + 'px';
+            layoutDisplay();
             if (resizable) send(8, 0);
         },
         present(pixels, width, height) {
@@ -212,4 +268,6 @@
             presentationRequest = requestAnimationFrame(presentFrame);
         }
     };
+    window.addEventListener('resize', requestDisplayLayout);
+    layoutDisplay();
 })();

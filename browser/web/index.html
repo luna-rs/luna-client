@@ -13,6 +13,7 @@
         button { cursor: pointer; }
         :disabled { opacity: .6; cursor: default; }
         #status { margin-left: 14px; }
+        /* Startup fallback; platform.js sets both CSS sizes to framebuffer size / devicePixelRatio. */
         #game-container { width: 765px; height: 503px; margin: 16px auto; background: #000; }
         canvas { display: block; width: 765px; height: 503px; background: #000; outline: none;
             image-rendering: pixelated; }
@@ -26,7 +27,7 @@
     <select id="server" aria-label="Server"><option value="development">Development</option>
         <option value="beta">Beta</option></select>
     <button id="start" disabled>Start client</button><span id="status" role="status">Loading client code…</span>
-    <span id="viewport-size">Fixed · 765 × 503</span>
+    <span id="viewport-size">Fixed · 765 × 503 · native pixels</span>
     <span id="runtime-stats" aria-label="Client performance"></span>
     <div id="game-container">
         <canvas id="game" width="765" height="503" tabindex="0" aria-label="Luna game client"></canvas>
