@@ -1,29 +1,26 @@
-name: Luna beta web prototype
+name: Build and publish webclient
 
 on:
   push:
-    branches:
-      - codex/pages-0.5.0-alpha
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: webclient-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/codex/pages-0.5.0-alpha'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      pages: read
+    timeout-minutes: 25
     steps:
-      - name: Checkout prototype source
+      - name: Checkout webclient source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Set up Java 21
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -37,24 +34,64 @@ jobs:
           node-version: '24'
           package-manager-cache: false
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-
       - name: Build the shared Java browser client
         run: bash ./gradlew --no-daemon --max-workers=2 :browser:browserSite
 
-      - name: Prepare the beta-only static site
-        run: node browser/prepare-pages.mjs browser/build/site build/pages browser/pages-config.json
+      - name: Prepare the beta static site
+        env:
+          LUNA_WEBSOCKET_URL: ${{ vars.LUNA_WEBSOCKET_URL }}
+        run: node browser/build-webclient.mjs
 
-      - name: Upload GitHub Pages artifact
+      - name: Upload downloadable static website
+        id: website
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Luna-Webclient
+          path: build/webclient-site/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload optional GitHub Pages artifact
+        if: github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
-          path: build/pages
+          path: build/webclient-site
 
-  deploy:
+      - name: Explain the build output
+        env:
+          ARTIFACT_URL: ${{ steps.website.outputs.artifact-url }}
+          PAGES_REQUESTED: ${{ github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {appendFile, readFile} from 'node:fs/promises';
+          const release = JSON.parse(await readFile('build/webclient-site/release-provenance.json', 'utf8'));
+          await appendFile(process.env.GITHUB_STEP_SUMMARY, [
+            '## Webclient built',
+            '',
+            `[Download Luna-Webclient.zip](${process.env.ARTIFACT_URL}) from this run's artifacts.`,
+            'Extract its contents into an HTTPS static website directory; index.html is at the archive root.',
+            '',
+            `Client source: ${release.sourceCommit}`,
+            `Webclient build: ${release.browserCommit}`,
+            `Cache fingerprint: ${release.cacheFingerprint}`,
+            '',
+            process.env.PAGES_REQUESTED === 'true'
+              ? 'GitHub Pages deployment was requested and runs as a separate job below.'
+              : 'GitHub Pages is disabled. The downloadable site is available independently of GitHub Pages eligibility.',
+            'Building this website does not deploy or restart the Luna game server.',
+            ''
+          ].join('\n'));
+          NODE
+
+  deploy-pages:
+    if: github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true'
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 10
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write
@@ -62,6 +99,22 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy the prototype
+      - name: Require an external secure game endpoint for Pages
+        env:
+          LUNA_WEBSOCKET_URL: ${{ vars.LUNA_WEBSOCKET_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          let endpoint;
+          try { endpoint = new URL(process.env.LUNA_WEBSOCKET_URL); } catch {}
+          if (!endpoint || endpoint.protocol !== 'wss:' || endpoint.username || endpoint.password || endpoint.hash
+              || ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname.toLowerCase())) {
+            throw new Error('GitHub Pages cannot proxy /game. Set the repository variable LUNA_WEBSOCKET_URL to an external wss:// endpoint before enabling PUBLISH_GITHUB_PAGES. The static ZIP remains available from the build job.');
+          }
+          NODE
+
+      - name: Configure optional GitHub Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Deploy the static site
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

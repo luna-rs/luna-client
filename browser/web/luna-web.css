@@ -1,0 +1,129 @@
+/* Luna's surrounding website uses archived 2005 stone artwork; game graphics and framebuffer dimensions stay unchanged. */
+:root {
+    color-scheme: dark;
+    font: 13px/1.45 Arial, Helvetica, sans-serif;
+    color: #fff;
+    background: #000 url('assets/theme/background.jpg') repeat;
+}
+body { margin: 0; }
+a { color: #90c040; text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 2px solid #ffe139; outline-offset: 4px;
+}
+button, input, select { font: inherit; box-sizing: border-box; }
+button { cursor: pointer; }
+button:disabled { cursor: default; filter: saturate(.45); opacity: .55; }
+strong { font-weight: 700; }
+p { margin: 0 0 12px; }
+h1, h2 { margin: 0; }
+.skip-link { position: absolute; top: -60px; left: 12px; z-index: 10; padding: 8px 14px; background: #000; }
+.skip-link:focus { top: 8px; }
+.site-shell { max-width: 840px; margin: 26px auto 18px; padding: 0 14px; }
+.site-header { display: flex; align-items: center; justify-content: space-between; gap: 26px; margin: 0 6px 24px; }
+.identity { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.wordmark { display: flex; align-items: center; padding: 9px 0; gap: 2px; flex: none; }
+.wordmark:hover { text-decoration: none; }
+.wordmark span {
+    display: inline-block; min-width: 33px; padding: 0 5px 2px; border: 2px outset #71716c; border-radius: 10px 6px 12px 7px;
+    background: #474747 url('assets/theme/stoneback.gif'); color: #e5e5de; font: 700 39px/1.1 Georgia, serif;
+    text-align: center; text-shadow: 1px 2px #141411, -1px -1px #92928b; box-shadow: 2px 4px 5px #000;
+}
+.wordmark span:nth-child(1) { transform: rotate(-9deg) translateY(1px); }
+.wordmark span:nth-child(2) { transform: rotate(4deg) translateY(-4px); }
+.wordmark span:nth-child(3) { transform: rotate(-4deg) translateY(1px); }
+.wordmark span:nth-child(4) { transform: rotate(8deg) translateY(-3px); }
+.identity-copy h1 { color: #e6dfc8; font-size: 16px; font-weight: 700; }
+.identity-copy p { margin: 4px 0 0; color: #c7c2ae; font-size: 12px; }
+#release-version { margin: 4px 0 0; color: #90c040; font-size: 11px; }
+.welcome-note { max-width: 250px; padding-left: 18px; border-left: 1px solid #4f4937; color: #c7c2ae; font-size: 12px; }
+.welcome-note p { margin: 4px 0 0; color: #fff; font-size: 14px; }
+.alpha-badge { color: #ffe139; font-size: 10px; font-weight: 700; letter-spacing: 1.7px; }
+.main-navigation {
+    display: flex; align-items: stretch; justify-content: center; flex-wrap: wrap; margin: 0 0 16px;
+    border: 2px solid #382418; background: #5d4b32 url('assets/theme/navbar.gif') repeat-x center top;
+    box-shadow: 0 2px 6px #000;
+}
+.main-navigation a { padding: 4px 22px; color: #fff; border-right: 1px solid #302519; font-size: 12px; text-shadow: 1px 1px #000; }
+.main-navigation a:last-child { border-right: 0; }
+.main-navigation a:hover, .main-navigation .current { color: #ffe139; background-color: #0004; text-decoration: none; }
+.stone-panel {
+    padding: 6px; background-color: #000;
+    background-image: url('assets/theme/fm_topleft.gif'), url('assets/theme/fm_topright.gif'),
+        url('assets/theme/fm_bottomleft.gif'), url('assets/theme/fm_bottomright.gif'),
+        url('assets/theme/fm_top2.gif'), url('assets/theme/fm_bottom2.gif'),
+        url('assets/theme/fm_left.gif'), url('assets/theme/fm_right.gif');
+    background-position: left top, right top, left bottom, right bottom, center top, center bottom, left center, right center;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-x, repeat-x, repeat-y, repeat-y;
+    box-shadow: 0 4px 16px #0009;
+}
+.panel-heading { padding: 16px 18px 10px; text-align: center; }
+.panel-heading h2 { font-size: 17px; font-weight: 700; }
+.panel-heading p { margin: 4px 0 0; font-size: 12px; color: #c7c2ae; }
+.launch-controls { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 8px 18px 14px; }
+.stone-button {
+    border: 3pt outset #373737; padding: 6px 15px; border-radius: 0; background: #474747 url('assets/theme/stoneback.gif');
+    color: #fff; font-weight: 700; line-height: 1.2; text-shadow: 1px 1px #000;
+}
+.stone-button:hover:not(:disabled) { border-color: #878787; background-image: url('assets/theme/ssgreybright.png'); }
+.stone-button:active:not(:disabled) { border-style: inset; }
+.play-button { min-width: 140px; padding: 8px 25px; border-color: #570700; background: #570700 url('assets/theme/shinystonered.jpg'); font-size: 15px; }
+.play-button:hover:not(:disabled) { border-color: #a70700; background-image: url('assets/theme/ssredbright.jpg'); }
+.client-status { min-width: 185px; }
+.small-label { display: block; margin-bottom: 3px; color: #a9a38c; font-size: 9px; letter-spacing: 1.2px; }
+#status { display: block; max-width: 320px; overflow-wrap: anywhere; color: #cfc9b8; font-size: 12px; }
+#status::before { display: inline-block; width: 6px; height: 6px; margin-right: 7px; background: #9b8b58; content: ''; }
+#status[data-state='ready'] { color: #b9d685; }
+#status[data-state='ready']::before { background: #90c040; }
+#status[data-state='problem'] { color: #f0bc91; }
+#status[data-state='problem']::before { background: #d38948; }
+.help-link { font-size: 12px; white-space: nowrap; }
+.game-stage { padding: 4px 10px 8px; overflow-x: auto; background: #000; }
+/* Content-box sizing and zero border/padding are essential: platform.js owns both exact native display dimensions. */
+#game-container { width: 765px; height: 503px; margin: 0 auto; padding: 0; border: 0; box-sizing: content-box; background: #000; }
+#game { display: block; width: 765px; height: 503px; margin: 0; padding: 0; border: 0; box-sizing: content-box; background: #000; image-rendering: pixelated; outline: none; }
+.game-hint { padding: 7px 18px 13px; margin: 0; color: #aaa592; font-size: 11px; text-align: center; }
+.game-stage:fullscreen { display: flex; align-items: center; justify-content: center; padding: 0; background: #000; }
+.game-stage:fullscreen #game-container { flex: none; margin: 0; }
+.support-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; align-items: start; }
+.support-panel > summary { padding: 12px 15px; color: #e6dfc8; font-size: 13px; font-weight: 700; cursor: pointer; }
+.support-panel > summary:hover { color: #90c040; }
+.support-panel[open] > summary { border-bottom: 1px solid #2a291f; }
+.panel-content { padding: 13px 15px 16px; color: #d5d1c4; font-size: 12px; }
+.panel-content p:last-child { margin-bottom: 0; }
+.panel-content .stone-button { font-size: 11px; }
+.controls-list { display: grid; grid-template-columns: 82px 1fr; gap: 5px 10px; margin: 14px 0; }
+.controls-list dt { color: #fff; font-weight: 700; }
+.controls-list dd { margin: 0; }
+.server-label { display: block; color: #fff; font-weight: 700; margin-bottom: 5px; }
+select { width: 100%; padding: 6px 9px; margin-bottom: 13px; border: 2px inset #5d503d; border-radius: 0; background: #b1977e; color: #111; }
+select:disabled { color: #2d251a; opacity: 1; }
+.muted { color: #a9a38c; font-size: 11px; margin-top: 8px; }
+.diagnostics { margin-top: 17px; padding-top: 12px; border-top: 1px solid #353125; }
+.diagnostics > summary, .startup-log > summary { cursor: pointer; color: #90c040; }
+.diagnostics > p { margin: 9px 0; font-size: 11px; color: #aaa592; }
+.diagnostic-controls { margin: 13px 0; }
+.diagnostic-controls label { display: block; }
+.diagnostic-controls input { width: 100%; margin: 4px 0 8px; padding: 5px 7px; border: 1px solid #62543a; background: #171714; color: #fff; }
+.diagnostic-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+#performance-status { display: block; margin-top: 9px; color: #aaa592; font-size: 11px; }
+#cpu-profiling { min-width: 0; margin: 12px 0; border: 1px solid #62543a; }
+#cpu-profiling button { margin: 5px 4px; padding: 5px; border: 2px outset #373737; background: #474747; color: #fff; }
+.startup-log { margin-top: 14px; }
+pre { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; color: #b9b5a8; font: 11px/1.5 Consolas, monospace; }
+.site-footer { padding: 19px 15px 0; color: #9b9788; font-size: 10px; text-align: center; }
+.site-footer p { margin: 3px 0; }
+.site-footer strong { color: #d5d1c4; }
+@media (max-width: 740px) {
+    .site-shell { margin-top: 18px; padding: 0 9px; }
+    .site-header { flex-wrap: wrap; gap: 15px; justify-content: center; text-align: center; }
+    .welcome-note { padding: 0; border: 0; max-width: none; }
+    .main-navigation a { padding-right: 12px; padding-left: 12px; }
+    .support-grid { grid-template-columns: 1fr; }
+    .launch-controls { flex-wrap: wrap; gap: 12px 17px; }
+    .help-link { width: 100%; text-align: center; }
+}
+@media (max-width: 420px) {
+    .identity { flex-direction: column; gap: 8px; }
+    .wordmark span { font-size: 34px; }
+}

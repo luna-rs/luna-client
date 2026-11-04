@@ -18,8 +18,8 @@ public final class BrowserDisplay {
     private BrowserDisplay() { }
 
     @JSBody(params = "title", script = """
-            document.title=title+' · TeaVM';
-            document.getElementById('title').textContent=title+' · TeaVM';
+            document.title=title;
+            document.getElementById('title').textContent=title;
             """)
     public static native void setTitle(String title);
 

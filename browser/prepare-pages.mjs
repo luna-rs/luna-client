@@ -6,6 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 const stores = ['main_file_cache.dat', ...Array.from({ length: 5 }, (_, index) => `main_file_cache.idx${index}`)];
 const assets = ['index.html', 'cache.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
+    'luna-web.css', 'luna-web.js',
+    ...['background.jpg', 'stoneback.gif', 'fm_topleft.gif', 'fm_top2.gif', 'fm_topright.gif',
+        'fm_left.gif', 'fm_right.gif', 'fm_bottomleft.gif', 'fm_bottom2.gif', 'fm_bottomright.gif',
+        'shinystonered.jpg', 'ssgreybright.png', 'ssredbright.jpg', 'navbar.gif']
+        .map(name => `assets/theme/${name}`),
+    ...['THIRD_PARTY_NOTICES.txt', 'teavm-LICENSE.txt', 'teavm-NOTICE.txt', 'ws-LICENSE.txt']
+        .map(name => `legal/${name}`),
     'js/client.js', 'wasm/client.wasm', 'wasm/client.wasm-runtime.js', 'client.properties', 'cache/cache.sha256',
     ...stores.map(name => `cache/${name}`),
     ...['christmas', 'easter', 'halloween'].flatMap(season =>
@@ -48,6 +55,10 @@ function validateConfig(input) {
             || !Number.isInteger(beta.port) || beta.port < 1 || beta.port > 65535) {
         throw new Error('Beta requires a valid host and TCP port');
     }
+    if (input.websocketUrl === 'same-origin') {
+        return { release: input.release, sourceCommit: input.sourceCommit.toLowerCase(),
+            beta: { host: beta.host, port: beta.port }, websocketUrl: 'same-origin' };
+    }
     let gateway;
     try { gateway = new URL(input.websocketUrl); }
     catch { throw new Error('websocketUrl must be an absolute secure WebSocket URL'); }
@@ -62,7 +73,7 @@ function validateConfig(input) {
 }
 
 /**
- * Copies a verified browser build into a separate beta-only static Pages directory.
+ * Copies a verified browser build into a separate beta-only static website directory.
  *
  * @author lare96
  */
@@ -70,7 +81,10 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
     const settings = validateConfig(config);
     const site = path.resolve(siteDirectory);
     const output = path.resolve(outputDirectory);
-    if (site === output || output.startsWith(site + path.sep) || site.startsWith(output + path.sep)) {
+    const comparableSite = process.platform === 'win32' ? site.toLowerCase() : site;
+    const comparableOutput = process.platform === 'win32' ? output.toLowerCase() : output;
+    if (comparableSite === comparableOutput || comparableOutput.startsWith(comparableSite + path.sep)
+            || comparableSite.startsWith(comparableOutput + path.sep)) {
         throw new Error('Input and output directories must be separate and must not contain each other');
     }
     await noLinks(site);
@@ -116,15 +130,18 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
     }
     const originalHtml = files.get('index.html').toString('utf8');
     const serverSelector = /<select\b[^>]*\bid="server"[^>]*>[\s\S]*?<\/select>/g;
-    if ((originalHtml.match(serverSelector) || []).length !== 1 || !originalHtml.includes('<script>')) {
-        throw new Error('Built page must contain one server selector and its startup script');
+    if ((originalHtml.match(serverSelector) || []).length !== 1 || !originalHtml.includes('<script>')
+            || originalHtml.split('<!-- LUNA_BUILD_LABEL -->').length !== 2) {
+        throw new Error('Built page must contain one server selector, build label and its startup script');
     }
     const html = originalHtml.replace(serverSelector,
         '<select id="server" aria-label="Server" disabled><option value="beta" selected>Beta</option></select>')
-        .replace('</h1>', '</h1>\n    <p id="release-version">' + settings.release + ' · Fixed-mode prototype</p>')
+        .replace('<!-- LUNA_BUILD_LABEL -->', '<span id="release-version">' + settings.release + '</span>')
         .replace('<script>', '<script src="pages-config.js"></script>\n<script>');
     const endpoints = { development: settings.beta, beta: settings.beta };
-    const boot = 'window.LUNA_WEBSOCKET_URL = ' + JSON.stringify(settings.websocketUrl) + ';\n'
+    const endpoint = settings.websocketUrl === 'same-origin'
+        ? "location.origin.replace(/^http/, 'ws') + '/game'" : JSON.stringify(settings.websocketUrl);
+    const boot = 'window.LUNA_WEBSOCKET_URL = ' + endpoint + ';\n'
         + 'window.LUNA_CLIENT_CONFIG = ' + JSON.stringify(endpoints) + ';\n';
     const fingerprint = hash(stores.map(name => `${expected.get(name)}  ${name}\n`).join(''));
     const provenance = { release: settings.release, sourceCommit: settings.sourceCommit,
