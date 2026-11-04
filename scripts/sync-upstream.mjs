@@ -91,7 +91,7 @@ async function api(repository, token, method, resource, body) {
 }
 
 /**
- * Pushes only the prepared review branch and opens a pull request in this private repository.
+ * Pushes only the prepared review branch and opens a pull request in this repository.
  *
  * @param {object} options The candidate and the workflow's own repository token.
  * @returns {Promise<object>} Pull request or manual compare information.
@@ -112,7 +112,7 @@ export async function publishCandidate({cwd, candidate, repository, token, runUr
     const conflicted = candidate.status === 'conflicts';
     const body = [
         `Upstream: https://github.com/${upstreamRepository}/commit/${candidate.upstreamCommit}`,
-        `Private base: ${candidate.baseCommit}`,
+        `Webclient base: ${candidate.baseCommit}`,
         '',
         conflicted
             ? 'The automatic merge found conflicts. This draft contains the clean upstream head; resolve its conflicts against master before merging.'
@@ -123,7 +123,7 @@ export async function publishCandidate({cwd, candidate, repository, token, runUr
         '',
         ...(conflicted ? ['Conflicting paths:', ...candidate.conflicts.slice(0, 50).map(name => `- ${JSON.stringify(name)}`), '',
             'Do not replace master with upstream or discard the browser integration to resolve these conflicts.']
-            : ['The private deployment config changes only its recorded upstream source/release label; the endpoint in browser/pages-config.json is preserved.'])
+            : ['The deployment config changes only its recorded upstream source/release label; the endpoint in browser/pages-config.json is preserved.'])
     ].join('\n');
     try {
         const pull = await api(repository, token, 'POST', '/pulls', {

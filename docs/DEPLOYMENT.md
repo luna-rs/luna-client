@@ -1,21 +1,128 @@
-# Building and deploying the Luna website
+# Publishing the Luna web client
 
-The selected layout is a public HTTPS play website on the Luna VPS, with source
-kept in the private GitHub repository. Anyone may open the website; game-account
-login remains inside Luna. The domain `play.example.com` below is a placeholder.
-No real hostname has been selected or deployed by this repository setup.
+The primary deployment is the public GitHub Pages website:
 
-## The simple update path
+**https://luna-rs.github.io/luna-webclient/**
 
-1. Run **Actions → Build and publish webclient → Run workflow** on `master`.
-2. Download the successful run's **Luna-Webclient** artifact as `Luna-Webclient.zip`.
-3. Upload it to the VPS and extract it into a new release directory.
-4. Switch the website's `current` symlink and verify the published client.
+The repository is public, so GitHub Free Pages can host it without a custom domain
+or a paid private-repository Pages plan. The source history, basic 2005-style Luna
+website and browser integration are community-visible. Anyone may open the play
+website; game-account login remains inside Luna.
 
-The first deployment also needs the one-time Luna WebSocket and HTTPS setup
-below. Later static website releases do not require a game-server restart.
+## Publish through GitHub
 
-## What runs where
+1. Open **Actions → Build and publish webclient → Run workflow**.
+2. Select `master` and run it. A push or merge to `master` runs the same workflow.
+3. Wait for both the website build and Pages deployment jobs to succeed.
+4. Open the Pages URL above and verify the release and game connection.
+
+The successful run also supplies the **Luna-Webclient** artifact, downloaded as
+`Luna-Webclient.zip`. It has `index.html` at its root and includes `.nojekyll`.
+Use it for a review copy or optional VPS hosting. Building/publishing these static
+files does not deploy or restart the Luna game server.
+
+The manual **Sync upstream client** workflow prepares desktop-source updates as
+reviewable pull requests. A clean candidate is built before review; conflicts
+require human resolution. Merging the reviewed pull request into `master` builds
+and publishes the updated website. See [UPSTREAM.md](UPSTREAM.md) for the full
+workflow and normal local merge procedure.
+
+## Pages configuration
+
+The repository's Pages publishing source is **GitHub Actions**, using its
+`github-pages` environment. The build supports two repository Actions variables:
+
+| Variable | Pages value |
+| --- | --- |
+| `PUBLISH_GITHUB_PAGES` | The exact value `true` enables the Pages deployment job on `master`. |
+| `LUNA_WEBSOCKET_URL` | The real absolute `wss://.../game` endpoint used for browser game connections. |
+
+The endpoint variable overrides `browser/pages-config.json`. Keep them aligned
+when changing the gateway. The build contains public endpoint configuration only,
+never a server password or private RSA key. `same-origin` is unsuitable for Pages:
+GitHub serves static files and cannot forward `/game` to Luna.
+
+If publishing is disabled deliberately, the workflow still builds its downloadable
+ZIP. GitHub's [Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+explains public repository eligibility and static hosting. No custom hostname or
+new DNS record is needed for the standard project URL.
+
+## Current prototype connection and its limits
+
+```text
+GitHub Pages --> browser downloads client and cache
+Browser -- WSS --> temporary Cloudflare endpoint --> PC Node relay -- TCP --> beta Luna
+```
+
+The current prototype uses the externally configured temporary Cloudflare gateway.
+Its relay/tunnel processes run on the PC, which must stay online. Recreating a
+Quick Tunnel changes its hostname: update `LUNA_WEBSOCKET_URL` and the checked-in
+endpoint, then rebuild and deploy. A reachable gateway health page is not proof
+that the beta game server is online or that login/gameplay works.
+
+Native WebSocket support has been added to Luna's Java server and published
+upstream. It is not installed on the beta VPS by this website setup. The current
+Pages prototype still depends on the existing relay until a permanent endpoint
+or native-listener deployment is tested and selected. Do not stop an old relay
+while the published website or active sessions still use it.
+
+For a future native listener, allow the exact Pages origin
+`https://luna-rs.github.io` in Luna. The origin has no `/luna-webclient/` path.
+GitHub Pages continues serving the static website; an external HTTPS proxy/tunnel
+still provides the game's public WSS endpoint.
+
+## Build locally
+
+Use Java 21 and Node.js 24. In Windows PowerShell:
+
+```powershell
+.\gradlew.bat :browser:browserSite
+node browser/build-webclient.mjs
+```
+
+On Linux/macOS, use `./gradlew` instead of `./gradlew.bat`. The completed static
+website is `build/webclient-site`; compiled inputs are in `browser/build/site`.
+The packager refuses a nonempty output directory. Keep an earlier candidate and
+use a fresh directory for another build:
+
+```sh
+node browser/build-webclient.mjs browser/build/site build/webclient-site-candidate-2
+```
+
+A local `LUNA_WEBSOCKET_URL` environment variable can override the checked-in
+endpoint. The output includes JS/Wasm, website and title assets, cache stores and
+integrity manifest, public client settings, legal notices and
+`release-provenance.json`. Use that provenance file to identify the shared source,
+website build and cache fingerprint of the candidate. The browser's public RSA key
+must match the game server; the private RSA key remains on the server.
+
+## Public Luna and a future separate HiveScape website
+
+Luna's community website and code stay public in this repository. GitHub exposes
+its reachable history and lets people inspect and fork it. The delivered browser
+client already includes rendering and in-game interfaces; those are part of the
+shared client, not missing website features another builder must recreate.
+
+HiveScape's future custom website may be maintained in a separate repository,
+including privately. Source-repository privacy and website access are separate:
+players still receive inspectable JavaScript, WebAssembly, artwork, public settings
+and cache files needed to run any browser client. See the included
+[third-party notices](../browser/web/legal/THIRD_PARTY_NOTICES.txt) for component
+licenses and inherited asset provenance.
+
+## Optional VPS deployment with native Luna WebSockets
+
+This is an alternative to the current Pages/relay deployment, not an already
+completed migration. It needs a real domain, a Luna server release containing the
+native listener, and HTTPS configuration. `play.example.com` below is a placeholder;
+no real hostname or website gate has been configured by this example.
+
+For this alternative, set the website's endpoint to `same-origin` and remove its
+external `LUNA_WEBSOCKET_URL` override before building the VPS artifact. On HTTPS,
+that artifact connects to the website host's `/game` using `wss:`. Do not apply
+that same-origin setting to the active GitHub Pages deployment.
+
+### What runs where
 
 ```text
 Browser -- HTTPS --> Caddy -- static files --> /var/www/luna-webclient/current
@@ -30,42 +137,7 @@ WebSocket listener does not open another game TCP connection. Node.js is used
 while building the website; this VPS layout needs no Node relay. Caddy supplies
 HTTPS and WebSocket TLS termination, while Luna's internal listener stays local.
 
-## Build the static site
-
-A push or merge to `master`, or the manual **Build and publish webclient** workflow,
-produces a downloadable artifact. It does not upload the artifact to a VPS or
-restart Luna. `Luna-Webclient.zip` has `index.html` at its root. Preserve its
-subdirectories and hidden `.nojekyll` file when extracting it.
-
-For local builds, use Java 21 and Node.js 24. In Windows PowerShell:
-
-```powershell
-.\gradlew.bat :browser:browserSite
-node browser/build-webclient.mjs
-```
-
-On Linux/macOS, substitute `./gradlew` for `./gradlew.bat`. Output is
-`build/webclient-site`. The packager refuses a nonempty destination; keep an
-existing candidate and use a fresh output path for another build:
-
-```sh
-node browser/build-webclient.mjs browser/build/site build/webclient-site-candidate-2
-```
-
-The default `browser/pages-config.json` uses `"websocketUrl": "same-origin"`.
-On HTTPS, runtime configuration selects the website origin plus `/game` using
-`wss:`. Leave the `LUNA_WEBSOCKET_URL` repository variable unset for this VPS layout;
-remove any old temporary-tunnel override. For a separate game endpoint, set that
-public repository variable before building, or set the same environment variable
-for a local build. External public endpoints use an absolute `wss://.../game` URL.
-
-The output contains JS/Wasm, website assets, cache stores and their integrity
-manifest, public client settings, legal notices and `release-provenance.json`.
-The provenance file records the shared source, website build and cache fingerprint.
-The browser's public RSA key must match the deployed game server. The server's
-private key must stay outside the website output and source repository.
-
-## One-time Luna server setup
+### One-time Luna server setup
 
 The server needs native WebSocket support from [luna-rs/luna](https://github.com/luna-rs/luna),
 introduced by commit `c9b10f537ebcc2224cabc466cbfe51539ce14a8b`, or a later revision
@@ -109,7 +181,7 @@ After rollout, confirm that both listeners are bound and that desktop login on
 43594 still works. Verify the WebSocket transport through a real game login as
 well; an open port alone does not establish a working game protocol.
 
-## One-time HTTPS setup
+### One-time HTTPS setup
 
 Choose a hostname you control and point its public A record at the VPS. Add an
 AAAA record only if IPv6 also reaches the configured VPS and firewall. Public
@@ -136,7 +208,7 @@ if they differ. Caddy's [reverse proxy](https://caddyserver.com/docs/caddyfile/d
 handles WebSocket upgrades. This template has not been installed or tested against
 a live production hostname.
 
-## Upload and activate a release
+### Upload and activate a release
 
 Download `Luna-Webclient.zip` to the local machine. From PowerShell, change the
 local file path if necessary and upload it to the existing VPS account:
@@ -194,7 +266,7 @@ Later static updates need neither a Caddy reload nor a Luna restart. Existing
 sessions retain their loaded client until refresh/relogin. Changes to game-server
 code or listener configuration are a separate server release.
 
-## Verify a published release
+### Verify a published release
 
 - Open the real HTTPS URL and confirm its certificate, website and client startup.
 - Inspect `release-provenance.json` and startup/cache logs for the intended build and cache.
@@ -206,7 +278,7 @@ code or listener configuration are a separate server release.
 Retire an older relay only after these checks pass and its existing sessions have
 drained. A successful build or loaded webpage is not proof of working gameplay.
 
-## Optional website access gate
+### Optional website access gate
 
 The selected deployment is public: no extra website password is configured.
 Private source access and website access are separate decisions. Players can
@@ -220,26 +292,6 @@ through such a gate has not been verified by this setup. Keep gate credentials
 and password hashes in server configuration, not in static files or Git. Luna
 account login remains a separate requirement.
 
-## Optional GitHub Pages hosting
-
-Pages cannot proxy `/game`; it requires a separate public secure Luna WebSocket
-endpoint. For this private organization repository it also requires an eligible
-plan. At initial setup, the organization's Free plan did not support Pages from a
-private repository. See [GitHub's eligibility documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages).
-The downloadable artifact works independently of Pages eligibility.
-
-If an eligible plan and Pages deployment are chosen:
-
-1. Set repository Actions variable `LUNA_WEBSOCKET_URL` to the real absolute
-   `wss://.../game` URL. `same-origin` cannot proxy game traffic on Pages.
-2. Add the exact Pages website origin to Luna's `allowed_origins`, without a
-   repository subpath, and apply server settings through its normal restart.
-3. Configure Pages publishing as GitHub Actions and its required environment permissions.
-4. Set repository variable `PUBLISH_GITHUB_PAGES` to the exact value `true`.
-5. Run **Build and publish webclient** on `master` and inspect the separate Pages job.
-
-Leave `PUBLISH_GITHUB_PAGES` unset or false for VPS hosting. A private source
-repository does not automatically make a Pages website private.
 
 Use the [upstream guide](UPSTREAM.md) to bring in desktop changes, review the
-candidate pull request, then build and publish the selected release as above.
+candidate pull request, then publish through the selected hosting workflow.

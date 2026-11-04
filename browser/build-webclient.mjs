@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { preparePages } from './prepare-pages.mjs';
 
 /**
- * Packages the private webclient for any static HTTPS host, using public deployment variables only.
+ * Packages the webclient for any static HTTPS host, using public deployment variables only.
  *
  * @author lare96
  */

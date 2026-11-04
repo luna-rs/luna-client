@@ -1,6 +1,6 @@
 # Keeping the web client in sync
 
-This is the independent private [Luna web client repository](https://github.com/luna-rs/luna-webclient).
+This is the independent public [Luna web client repository](https://github.com/luna-rs/luna-webclient).
 Its `master` branch maintains Luna's browser integration and website. The public
 [Luna desktop client](https://github.com/luna-rs/luna-client) is the upstream source
 for shared client changes. The repositories retain common Git ancestry, so updates
@@ -8,7 +8,7 @@ can be merged while preserving this repository's browser work.
 
 | Remote | Repository | Purpose |
 | --- | --- | --- |
-| `origin` | `https://github.com/luna-rs/luna-webclient.git` | Private web client; push feature branches and review pull requests here. |
+| `origin` | `https://github.com/luna-rs/luna-webclient.git` | Public community web client; push feature branches and review pull requests here. |
 | `upstream` | `https://github.com/luna-rs/luna-client.git` | Public desktop client; fetch updates from `master`. |
 
 The imported history was pinned to:
@@ -18,7 +18,8 @@ The imported history was pinned to:
 
 Those are provenance records. Later commits in this repository contain its own
 website and integration changes. The original public commits remain available
-upstream; new private commits should be pushed only to this repository.
+upstream. This repository and its website changes are also public and can be inspected
+and forked. It is an independent copy, retaining normal Git ancestry for upstream merges.
 
 ## Update through GitHub
 
@@ -26,7 +27,7 @@ upstream; new private commits should be pushed only to this repository.
 2. Select **Run workflow**, choose `master`, and run the workflow.
 3. Read the workflow result. When there are upstream changes and the merge is
    clean, it creates a `sync/upstream-...` branch and an update pull request in
-   this private repository. Its validation job builds the browser client.
+   this web client repository. Its validation job builds the browser client.
 4. Review the shared client changes and any effects on the browser adapters.
    Build and test the update before merging the pull request into `master`.
 
@@ -45,7 +46,7 @@ expand a stored token's permissions to bypass the refusal.
 
 The sync updates release/source provenance for the selected upstream revision;
 it preserves this repository's configured WebSocket endpoint. Do not replace the
-private branch with the upstream tree or force push `master` to make conflicts
+maintained branch with the upstream tree or force push `master` to make conflicts
 disappear.
 
 ## Update locally
@@ -64,7 +65,7 @@ If this clone does not yet have the public remote, add it once:
 git remote add upstream https://github.com/luna-rs/luna-client.git
 ```
 
-Fetch both repositories and create a new update branch from the private version.
+Fetch both repositories and create a new update branch from the maintained web client version.
 Replace the example date with a unique branch name:
 
 ```sh
@@ -97,15 +98,17 @@ does not establish working gameplay: check browser and desktop login, logout and
 relogin, movement and region loading, packet-driven interfaces, and the website's
 input and display behavior against a development server.
 
-Push the update branch to the private remote and open a pull request into its
+Push the update branch to the web client remote and open a pull request into its
 `master` branch:
 
 ```sh
 git push -u origin codex/sync-upstream-YYYYMMDD
 ```
 
-Review the pull request before merging. Do not push private website changes to
-`upstream` unless you deliberately intend to publish them there.
+Review the pull request before merging. Keep website/browser integration changes
+here; send changes to `upstream` only when you deliberately intend to update the
+public desktop project. Merging into this repository's `master` starts its website
+build and configured GitHub Pages deployment.
 
 ## Preserve the shared source boundary
 

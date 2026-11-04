@@ -1,76 +1,81 @@
 # Luna web client
 
-Luna's Java client, compiled for the browser with TeaVM, with a classic website
-around the game. This private repository maintains the website and browser
-integration while retaining the public desktop client's Git history. The intended
-deployment is a public play website with privately maintained source.
+A public community web client for Luna, with a basic 2005-style website around
+the shared Java game client. TeaVM builds the same game source for the browser;
+this independent repository retains the desktop client's Git history and merges
+updates from [luna-rs/luna-client](https://github.com/luna-rs/luna-client).
 
-Shared game code lives in `src/`, browser adapters in `browser/src/main/java/`,
-and the surrounding website in `browser/web/`. Both JavaScript and WebAssembly
-builds are produced. The browser currently uses fixed mode; enlarging its display
-does not create a larger game viewport.
+Website: [luna-rs.github.io/luna-webclient](https://luna-rs.github.io/luna-webclient/).
+No custom domain is required for GitHub Pages. Anyone may open the play website;
+Luna account login remains inside the game.
 
-## Build or update through GitHub
+## Publish or update through GitHub
 
 | Task | Where to go | Result |
 | --- | --- | --- |
-| Build the website | **Actions → Build and publish webclient → Run workflow**, select `master` | Download **Luna-Webclient** from the run's artifacts as `Luna-Webclient.zip`. |
-| Bring in desktop updates | **Actions → Sync upstream client → Run workflow**, select `master` | Review an update pull request and its browser build. Conflicts require human resolution. |
+| Publish the current website | **Actions → Build and publish webclient → Run workflow**, select `master` | Builds and deploys the configured GitHub Pages site; also supplies **Luna-Webclient.zip**. |
+| Bring in desktop updates | **Actions → Sync upstream client → Run workflow**, select `master` | Creates an update pull request and validates a clean browser merge. Conflicts require human resolution. |
 
-Merging changes into `master` also builds the website. The ZIP has `index.html` at
-its root. Building it does not upload the website to a VPS or restart Luna. Follow
-the [deployment guide](docs/DEPLOYMENT.md) to publish it and the
-[upstream guide](docs/UPSTREAM.md) to maintain shared client updates.
+A push or merge to `master` also runs the build and Pages deployment. Review the
+workflow result before sharing a release. The website build does not deploy or
+restart the Luna game server. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for endpoint
+configuration, Pages setup and optional VPS hosting, and
+[UPSTREAM.md](docs/UPSTREAM.md) for maintaining shared client updates.
+
+## Game connection
+
+GitHub Pages serves static files. Browser game traffic uses the external secure
+WebSocket endpoint in `browser/pages-config.json`, optionally overridden by the
+`LUNA_WEBSOCKET_URL` repository variable. Pages cannot proxy `/game` itself.
+
+The current prototype endpoint is a temporary Cloudflare address backed by the
+existing PC relay. That PC and its relay/tunnel processes must stay running until
+a replacement is deployed and verified. The URL changes when the temporary tunnel
+is recreated. Luna's native Java WebSocket support is published upstream, but it
+has not been deployed to the beta VPS by this website setup. Do not assume the Node
+relay has already been removed.
 
 ## Build locally
 
-Use Java 21 and Node.js 24. In Windows PowerShell, from the repository root:
+Use Java 21 and Node.js 24. From the repository root in Windows PowerShell:
 
 ```powershell
 .\gradlew.bat :browser:browserSite
 node browser/build-webclient.mjs
 ```
 
-On Linux/macOS, use `./gradlew` instead of `./gradlew.bat`. The compiled client is
-in `browser/build/site`; the deployable website is in `build/webclient-site`.
-The packager requires a new or empty output directory. Keep an earlier candidate
-and pass a fresh path when packaging another one:
+On Linux/macOS, use `./gradlew` instead of `./gradlew.bat`. The complete static site
+is in `build/webclient-site`; compiled client input is in `browser/build/site`.
+The packager requires a new or empty destination. Keep an existing candidate and
+use a fresh path for another build:
 
 ```sh
 node browser/build-webclient.mjs browser/build/site build/webclient-site-candidate-2
 ```
 
-Desktop executables remain available from the shared source:
+The shared source can still build desktop executables:
 
 ```powershell
 .\gradlew.bat jar betaJar verifyBetaJar
 ```
 
-These produce `build/libs/luna-dev.jar` and `build/libs/luna-beta.jar`, using their
-corresponding properties files. See the [upstream guide's verification notes](docs/UPSTREAM.md#update-locally)
-for the imported regression-fixture limitation. The original desktop README is
-preserved in [DESKTOP-UPSTREAM.md](docs/DESKTOP-UPSTREAM.md).
+Outputs are `build/libs/luna-dev.jar` and `build/libs/luna-beta.jar`. The imported
+regression-fixture limitation is explained once in the
+[upstream verification notes](docs/UPSTREAM.md#update-locally). The original desktop
+README is preserved in [DESKTOP-UPSTREAM.md](docs/DESKTOP-UPSTREAM.md).
 
-## Hosting and privacy
+## Source layout and visibility
 
-The recommended VPS layout serves HTTPS static files and sends `/game` to Luna's
-native WebSocket listener. The default `same-origin` configuration connects to
-`wss://<website-host>/game` on an HTTPS site. Desktop clients continue using TCP
-43594. Node.js is a build tool; this layout needs no Node relay on the VPS.
+Shared Java code lives in `src/`, thin browser adapters in
+`browser/src/main/java/`, and the surrounding website in `browser/web/`. Builds
+include JavaScript and WebAssembly backends. The browser currently uses fixed
+mode; a larger displayed image does not create a larger game viewport.
 
-A Luna server build with native WebSocket support must be installed and configured
-before this connection works. That code is published upstream; the repository's
-initial website setup did not deploy it to the beta VPS. The included
-[Caddy example](deploy/Caddyfile.example) uses a placeholder domain and enables no
-website password gate. The real hostname still needs to be selected.
-
-Private GitHub source does not hide files sent to players: they can inspect the
-website JavaScript, WebAssembly, artwork, public settings and cache. Anyone may
-open the intended public play website; Luna account login remains separate.
-GitHub Pages is optional. At initial setup, the organization's Free plan did not
-support Pages from this private repository, while the ZIP could be hosted on the
-VPS. See the deployment guide for eligibility and configuration.
+This repository, its history, website and browser adapters are public and can be
+inspected and forked. HiveScape's future custom website can be maintained separately,
+including in a private repository. Private source still cannot hide JavaScript,
+WebAssembly, images or cache files delivered to players' browsers.
 
 See [third-party notices](browser/web/legal/THIRD_PARTY_NOTICES.txt) for dependency
-licenses and asset provenance. Those notices do not assign a blanket license to
-the inherited client or game cache.
+licenses and asset provenance. They do not assign a blanket license to the
+inherited client or game cache.

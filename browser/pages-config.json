@@ -5,5 +5,5 @@
     "host": "85.155.184.204",
     "port": 43594
   },
-  "websocketUrl": "same-origin"
+  "websocketUrl": "wss://lifetime-instrument-cgi-transit.trycloudflare.com/game"
 }
