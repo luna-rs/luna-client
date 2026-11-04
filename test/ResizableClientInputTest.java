@@ -7,6 +7,8 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -193,7 +195,7 @@ public final class ResizableClientInputTest {
         try {
             for (boolean resizable : new boolean[] {false, true}) {
                 Fixture fixture = new Fixture(resizable);
-                fixture.game.loginScreenFont = GameMessageFormattingTest.fixtureFont();
+                fixture.game.loginScreenFont = new JagFont(new InputFontArchive(), "fixture", false);
                 client.settings = new ClientSettings();
                 client.settings.coloredGameMessages = true;
                 client.settings.save();
@@ -367,6 +369,43 @@ public final class ResizableClientInputTest {
 
     private static MouseEvent mouse(client game, int id, Point point, int button) {
         return new MouseEvent(game, id, 1L, 0, point.x, point.y, 1, false, button);
+    }
+
+    /**
+     * Supplies a one-pixel font independently of other regression entry points.
+     *
+     * @author lare96
+     */
+    private static final class InputFontArchive extends Archive {
+        private final byte[] font;
+        private final byte[] index;
+
+        private InputFontArchive() throws Exception {
+            super(new byte[8]);
+            ByteArrayOutputStream dataBytes = new ByteArrayOutputStream();
+            ByteArrayOutputStream indexBytes = new ByteArrayOutputStream();
+            try (DataOutputStream data = new DataOutputStream(dataBytes);
+                 DataOutputStream indices = new DataOutputStream(indexBytes)) {
+                data.writeShort(0);
+                indices.writeInt(0);
+                indices.writeByte(0);
+                for (int character = 0; character < 256; character++) {
+                    indices.writeByte(0);
+                    indices.writeByte(0);
+                    indices.writeShort(1);
+                    indices.writeShort(1);
+                    indices.writeByte(0);
+                    data.writeByte(1);
+                }
+            }
+            font = dataBytes.toByteArray();
+            index = indexBytes.toByteArray();
+        }
+
+        @Override
+        public byte[] get(String name) {
+            return name.equals("index.dat") ? index : font;
+        }
     }
 
     private static void check(boolean condition, String message) {

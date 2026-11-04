@@ -39,6 +39,7 @@ public final class ClientRenderTimingTest {
                 parallelFailureRecovery();
                 titleAnimationCadence();
                 accountOptionDefaultsAndServerOverrides();
+                startupReadinessAfterPresentation();
             } finally {
                 client.pulseCycle = previousCycle;
                 client.heartbeatCounter = previousHeartbeat;
@@ -46,6 +47,62 @@ public final class ClientRenderTimingTest {
                 SpotAnimation.spotAnimations = previousAnimations;
             }
             System.out.println("ClientRenderTimingTest passed");
+        }
+    }
+
+    private static void startupReadinessAfterPresentation() throws Exception {
+        client game = fixture();
+        Field loaded = client.class.getDeclaredField("startupLoaded");
+        Field drawn = client.class.getDeclaredField("startupLoginFrameDrawn");
+        Field ready = client.class.getDeclaredField("startupReadyReported");
+        Field failed = client.class.getDeclaredField("startupFailureReported");
+        Field backBuffer = JagApplet.class.getDeclaredField("backBuffer");
+        Field screenGraphics = JagApplet.class.getDeclaredField("screenGraphics");
+        for (Field field : new Field[] {loaded, drawn, ready, failed, backBuffer, screenGraphics}) field.setAccessible(true);
+        Method failure = client.class.getDeclaredMethod("reportStartupFailure");
+        failure.setAccessible(true);
+        boolean previousReady = ready.getBoolean(null);
+        boolean previousFailure = failed.getBoolean(null);
+        java.io.PrintStream previousOutput = System.out;
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        BufferedImage pixels = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
+        Graphics2D screen = pixels.createGraphics();
+        try (java.io.PrintStream capture = new java.io.PrintStream(output, true, java.nio.charset.StandardCharsets.UTF_8)) {
+            System.setOut(capture);
+            ready.setBoolean(null, false);
+            failed.setBoolean(null, false);
+            backBuffer.set(game, pixels);
+            screenGraphics.set(game, screen);
+            game.presentBackBuffer();
+            loaded.setBoolean(game, true);
+            game.presentBackBuffer();
+            check(output.size() == 0, "loading progress and a loaded-but-undrawn title do not signal readiness");
+            drawn.setBoolean(game, true);
+            screenGraphics.set(game, null);
+            game.presentBackBuffer();
+            check(output.size() == 0, "drawing without an actual screen presentation does not signal readiness");
+            screenGraphics.set(game, screen);
+            game.aBoolean1283 = true;
+            game.presentBackBuffer();
+            check(output.size() == 0, "an error-screen presentation cannot be mistaken for a ready login screen");
+            game.aBoolean1283 = false;
+            game.presentBackBuffer();
+            game.presentBackBuffer();
+            failure.invoke(null);
+            check(output.toString(java.nio.charset.StandardCharsets.UTF_8).strip().equals("LUNA_CLIENT_READY"),
+                    "the first usable presented login frame emits exactly one readiness line");
+            output.reset();
+            ready.setBoolean(null, false);
+            failure.invoke(null);
+            failure.invoke(null);
+            game.presentBackBuffer();
+            check(output.toString(java.nio.charset.StandardCharsets.UTF_8).strip().equals("LUNA_CLIENT_STARTUP_FAILED"),
+                    "a known startup failure is reported once and prevents a later readiness announcement");
+        } finally {
+            System.setOut(previousOutput);
+            ready.setBoolean(null, previousReady);
+            failed.setBoolean(null, previousFailure);
+            screen.dispose();
         }
     }
 
