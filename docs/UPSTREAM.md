@@ -1,137 +1,116 @@
-# Keeping the web client in sync
+# Maintaining the shared desktop and browser client
 
-This is the independent public [Luna web client repository](https://github.com/luna-rs/luna-webclient).
-Its `master` branch maintains Luna's browser integration and website. The public
-[Luna desktop client](https://github.com/luna-rs/luna-client) is the upstream source
-for shared client changes. The repositories retain common Git ancestry, so updates
-can be merged while preserving this repository's browser work.
+[Luna's client repository](https://github.com/luna-rs/luna-client) maintains both
+build targets. The game server remains a separate project in
+[luna-rs/luna](https://github.com/luna-rs/luna). The canonical browser website is
+https://luna-rs.github.io/luna-client/.
 
-| Remote | Repository | Purpose |
-| --- | --- | --- |
-| `origin` | `https://github.com/luna-rs/luna-webclient.git` | Public community web client; push feature branches and review pull requests here. |
-| `upstream` | `https://github.com/luna-rs/luna-client.git` | Public desktop client; fetch updates from `master`. |
+## Make a shared client change
 
-The imported history was pinned to:
+1. Create a feature branch from the current client `master`, preserving unfinished
+   local work on its existing branch.
+2. Change the common game implementation in `src/` where possible. Keep browser
+   platform adaptation in `browser/src/main/java/` and the surrounding website in
+   `browser/web/`.
+3. Build the desktop and browser targets, then verify the affected actions against
+   a development server.
+4. Review and merge the change into this repository's `master`. Its configured
+   **Build and publish webclient** workflow rebuilds and publishes the browser site.
 
-- Desktop release source: `eedce45bb6deea24b174cc48f43565f3a2307acb` (`v0.5.0-alpha`).
-- Browser prototype source: `e5d5316b418a76e259e88776038f664f4b21987a`, which includes the TeaVM integration and the fixed-mode native-display-pixel correction.
+Desktop and browser fixes no longer need to be copied between repositories. There
+is no separate **Sync upstream client** action. A source fix still needs to compile
+and work on both platforms; a desktop-only API can require an adapter change.
 
-Those are provenance records. Later commits in this repository contain its own
-website and integration changes. The original public commits remain available
-upstream. This repository and its website changes are also public and can be inspected
-and forked. It is an independent copy, retaining normal Git ancestry for upstream merges.
+## Preserve the shared source boundary
 
-## Update through GitHub
+The browser build derives generated Java input from `src/` and substitutes the
+thin adapters under `browser/src/main/java/`. Packet handling, game logic, scene
+rendering and in-game interfaces continue to come from the shared client.
 
-1. Open this repository's **Actions** tab and choose **Sync upstream client**.
-2. Select **Run workflow**, choose `master`, and run the workflow.
-3. Read the workflow result. When there are upstream changes and the merge is
-   clean, it creates a `sync/upstream-...` branch and an update pull request in
-   this web client repository. Its validation job builds the browser client.
-4. Review the shared client changes and any effects on the browser adapters.
-   Build and test the update before merging the pull request into `master`.
+Do not add a second maintained `browser/src/main/java/client.java` or edit generated
+files under `browser/build/`. Update the shared source or the generation rule when
+an upstream method signature or platform API changes. The desktop launcher stays
+independent of the browser startup and process lifecycle.
 
-The sync workflow prepares an update for review. It does not make conflict
-resolution decisions for you. If it encounters conflicts, it aborts its local
-merge and opens a draft pull request from an upstream update branch, with the
-conflicting paths listed for human resolution. Use the local procedure below to
-make a resolved update branch and pull request; link it from the draft if it
-supersedes that draft. If organization policy prevents the workflow from opening
-a pull request, use the comparison link in its result to open one yourself.
+## Configuration profiles
 
-If upstream changes GitHub Actions workflow files, GitHub may refuse the sync
-workflow's token when pushing those changes. Use the authenticated local merge
-and push procedure below in that case; do not discard the workflow changes or
-expand a stored token's permissions to bypass the refusal.
+The default browser build selects root `client.properties`. Choose a different
+complete root profile with `-PclientProperties=<filename>`. For example, in Windows
+PowerShell:
 
-The sync updates release/source provenance for the selected upstream revision;
-it preserves this repository's configured WebSocket endpoint. Do not replace the
-maintained branch with the upstream tree or force push `master` to make conflicts
-disappear.
-
-## Update locally
-
-Start with a clean working tree. Keep unfinished work on its own branch before
-starting an upstream update. Check that the remotes point to the intended
-repositories:
-
-```sh
-git remote -v
+```powershell
+.\gradlew.bat :browser:browserSite "-PclientProperties=client (2).properties"
 ```
 
-If this clone does not yet have the public remote, add it once:
+Connection, public RSA, branding and browser settings come from the selected file.
+Gradle uses Java's properties parser and produces the copied properties snapshot
+and a generated `client-config.json`. The build and browser startup check that
+these files match. Do not edit generated descriptors or use them as another
+configuration source.
 
-```sh
-git remote add upstream https://github.com/luna-rs/luna-client.git
-```
+Repository Actions variable `CLIENT_PROPERTIES` selects only a root profile
+filename. The shared build defaults to `client.properties`; Luna's Pages deployment
+selects its beta profile explicitly. The deployment guide describes the current
+[properties and publication flow](DEPLOYMENT.md).
 
-Fetch both repositories and create a new update branch from the maintained web client version.
-Replace the example date with a unique branch name:
+The cache seed is shared build input under `data/bootstrap/`. Its ZIP and hash
+manifest must describe the same compatible cache. Build outputs extract and verify
+that seed; changing an endpoint does not require another cache copy or a different
+game client implementation.
 
-```sh
-git fetch origin master
-git fetch upstream master
-git switch -c codex/sync-upstream-YYYYMMDD origin/master
-git merge --no-ff --no-edit upstream/master
-```
+## Verification
 
-When a merge conflicts, inspect `git status`, edit the conflicting files, and
-stage only the resolved paths. Then finish the merge with `git commit`. To stop
-an unresolved merge and retain the original branch state, use `git merge --abort`.
-This workflow uses normal merges; it does not require rebasing or force pushes.
-
-Build the desktop and browser targets with Java 21:
+With Java 21, build both desktop executables and the browser targets:
 
 ```sh
 ./gradlew allClientBuilds verifyBetaJar
 ```
 
-The imported `check` task currently needs unpublished local fixtures
-`ClientConfigurationFixture` and `GameMessageFormattingTest`. They are not tracked
-in this repository, so a clean clone cannot run the full inherited regression
-suite without those fixtures. The command above builds the maintained targets and
-verifies beta packaging; it does not claim that full regression check passed.
-Keep additional test fixtures local unless their publication is explicitly chosen.
-
-On Windows PowerShell, use `./gradlew.bat` with the same tasks. A successful build
-does not establish working gameplay: check browser and desktop login, logout and
-relogin, movement and region loading, packet-driven interfaces, and the website's
-input and display behavior against a development server.
-
-Push the update branch to the web client remote and open a pull request into its
-`master` branch:
+On Windows PowerShell, use `.\gradlew.bat` with the same tasks. To verify a selected
+browser profile for Pages after packaging:
 
 ```sh
-git push -u origin codex/sync-upstream-YYYYMMDD
+node browser/build-webclient.mjs
+node browser/configuration.mjs --pages build/webclient-site
 ```
 
-Review the pull request before merging. Keep website/browser integration changes
-here; send changes to `upstream` only when you deliberately intend to update the
-public desktop project. Merging into this repository's `master` starts its website
-build and configured GitHub Pages deployment.
+The imported `check` task currently needs unpublished local fixtures
+`ClientConfigurationFixture` and `GameMessageFormattingTest`. A clean clone cannot
+run the full inherited regression suite without them. The build command above
+compiles the maintained targets and verifies desktop packaging; it does not claim
+that the full regression suite ran. Keep additional verification fixtures local
+unless their publication is explicitly chosen.
 
-## Preserve the shared source boundary
+Check the behavior relevant to the change: browser and desktop login, logout and
+relogin, movement, map loading, packet-driven interfaces and input. Browser changes
+also need cache startup, native display size, website controls and focus checks.
+A successful compile or a loaded page does not establish working gameplay.
 
-The maintained game client lives in `src/`. The browser build generates its
-shared input from those Java sources and substitutes platform adapters from
-`browser/src/main/java/` for desktop-only facilities. Keep browser rendering,
-input, networking, storage and audio adaptation there. The surrounding website
-lives in `browser/web/`.
+## Keeping your own fork current
 
-Do not create a second maintained `browser/src/main/java/client.java`. Shared
-packet parsing, game logic, rendering and in-game interfaces should continue to
-come from the common source. An upstream method signature or platform API change
-can require a corresponding adapter or generation-rule update; resolve that
-deliberately instead of copying the desktop implementation over the browser one.
+A downstream fork can use ordinary Git fetches and reviewed merges from the
+public client repository. First inspect `git remote -v`. If your fork has no
+`upstream` remote, add it once:
 
-Review endpoint configuration and deployment settings separately from source
-merges. An upstream development address or temporary tunnel URL is not a suitable
-replacement for this website's configured server. See [DEPLOYMENT.md](DEPLOYMENT.md)
-for building and hosting the selected deployment.
+```sh
+git remote add upstream https://github.com/luna-rs/luna-client.git
+```
 
-Keep generated sites, caches extracted for testing, local accounts, credentials,
-private keys and agent verification artifacts out of source commits. Required
-upstream build inputs such as the cache seed and Gradle wrapper remain distinct
-from generated build output. Retain the applicable notices in
-[`browser/web/legal/`](../browser/web/legal/); those component notices do not assign
-a blanket license to the inherited client or game assets.
+Starting with a clean working tree, fetch and prepare an update branch:
+
+```sh
+git fetch origin master
+git fetch upstream master
+git switch -c feature/update-luna origin/master
+git merge --no-ff --no-edit upstream/master
+```
+
+Resolve conflicts deliberately, including changes to your selected properties
+profile. `git merge --abort` stops an unresolved merge without discarding the
+original branch. Build and test before pushing an update branch and opening a
+pull request into your fork. Replacing your maintained tree or force-pushing
+`master` is unnecessary for this workflow.
+
+Keep generated websites, local accounts, private keys, credentials and agent
+verification output out of commits. Public client properties contain only public
+configuration. Retain the notices under [`browser/web/legal/`](../browser/web/legal/).

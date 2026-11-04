@@ -1,42 +1,47 @@
-import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { WebSocketServer } from 'ws';
+import { loadBrowserConfiguration, validateBrowserConfiguration } from './configuration.mjs';
+import { createGateway, gatewayRoute } from './gateway.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.join(directory, 'build/site');
-const defaultTargets = { development: { host: process.env.LUNA_DEV_HOST || '127.0.0.1', port: Number(process.env.LUNA_DEV_PORT || 43594) },
-    beta: { host: process.env.LUNA_BETA_HOST || '85.155.184.204', port: Number(process.env.LUNA_BETA_PORT || 43594) } };
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-    '.map': 'application/json', '.png': 'image/png', '.wasm': 'application/wasm' };
+    '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.map': 'application/json',
+    '.png': 'image/png', '.gif': 'image/gif', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.wasm': 'application/wasm', '.properties': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
 
-export function createPreviewServer({ root = defaultRoot, port = 8090, targets = defaultTargets,
-    allowedOrigins = process.env.LUNA_ALLOWED_ORIGINS?.split(',').filter(Boolean) } = {}) {
-    const origins = new Set(allowedOrigins || [`http://127.0.0.1:${port}`, `http://localhost:${port}`]);
-    for (const target of Object.values(targets)) {
-        if (!target.host || !Number.isInteger(target.port) || target.port < 1 || target.port > 65535) {
-            throw new Error('Every configured game target needs a host and valid TCP port');
-        }
-    }
-    const server = http.createServer(async (request, response) => {
+/**
+ * Serves one built properties profile and optionally bridges its same-origin game connection.
+ *
+ * @author lare96
+ */
+export function createPreviewServer({ root = defaultRoot, config, port = config?.webPort, allowedOrigins } = {}) {
+    validateBrowserConfiguration(config);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('The preview port must be between 1 and 65535');
+    root = path.resolve(root);
+    const body = JSON.stringify(config);
+    const origins = allowedOrigins || [config.webOrigin, `http://127.0.0.1:${port}`,
+        `http://localhost:${port}`, `http://[::1]:${port}`];
+    const requestHandler = async (request, response) => {
         if (process.env.LUNA_PROFILE === '1') response.setHeader('Document-Policy', 'js-profiling');
         try {
             if (request.method !== 'GET' && request.method !== 'HEAD') {
-                response.writeHead(405).end();
+                response.writeHead(405, {Allow: 'GET, HEAD'}).end();
                 return;
             }
             const url = new URL(request.url, 'http://localhost');
             if (url.pathname === '/client-config.json') {
-                const body = JSON.stringify(targets);
-                response.writeHead(200, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'});
+                response.writeHead(200, {'Content-Type': 'application/json', 'Cache-Control': 'no-store',
+                    'Content-Length': Buffer.byteLength(body)});
                 response.end(request.method === 'HEAD' ? undefined : body);
                 return;
             }
             const file = path.resolve(root, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
-            if (!file.startsWith(root + path.sep)) {
+            const relative = path.relative(root, file);
+            if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
                 response.writeHead(403).end();
                 return;
             }
@@ -46,80 +51,39 @@ export function createPreviewServer({ root = defaultRoot, port = 8090, targets =
                 return;
             }
             response.writeHead(200, {
-                'Content-Type': types[path.extname(file)] || 'application/octet-stream',
+                'Content-Type': types[path.extname(file).toLowerCase()] || 'application/octet-stream',
                 'Content-Length': metadata.size,
                 'Cache-Control': 'no-cache'
             });
             if (request.method === 'HEAD') response.end();
             else createReadStream(file).on('error', () => response.destroy()).pipe(response);
         } catch (error) {
-            response.writeHead(error.code === 'ENOENT' ? 404 : 500).end();
+            if (!response.headersSent) response.writeHead(error.code === 'ENOENT' ? 404 : 500);
+            response.end();
         }
-    });
-
-    const sockets = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 1024 * 1024 });
-    server.on('upgrade', (request, socket, head) => {
-        socket.on('error', () => socket.destroy());
-        let url;
-        try {
-            url = new URL(request.url, 'http://localhost');
-        } catch {
-            socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
-            return;
-        }
-        const profile = url.searchParams.get('server');
-        if (url.pathname !== '/game' || !Object.hasOwn(targets, profile) || !origins.has(request.headers.origin)) {
-            socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
-            return;
-        }
-        sockets.handleUpgrade(request, socket, head, webSocket => {
-            const gameSocket = net.createConnection(targets[profile]);
-            const started = Date.now();
-            let sentBytes = 0, receivedBytes = 0;
-            console.log(`Game connection: ${profile} -> ${targets[profile].host}:${targets[profile].port}`);
-            gameSocket.setNoDelay(true);
-            gameSocket.setTimeout(15000, () => gameSocket.destroy(new Error('Game connection timed out')));
-            gameSocket.on('connect', () => gameSocket.setTimeout(0));
-            webSocket.on('message', (data, binary) => {
-                if (!binary) {
-                    webSocket.close(1003, 'Binary game packets required');
-                    return;
-                }
-                sentBytes += data.length;
-                if (!gameSocket.write(data)) webSocket.pause();
-            });
-            gameSocket.on('drain', () => webSocket.resume());
-            gameSocket.on('data', data => {
-                receivedBytes += data.length;
-                gameSocket.pause();
-                if (webSocket.readyState !== webSocket.OPEN) {
-                    gameSocket.destroy();
-                    return;
-                }
-                webSocket.send(data, { binary: true }, error => {
-                    if (error) gameSocket.destroy();
-                    else gameSocket.resume();
-                });
-            });
-            gameSocket.on('error', error => {
-                console.error(`${profile} game connection: ${error.code || error.message}`);
-                webSocket.close(1011, 'Game server unavailable');
-            });
-            gameSocket.on('end', () => webSocket.close(1000, 'Game connection closed'));
-            webSocket.on('close', () => {
-                console.log(`Game closed: ${profile}, ${Date.now() - started} ms, sent ${sentBytes}, received ${receivedBytes} bytes`);
-                gameSocket.destroy();
-            });
-            webSocket.on('error', () => gameSocket.destroy());
-        });
-    });
-
-    return { server, webSockets: sockets };
+    };
+    return createGateway({ targetHost: config.host, targetPort: config.port, allowedOrigins: origins,
+        ...gatewayRoute(config.websocketUrl), requestHandler, maxPayloadBytes: 1024 * 1024 });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const port = Number(process.argv[2] || 8090);
-    const { server } = createPreviewServer({ port });
-    const bind = process.env.LUNA_BIND || '127.0.0.1';
-    server.listen(port, bind, () => console.log(`Luna TeaVM preview: http://${bind}:${port}/`));
+    try {
+        if (process.argv.length > 3) throw new Error('Usage: node browser/serve.mjs [preview-port]');
+        const config = await loadBrowserConfiguration(defaultRoot);
+        const port = process.argv[2] === undefined ? config.webPort : Number(process.argv[2]);
+        const preview = createPreviewServer({config, port});
+        const bind = config.webBindAddress;
+        const displayHost = net.isIP(bind) === 6 ? `[${bind}]` : bind;
+        preview.server.listen(port, bind, () => console.log(`${config.clientName} browser preview: http://${displayHost}:${port}/`));
+        preview.server.on('error', failure => {
+            console.error(`Browser preview failed: ${failure.code || 'listen error'}`);
+            process.exitCode = 1;
+        });
+        for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+            preview.close().then(() => { process.exitCode = 0; });
+        });
+    } catch (failure) {
+        console.error(failure.message);
+        process.exitCode = 1;
+    }
 }

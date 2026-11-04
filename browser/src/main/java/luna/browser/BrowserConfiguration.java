@@ -1,14 +1,13 @@
 package luna.browser;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-import luna.ClientResources;
+import luna.browser.io.BrowserIO;
 import org.teavm.jso.JSBody;
 
 /**
- * Loads the released beta properties before client initialization and isolates browser preferences.
+ * Loads the selected properties before client initialization and isolates browser preferences.
  *
  * @author lare96
  */
@@ -19,17 +18,21 @@ public final class BrowserConfiguration {
     }
 
     /**
-     * Downloads the complete release profile without replacing its endpoint or public RSA settings.
+     * Downloads the complete selected profile without replacing its endpoint or public RSA settings.
      */
     public static void load() throws IOException {
         if (contents != null) return;
-        try (InputStream input = ClientResources.openBundled("client.properties")) {
-            byte[] bytes = input.readAllBytes();
-            if (bytes.length == 0 || bytes.length > 65536)
-                throw new IOException("The released browser client.properties is empty or oversized.");
-            contents = new String(bytes, StandardCharsets.UTF_8);
-        }
+        String sha256 = propertiesSha256();
+        if (sha256 == null || !sha256.matches("[a-f0-9]{64}"))
+            throw new IOException("The generated properties checksum is missing. Rebuild the browser site.");
+        byte[] bytes = BrowserIO.fetchCheckedBytes("client.properties", sha256);
+        if (bytes.length == 0 || bytes.length > 65536)
+            throw new IOException("The selected browser client.properties is empty or oversized.");
+        contents = new String(bytes, StandardCharsets.UTF_8);
     }
+
+    @JSBody(script = "return window.LUNA_CLIENT_CONFIG ? window.LUNA_CLIENT_CONFIG.propertiesSha256 : null;")
+    private static native String propertiesSha256();
 
     public static String contents() {
         if (contents == null) throw new IllegalStateException("Browser client.properties must load before the client.");
@@ -37,13 +40,17 @@ public final class BrowserConfiguration {
     }
 
     @JSBody(script = """
-            try { return localStorage.getItem('luna.web.v05beta.client.preferences'); }
+            var config = window.LUNA_CLIENT_CONFIG;
+            var key = 'luna.web.preferences.' + JSON.stringify([config.clientName, config.host, config.port]);
+            try { return localStorage.getItem(key); }
             catch (lunaPreferencesReadFailure) { return null; }
             """)
     public static native String savedPreferences();
 
     @JSBody(script = """
-            try { localStorage.removeItem('luna.web.v05beta.client.preferences'); }
+            var config = window.LUNA_CLIENT_CONFIG;
+            var key = 'luna.web.preferences.' + JSON.stringify([config.clientName, config.host, config.port]);
+            try { localStorage.removeItem(key); }
             catch (lunaPreferencesRemoveFailure) { }
             """)
     public static native void clearPreferences();
@@ -57,7 +64,9 @@ public final class BrowserConfiguration {
     }
 
     @JSBody(params = "preferences", script = """
-            try { localStorage.setItem('luna.web.v05beta.client.preferences', preferences); return null; }
+            var config = window.LUNA_CLIENT_CONFIG;
+            var key = 'luna.web.preferences.' + JSON.stringify([config.clientName, config.host, config.port]);
+            try { localStorage.setItem(key, preferences); return null; }
             catch (lunaPreferencesWriteFailure) { return String(lunaPreferencesWriteFailure); }
             """)
     private static native String storePreferences(String preferences);

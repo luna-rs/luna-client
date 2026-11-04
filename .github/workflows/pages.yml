@@ -35,11 +35,11 @@ jobs:
           package-manager-cache: false
 
       - name: Build the shared Java browser client
-        run: bash ./gradlew --no-daemon --max-workers=2 :browser:browserSite
-
-      - name: Prepare the beta static site
         env:
-          LUNA_WEBSOCKET_URL: ${{ vars.LUNA_WEBSOCKET_URL }}
+          CLIENT_PROPERTIES: ${{ vars.CLIENT_PROPERTIES || 'client.properties' }}
+        run: bash ./gradlew --no-daemon --max-workers=2 :browser:browserSite -PclientProperties="$CLIENT_PROPERTIES"
+
+      - name: Prepare the selected client website
         run: node browser/build-webclient.mjs
 
       - name: Upload downloadable static website
@@ -51,6 +51,10 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+
+      - name: Validate the selected properties for GitHub Pages
+        if: github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true'
+        run: node browser/configuration.mjs --pages build/webclient-site
 
       - name: Upload optional GitHub Pages artifact
         if: github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true'
@@ -99,19 +103,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Require an external secure game endpoint for Pages
-        env:
-          LUNA_WEBSOCKET_URL: ${{ vars.LUNA_WEBSOCKET_URL }}
-        run: |
-          node --input-type=module <<'NODE'
-          let endpoint;
-          try { endpoint = new URL(process.env.LUNA_WEBSOCKET_URL); } catch {}
-          if (!endpoint || endpoint.protocol !== 'wss:' || endpoint.username || endpoint.password || endpoint.hash
-              || ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname.toLowerCase())) {
-            throw new Error('GitHub Pages cannot proxy /game. Set the repository variable LUNA_WEBSOCKET_URL to an external wss:// endpoint before enabling PUBLISH_GITHUB_PAGES. The static ZIP remains available from the build job.');
-          }
-          NODE
-
       - name: Configure optional GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 

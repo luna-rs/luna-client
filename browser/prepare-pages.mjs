@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { isIP } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateBrowserConfiguration } from './configuration.mjs';
 
 const stores = ['main_file_cache.dat', ...Array.from({ length: 5 }, (_, index) => `main_file_cache.idx${index}`)];
 const assets = ['index.html', 'cache.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
@@ -11,7 +11,8 @@ const assets = ['index.html', 'cache.js', 'platform.js', 'performance.js', 'prof
         .map(name => `assets/theme/${name}`),
     ...['THIRD_PARTY_NOTICES.txt', 'teavm-LICENSE.txt', 'teavm-NOTICE.txt', 'ws-LICENSE.txt']
         .map(name => `legal/${name}`),
-    'js/client.js', 'wasm/client.wasm', 'wasm/client.wasm-runtime.js', 'client.properties', 'cache/cache.sha256',
+    'js/client.js', 'wasm/client.wasm', 'wasm/client.wasm-runtime.js', 'client.properties', 'client-config.json',
+    'cache/cache.sha256',
     ...stores.map(name => `cache/${name}`),
     ...['christmas', 'easter', 'halloween'].flatMap(season =>
         ['background.png', 'logo.png'].map(image => `assets/title/${season}/${image}`))];
@@ -36,8 +37,8 @@ async function noLinks(target) {
 
 function validateConfig(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)
-            || Object.keys(input).some(key => !['release', 'sourceCommit', 'beta', 'websocketUrl'].includes(key))) {
-        throw new Error('Configuration must contain release, sourceCommit, beta and websocketUrl only');
+            || Object.keys(input).some(key => !['release', 'sourceCommit'].includes(key))) {
+        throw new Error('Release metadata must contain release and sourceCommit only');
     }
     if (typeof input.release !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,79}$/.test(input.release)) {
         throw new Error('Release must be a short version label');
@@ -45,33 +46,16 @@ function validateConfig(input) {
     if (typeof input.sourceCommit !== 'string' || !/^[a-f0-9]{40}$/i.test(input.sourceCommit)) {
         throw new Error('sourceCommit must be the full source Git commit');
     }
-    const beta = input.beta;
-    if (!beta || typeof beta !== 'object' || Array.isArray(beta)
-            || Object.keys(beta).some(key => !['host', 'port'].includes(key))
-            || typeof beta.host !== 'string'
-            || !(isIP(beta.host) || /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$/.test(beta.host))
-            || !Number.isInteger(beta.port) || beta.port < 1 || beta.port > 65535) {
-        throw new Error('Beta requires a valid host and TCP port');
-    }
-    if (input.websocketUrl === 'same-origin') {
-        return { release: input.release, sourceCommit: input.sourceCommit.toLowerCase(),
-            beta: { host: beta.host, port: beta.port }, websocketUrl: 'same-origin' };
-    }
-    let gateway;
-    try { gateway = new URL(input.websocketUrl); }
-    catch { throw new Error('websocketUrl must be an absolute secure WebSocket URL'); }
-    if (gateway.protocol !== 'wss:' || !gateway.hostname || gateway.username || gateway.password || gateway.hash) {
-        throw new Error('Public Pages deployments require a wss: URL without credentials or a fragment');
-    }
-    if (['localhost', '127.0.0.1', '[::1]'].includes(gateway.hostname.toLowerCase())) {
-        throw new Error('Public Pages deployments require a remotely reachable gateway host');
-    }
-    return { release: input.release, sourceCommit: input.sourceCommit.toLowerCase(),
-        beta: { host: beta.host, port: beta.port }, websocketUrl: gateway.href };
+    return { release: input.release, sourceCommit: input.sourceCommit.toLowerCase() };
+}
+
+function htmlText(value) {
+    return value.replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;',
+        '"': '&quot;', "'": '&#39;'}[character]));
 }
 
 /**
- * Copies a verified browser build into a separate beta-only static website directory.
+ * Copies a verified browser build and its selected properties profile into a separate website directory.
  *
  * @author lare96
  */
@@ -115,16 +99,9 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
     for (const name of stores) {
         if (hash(files.get(`cache/${name}`)) !== expected.get(name)) throw new Error(`Cache checksum mismatch: ${name}`);
     }
-    const connection = new Map();
-    for (const line of files.get('client.properties').toString('utf8').split(/\r?\n/)) {
-        const match = /^(connectHost|connectPort|portOffset)\s*=\s*(.*?)\s*$/.exec(line);
-        if (!match) continue;
-        if (connection.has(match[1])) throw new Error('Released connection settings must be unambiguous');
-        connection.set(match[1], match[2]);
-    }
-    if (connection.get('connectHost') !== settings.beta.host
-            || Number(connection.get('connectPort')) + Number(connection.get('portOffset')) !== settings.beta.port) {
-        throw new Error('Static gateway configuration must match the released beta client.properties');
+    const browser = validateBrowserConfiguration(JSON.parse(files.get('client-config.json').toString('utf8')));
+    if (hash(files.get('client.properties')) !== browser.propertiesSha256) {
+        throw new Error('The generated browser configuration and client.properties differ; rebuild the selected profile');
     }
     const originalHtml = files.get('index.html').toString('utf8');
     const serverSelector = /<select\b[^>]*\bid="server"[^>]*>[\s\S]*?<\/select>/g;
@@ -133,18 +110,16 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
         throw new Error('Built page must contain one server selector, build label and its startup script');
     }
     const html = originalHtml.replace(serverSelector,
-        '<select id="server" aria-label="Server" disabled><option value="beta" selected>Beta</option></select>')
+        '<select id="server" aria-label="Server" disabled><option value="active" selected>'
+            + htmlText(browser.clientName) + '</option></select>')
         .replace('<!-- LUNA_BUILD_LABEL -->', '<span id="release-version">' + settings.release + '</span>')
         .replace('<script>', '<script src="pages-config.js"></script>\n<script>');
-    const endpoints = { development: settings.beta, beta: settings.beta };
-    const endpoint = settings.websocketUrl === 'same-origin'
-        ? "location.origin.replace(/^http/, 'ws') + '/game'" : JSON.stringify(settings.websocketUrl);
-    const boot = 'window.LUNA_WEBSOCKET_URL = ' + endpoint + ';\n'
-        + 'window.LUNA_CLIENT_CONFIG = ' + JSON.stringify(endpoints) + ';\n';
+    const boot = 'window.LUNA_CLIENT_CONFIG = ' + JSON.stringify(browser) + ';\n';
     const fingerprint = hash(stores.map(name => `${expected.get(name)}  ${name}\n`).join(''));
     const provenance = { release: settings.release, sourceCommit: settings.sourceCommit,
         browserCommit: /^[a-f0-9]{40}$/i.test(process.env.GITHUB_SHA || '') ? process.env.GITHUB_SHA : null,
-        beta: settings.beta, websocketUrl: settings.websocketUrl, cacheFingerprint: fingerprint,
+        clientName: browser.clientName, connection: {host: browser.host, port: browser.port},
+        websocketUrl: browser.websocketUrl, cacheFingerprint: fingerprint,
         clientPropertiesSha256: hash(files.get('client.properties')),
         cacheStores: Object.fromEntries(expected),
         sourceAssets: Object.fromEntries([...files].map(([name, bytes]) => [name, hash(bytes)])) };
@@ -156,7 +131,7 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
         await writeFile(destination, name === 'index.html' ? html : files.get(name), { flag: 'wx' });
     }
     for (const [name, content] of Object.entries({
-        'pages-config.js': boot, 'client-config.json': JSON.stringify(endpoints, null, 2) + '\n',
+        'pages-config.js': boot,
         '.nojekyll': '', 'release-provenance.json': JSON.stringify(provenance, null, 2) + '\n'
     })) {
         await writeFile(path.join(output, name), content, { flag: 'wx' });

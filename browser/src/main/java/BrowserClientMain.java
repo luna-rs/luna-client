@@ -29,8 +29,8 @@ public final class BrowserClientMain {
             String host = configuration.string("connectHost");
             int portOffset = configuration.integer("portOffset", 0, 65534);
             int port = configuration.integer("connectPort", 1, 65535) + portOffset;
-            if (!gatewayMatches(host, port)) {
-                throw new IllegalStateException("The browser gateway must match the released beta client.properties.");
+            if (!configurationMatches(host, port, configuration.string("websocketUrl"))) {
+                throw new IllegalStateException("The browser connection must match the selected client.properties. Rebuild the browser site.");
             }
             System.out.println("TeaVM: shared Java client starting");
             System.out.println(configuration.string("clientName"));
@@ -72,13 +72,12 @@ public final class BrowserClientMain {
         showStatus("Client could not load; see startup log");
     }
 
-    @JSBody(params = {"host", "port"}, script = """
-            var lunaBetaGatewayConfig = window.LUNA_CLIENT_CONFIG;
-            return !!window.LUNA_WEBSOCKET_URL && !!lunaBetaGatewayConfig
-                && !!lunaBetaGatewayConfig.beta && lunaBetaGatewayConfig.beta.host === host
-                && lunaBetaGatewayConfig.beta.port === port;
+    @JSBody(params = {"host", "port", "websocketUrl"}, script = """
+            var config = window.LUNA_CLIENT_CONFIG;
+            return !!config && config.host === host && config.port === port
+                && config.websocketUrl === websocketUrl;
             """)
-    private static native boolean gatewayMatches(String host, int port);
+    private static native boolean configurationMatches(String host, int port, String websocketUrl);
 
     @JSBody(params = "message", script = "document.getElementById('status').textContent = message;")
     private static native void showStatus(String message);

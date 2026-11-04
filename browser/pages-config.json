@@ -1,9 +1,4 @@
 {
   "release": "v0.5.0-alpha",
-  "sourceCommit": "eedce45bb6deea24b174cc48f43565f3a2307acb",
-  "beta": {
-    "host": "85.155.184.204",
-    "port": 43594
-  },
-  "websocketUrl": "wss://lifetime-instrument-cgi-transit.trycloudflare.com/game"
+  "sourceCommit": "eedce45bb6deea24b174cc48f43565f3a2307acb"
 }

@@ -4,14 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { preparePages } from './prepare-pages.mjs';
 
 /**
- * Packages the webclient for any static HTTPS host, using public deployment variables only.
+ * Packages the webclient using the selected client.properties snapshot and generated release metadata.
  *
  * @author lare96
  */
-export async function buildWebclient({ source, output, websocketUrl = process.env.LUNA_WEBSOCKET_URL } = {}) {
+export async function buildWebclient({ source, output } = {}) {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     const config = JSON.parse(await readFile(path.join(root, 'browser/pages-config.json'), 'utf8'));
-    if (websocketUrl?.trim()) config.websocketUrl = websocketUrl.trim();
     return preparePages({ siteDirectory: source || path.join(root, 'browser/build/site'),
         outputDirectory: output || path.join(root, 'build/webclient-site'), config });
 }

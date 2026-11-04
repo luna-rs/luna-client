@@ -66,21 +66,19 @@ public final class BrowserIO {
     }
 
     @JSBody(params = {"host", "port", "callback"}, script = """
-            var endpoint = window.LUNA_WEBSOCKET_URL;
-            if (!endpoint) {
+            var config = window.LUNA_CLIENT_CONFIG;
+            if (!config || typeof config.websocketUrl !== 'string') {
                 callback(null, 'Browser networking gateway is not configured for ' + host + ':' + port);
                 return;
             }
             try {
-                var url = new URL(endpoint, location.href);
-                var config = window.LUNA_CLIENT_CONFIG;
-                var beta = config ? host === config.beta.host && port === config.beta.port
-                    : host === '85.155.184.204';
-                if (config && !beta && (host !== config.development.host || port !== config.development.port)) {
-                    callback(null, 'No browser gateway target configured for ' + host + ':' + port);
+                if (host !== config.host || port !== config.port) {
+                    callback(null, 'Browser connection does not match the selected client.properties');
                     return;
                 }
-                url.searchParams.set('server', beta ? 'beta' : 'development');
+                var endpoint = config.websocketUrl === 'same-origin'
+                    ? location.origin.replace(/^http/, 'ws') + '/game' : config.websocketUrl;
+                var url = new URL(endpoint, location.href);
                 var socket = new WebSocket(url);
                 socket.binaryType = 'arraybuffer';
                 var state = {socket: socket, queue: [], offset: 0, closed: false, waiting: [],

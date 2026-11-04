@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Play the Luna revision 377 client in your browser.">
+    <meta name="description" content="Play a revision 377 game client in your browser.">
     <meta name="theme-color" content="#000000">
-    <title>Luna · Play game</title>
+    <title>Game client</title>
     <link rel="stylesheet" href="luna-web.css">
 </head>
 <body>
 <a class="skip-link" href="#play">Skip to game</a>
 <main id="play">
-    <h1 id="title" class="visually-hidden">luna-rs #377</h1>
+    <h1 id="title" class="visually-hidden">Game client</h1>
     <div class="client-shell">
         <nav class="main-navigation" aria-label="Game navigation">
-            <a href="https://github.com/luna-rs/luna" target="_blank" rel="noopener noreferrer"><img src="assets/theme/navbar_mainmenu.gif" width="26" height="25" alt="">Main Menu</a>
+            <a data-project-link hidden href="#" target="_blank" rel="noopener noreferrer"><img src="assets/theme/navbar_mainmenu.gif" width="26" height="25" alt="">Main Menu</a>
             <a href="#settings" data-dialog="settings"><img src="assets/theme/navbar_mainmenu.gif" width="26" height="25" alt="">World Select</a>
             <a href="#help" data-dialog="help"><img src="assets/theme/navbar_manual.gif" width="39" height="25" alt="">Manual</a>
             <a href="#security" data-dialog="security"><img src="assets/theme/navbar_rules.gif" width="20" height="25" alt="">Rules &amp; Security</a>
@@ -23,7 +23,7 @@
         <div class="game-stage" id="game-stage">
             <div class="game-surface">
                 <div id="game-container">
-                    <canvas id="game" width="765" height="503" tabindex="0" aria-label="Luna game client"></canvas>
+                    <canvas id="game" width="765" height="503" tabindex="0" aria-label="Game client"></canvas>
                 </div>
                 <div id="launch-screen" class="launch-screen">
                     <button id="start" class="stone-button" type="button" disabled>Play</button>
@@ -74,17 +74,16 @@
         <h2 id="world-title">World Select</h2>
         <label class="server-label" for="server">World</label>
         <select id="server" aria-label="Server">
-            <option value="development">Development</option>
-            <option value="beta">Beta</option>
+            <option value="active">Loading configuration…</option>
         </select>
-        <p>The browser client uses the configured Luna world. Log out before changing worlds.</p>
+        <p>This build uses the world configured in its client.properties file.</p>
         <p>Change music and sound inside the game's settings tab.</p>
     </dialog>
     <dialog id="security" aria-labelledby="security-title">
         <form method="dialog" class="dialog-close"><button type="submit" aria-label="Close rules and security">Close</button></form>
         <h2 id="security-title">Rules &amp; Security</h2>
-        <p>Keep your account password private and use a password unique to Luna.</p>
-        <p>Visit the <a href="https://github.com/luna-rs/luna" target="_blank" rel="noopener noreferrer">Luna project</a>
+        <p>Keep your account password private and use a password unique to this server.</p>
+        <p>Visit the <a data-project-link hidden href="#" target="_blank" rel="noopener noreferrer">project website</a>
             for project information, help and updates.</p>
     </dialog>
 </main>
@@ -112,7 +111,6 @@
         logMessage(event.reason?.stack || String(event.reason));
         status.textContent = 'Something went wrong. Open Manual for details.';
     });
-    window.LUNA_WEBSOCKET_URL = window.LUNA_WEBSOCKET_URL || location.origin.replace(/^http/, 'ws') + '/game';
     document.getElementById('start').addEventListener('click', () => {
         window.LunaBrowser.unlockAudio();
         document.getElementById('start').disabled = true;
@@ -135,13 +133,35 @@
                 }
                 window.LUNA_CLIENT_CONFIG = await response.json();
             }
-            for (const profile of ['development', 'beta']) {
-                const endpoint = window.LUNA_CLIENT_CONFIG[profile];
-                if (!endpoint || typeof endpoint.host !== 'string' || !Number.isInteger(endpoint.port)
-                    || endpoint.port < 1 || endpoint.port > 65535) {
-                    throw new Error('Invalid ' + profile + ' endpoint');
-                }
+            const configuration = window.LUNA_CLIENT_CONFIG;
+            if (!configuration || typeof configuration.clientName !== 'string' || !configuration.clientName.trim()
+                || typeof configuration.host !== 'string' || !configuration.host.trim()
+                || !Number.isInteger(configuration.port) || configuration.port < 1 || configuration.port > 65535
+                || typeof configuration.websocketUrl !== 'string' || typeof configuration.websiteUrl !== 'string') {
+                throw new Error('Invalid generated client configuration. Rebuild from client.properties.');
             }
+            const socketUrl = new URL(configuration.websocketUrl === 'same-origin'
+                ? location.origin.replace(/^http/, 'ws') + '/game' : configuration.websocketUrl);
+            const websiteUrl = new URL(configuration.websiteUrl);
+            if (!['ws:', 'wss:'].includes(socketUrl.protocol) || socketUrl.username || socketUrl.password || socketUrl.hash
+                || !['http:', 'https:'].includes(websiteUrl.protocol) || websiteUrl.username || websiteUrl.password) {
+                throw new Error('Invalid websocketUrl or websiteUrl in client.properties.');
+            }
+            if (location.protocol === 'https:' && socketUrl.protocol !== 'wss:') {
+                throw new Error('An HTTPS website requires a secure wss:// websocketUrl.');
+            }
+            document.title = configuration.clientName;
+            document.getElementById('title').textContent = configuration.clientName;
+            document.getElementById('game').setAttribute('aria-label', configuration.clientName + ' game client');
+            for (const link of document.querySelectorAll('[data-project-link]')) {
+                link.href = websiteUrl.href;
+                link.hidden = false;
+            }
+            const world = document.createElement('option');
+            world.value = 'active';
+            world.textContent = configuration.clientName;
+            document.getElementById('server').replaceChildren(world);
+            document.getElementById('server').disabled = true;
             document.getElementById('start').disabled = false;
             status.textContent = 'Ready';
         } catch (error) {

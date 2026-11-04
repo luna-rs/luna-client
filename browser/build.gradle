@@ -1,3 +1,8 @@
+import groovy.json.JsonOutput
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.HexFormat
+
 plugins {
     id 'java'
     id 'org.teavm' version '0.16.0'
@@ -17,6 +22,17 @@ def rawClient = providers.gradleProperty('rawClient').isPresent()
 def sharedSourceDirectory = file('../src')
 def browserSourceDirectory = file('src/main/java')
 def generatedSourceDirectory = layout.buildDirectory.dir('generated/shared')
+
+def browserPropertiesName = providers.gradleProperty('clientProperties').orElse('client.properties')
+def browserPropertiesFile = browserPropertiesName.map { String filename ->
+    if (!(filename ==~ /[A-Za-z0-9][A-Za-z0-9 ._()-]*\.properties/)) {
+        throw new GradleException('clientProperties must name a .properties file in the client root.')
+    }
+    def profile = file('../' + filename)
+    if (!profile.isFile()) throw new GradleException("Missing browser client properties file: ${filename}")
+    profile
+}
+def browserStaticAssets = layout.buildDirectory.dir('static-assets')
 
 def replaceBrowserMethod = { String source, String signature, String replacement ->
     int method = source.indexOf(signature)
@@ -202,6 +218,8 @@ tasks.named('copyWasmGCRuntime') {
 }
 
 tasks.register('prepareBrowserAssets', Sync) {
+    inputs.property('clientProperties', browserPropertiesName)
+    inputs.file(browserPropertiesFile).withPropertyName('browserPropertiesFile')
     from(zipTree(file('../data/bootstrap/cache.zip'))) {
         include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
                 'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4'
@@ -214,10 +232,52 @@ tasks.register('prepareBrowserAssets', Sync) {
     from('../data/title') {
         into 'assets/title'
     }
-    from('../client (2).properties') {
+    from(browserPropertiesFile) {
         rename { 'client.properties' }
     }
-    into layout.buildDirectory.dir('static-assets')
+    into browserStaticAssets
+    doLast {
+        byte[] profileBytes = browserStaticAssets.get().file('client.properties').asFile.bytes
+        String contents = new String(profileBytes, StandardCharsets.UTF_8)
+        if (contents.startsWith('\uFEFF')) contents = contents.substring(1)
+        Properties profile = new Properties()
+        profile.load(new StringReader(contents))
+        def value = { String key, String fallback = null ->
+            String configured = profile.getProperty(key)
+            if (configured == null) configured = fallback
+            if (configured == null || configured.isBlank()) {
+                throw new GradleException("Browser client setting '${key}' is required in ${browserPropertiesName.get()}.")
+            }
+            configured.trim()
+        }
+        def integer = { String key, int minimum, int maximum, String fallback = null ->
+            String configured = value(key, fallback)
+            try {
+                int parsed = Integer.parseInt(configured)
+                if (parsed >= minimum && parsed <= maximum) return parsed
+            } catch (NumberFormatException ignored) {
+                // Report the setting name without echoing arbitrary properties contents.
+            }
+            throw new GradleException("Browser client setting '${key}' must be between ${minimum} and ${maximum}.")
+        }
+        int gamePort = integer('connectPort', 1, 65535) + integer('portOffset', 0, 65534)
+        if (gamePort > 65535) throw new GradleException('Browser client portOffset must keep the effective port at or below 65535.')
+        int webPort = integer('webPort', 1, 65535, '8090')
+        def descriptor = [
+                clientName: value('clientName'),
+                host: value('connectHost'),
+                port: gamePort,
+                websocketUrl: value('websocketUrl'),
+                websiteUrl: value('websiteUrl'),
+                webBindAddress: value('webBindAddress', '127.0.0.1'),
+                webPort: webPort,
+                webOrigin: value('webOrigin', "http://127.0.0.1:${webPort}"),
+                websocketProxyPort: integer('websocketProxyPort', 1, 65535, '8810'),
+                propertiesSha256: HexFormat.of().formatHex(MessageDigest.getInstance('SHA-256').digest(profileBytes))
+        ]
+        browserStaticAssets.get().file('client-config.json').asFile.setText(
+                JsonOutput.prettyPrint(JsonOutput.toJson(descriptor)) + '\n', 'UTF-8')
+    }
 }
 
 tasks.register('browserSite', Sync) {
