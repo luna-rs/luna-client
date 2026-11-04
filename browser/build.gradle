@@ -1,0 +1,332 @@
+import groovy.json.JsonOutput
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.HexFormat
+
+plugins {
+    id 'java'
+    id 'org.teavm' version '0.16.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+def rawClient = providers.gradleProperty('rawClient').isPresent()
+def sharedSourceDirectory = file('../src')
+def browserSourceDirectory = file('src/main/java')
+def generatedSourceDirectory = layout.buildDirectory.dir('generated/shared')
+
+def browserPropertiesName = providers.gradleProperty('clientProperties').orElse('client.properties')
+def browserPropertiesFile = browserPropertiesName.map { String filename ->
+    if (!(filename ==~ /[A-Za-z0-9][A-Za-z0-9 ._()-]*\.properties/)) {
+        throw new GradleException('clientProperties must name a .properties file in the client root.')
+    }
+    def profile = file('../' + filename)
+    if (!profile.isFile()) throw new GradleException("Missing browser client properties file: ${filename}")
+    profile
+}
+def browserStaticAssets = layout.buildDirectory.dir('static-assets')
+
+def replaceBrowserMethod = { String source, String signature, String replacement ->
+    int method = source.indexOf(signature)
+    if (method < 0 || source.indexOf(signature, method + signature.length()) >= 0) {
+        throw new GradleException("The shared configuration method changed: ${signature}")
+    }
+    int start = source.indexOf('{', method + signature.length())
+    int depth = 1
+    int end = start + 1
+    char quote = (char) 0
+    boolean escaped = false, lineComment = false, blockComment = false
+    while (end < source.length() && depth > 0) {
+        char value = source.charAt(end)
+        char next = end + 1 < source.length() ? source.charAt(end + 1) : (char) 0
+        if (lineComment) {
+            if (value == ('\n' as char)) lineComment = false
+        } else if (blockComment) {
+            if (value == ('*' as char) && next == ('/' as char)) { blockComment = false; end++ }
+        } else if (quote != (char) 0) {
+            if (escaped) escaped = false
+            else if (value == ('\\' as char)) escaped = true
+            else if (value == quote) quote = (char) 0
+        } else if (value == ('/' as char) && next == ('/' as char)) {
+            lineComment = true
+            end++
+        } else if (value == ('/' as char) && next == ('*' as char)) {
+            blockComment = true
+            end++
+        } else if (value == ('"' as char) || value == ('\'' as char)) quote = value
+        else if (value == ('{' as char)) depth++
+        else if (value == ('}' as char)) depth--
+        end++
+    }
+    if (depth != 0) throw new GradleException("The shared configuration method is incomplete: ${signature}")
+    source.substring(0, start + 1) + '\n' + replacement.stripIndent() + '    }' + source.substring(end)
+}
+
+tasks.register('generateSharedSources', Sync) {
+    doFirst {
+        if (new File(browserSourceDirectory, 'client.java').exists()) {
+            throw new GradleException('The game client must come from shared src/client.java, never a browser copy.')
+        }
+    }
+    from(sharedSourceDirectory) {
+        include '**/*.java'
+        eachFile { details ->
+            if (new File(browserSourceDirectory, details.path).isFile()) {
+                details.exclude()
+            }
+        }
+        filter { String line ->
+            def generatedLine = line.replace('java.awt.', 'luna.browser.awt.')
+                    .replace('java.applet.', 'luna.browser.applet.')
+                    .replace('javax.swing.', 'luna.browser.swing.')
+                    .replace('java.net.Socket', 'luna.browser.net.Socket')
+                    .replace('java.net.InetAddress', 'luna.browser.net.InetAddress')
+                    .replace('java.io.RandomAccessFile', 'luna.browser.io.RandomAccessFile')
+            if (generatedLine.contains('signlink.reporterror("loaderror ')) {
+                return 'exception.printStackTrace(); luna.browser.BrowserDiagnostics.report(exception); ' + generatedLine
+            }
+            generatedLine
+        }
+    }
+    into generatedSourceDirectory
+    inputs.dir(browserSourceDirectory)
+    doLast {
+        // Keep the release's properties parser and validation; adapt only browser persistence and startup I/O.
+        def configuration = generatedSourceDirectory.get().file('luna/ClientConfiguration.java').asFile
+        def source = configuration.getText('UTF-8')
+        def templateAssignment = 'this.template = contents.lines().toList();'
+        if (source.count(templateAssignment) != 1) {
+            throw new GradleException('The shared configuration template initialization changed.')
+        }
+        source = source.replace(templateAssignment, 'this.template = List.of();')
+        source = replaceBrowserMethod(source, 'public static synchronized ClientConfiguration get()', '''
+                if (current == null) {
+                    String contents = luna.browser.BrowserConfiguration.contents();
+                    try {
+                        Properties defaults = parse(contents);
+                        Path location = rootDirectory().resolve("client.properties");
+                        current = new ClientConfiguration(location, defaults, contents);
+                        String saved = luna.browser.BrowserConfiguration.savedPreferences();
+                        if (saved != null) {
+                            try {
+                                Properties preferences = parse(saved);
+                                if (!PREFERENCES.containsAll(preferences.stringPropertyNames()))
+                                    throw new IllegalArgumentException("Only browser client preferences may be restored.");
+                                Properties updated = new Properties();
+                                updated.putAll(defaults);
+                                updated.putAll(preferences);
+                                current = new ClientConfiguration(location, updated, contents);
+                            } catch (IOException | IllegalArgumentException invalidPreferences) {
+                                luna.browser.BrowserConfiguration.clearPreferences();
+                                System.err.println("Discarded invalid saved browser preferences.");
+                            }
+                        }
+                    } catch (IOException exception) {
+                        throw new IllegalArgumentException("Unable to read the bundled client.properties.", exception);
+                    }
+                }
+                return current;
+        ''')
+        source = replaceBrowserMethod(source, 'public static Path rootDirectory()', '''
+                return Path.of("/files");
+        ''')
+        source = replaceBrowserMethod(source,
+                'public synchronized void savePreferences(Map<String, String> preferences) throws IOException', '''
+                if (!PREFERENCES.containsAll(preferences.keySet()))
+                    throw new IllegalArgumentException("Only client preferences may be saved automatically.");
+                Properties updated = new Properties();
+                updated.putAll(values);
+                updated.putAll(preferences);
+                new ClientConfiguration(path, updated, "");
+                StringBuilder output = new StringBuilder();
+                for (String key : PREFERENCES)
+                    output.append(key).append('=').append(updated.getProperty(key).trim()).append('\\n');
+                luna.browser.BrowserConfiguration.savePreferences(output.toString());
+                values.putAll(preferences);
+        ''')
+        configuration.setText(source, 'UTF-8')
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDirs = rawClient ? [sharedSourceDirectory] : [generatedSourceDirectory, browserSourceDirectory]
+        resources.srcDirs = ['src/main/resources']
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+if (!rawClient) {
+    tasks.named('compileJava') {
+        dependsOn tasks.named('generateSharedSources')
+    }
+}
+
+dependencies {
+    implementation teavm.libs.jsoApis
+    implementation teavm.libs.interop
+}
+
+def browserDebug = providers.gradleProperty('browserDebug').isPresent()
+def javaScriptOutput = layout.buildDirectory.dir('generated-browser/js')
+def wasmOutput = layout.buildDirectory.dir('generated-browser/wasm')
+
+teavm.js {
+    mainClass = rawClient ? 'client' : 'BrowserClientMain'
+    targetFileName = 'client.js'
+    outputDir = javaScriptOutput
+    relativePathInOutputDir = ''
+    entryPointName = 'main'
+    sourceMap = browserDebug
+    debugInformation = browserDebug
+    strict = true
+    obfuscated = !browserDebug
+    outOfProcess = true
+    processMemory = 2048
+}
+
+teavm.wasmGC {
+    mainClass = 'BrowserClientMain'
+    targetFileName = 'client.wasm'
+    outputDir = wasmOutput
+    relativePathInOutputDir = ''
+    sourceMap = browserDebug
+    debugInformation = browserDebug
+    strict = true
+    obfuscated = !browserDebug
+    outOfProcess = true
+    processMemory = 2048
+    minDirectBuffersSize = 16
+    sharedBuffer = false
+}
+
+tasks.named('copyWasmGCRuntime') {
+    outputFile.set(layout.buildDirectory.file('generated-browser/wasm/client.wasm-runtime.js'))
+    deobfuscatorOutputFile.set(layout.buildDirectory.file('generated-browser/wasm/client.wasm-deobfuscator.wasm'))
+}
+
+tasks.register('prepareBrowserAssets', Sync) {
+    inputs.property('clientProperties', browserPropertiesName)
+    inputs.file(browserPropertiesFile).withPropertyName('browserPropertiesFile')
+    from(zipTree(file('../data/bootstrap/cache.zip'))) {
+        include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
+                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4'
+        into 'cache'
+    }
+    from('../data/bootstrap') {
+        include 'cache.sha256'
+        into 'cache'
+    }
+    from('../data/title') {
+        into 'assets/title'
+    }
+    from(browserPropertiesFile) {
+        rename { 'client.properties' }
+    }
+    into browserStaticAssets
+    doLast {
+        byte[] profileBytes = browserStaticAssets.get().file('client.properties').asFile.bytes
+        String contents = new String(profileBytes, StandardCharsets.UTF_8)
+        if (contents.startsWith('\uFEFF')) contents = contents.substring(1)
+        Properties profile = new Properties()
+        profile.load(new StringReader(contents))
+        def value = { String key, String fallback = null ->
+            String configured = profile.getProperty(key)
+            if (configured == null) configured = fallback
+            if (configured == null || configured.isBlank()) {
+                throw new GradleException("Browser client setting '${key}' is required in ${browserPropertiesName.get()}.")
+            }
+            configured.trim()
+        }
+        def integer = { String key, int minimum, int maximum, String fallback = null ->
+            String configured = value(key, fallback)
+            try {
+                int parsed = Integer.parseInt(configured)
+                if (parsed >= minimum && parsed <= maximum) return parsed
+            } catch (NumberFormatException ignored) {
+                // Report the setting name without echoing arbitrary properties contents.
+            }
+            throw new GradleException("Browser client setting '${key}' must be between ${minimum} and ${maximum}.")
+        }
+        int gamePort = integer('connectPort', 1, 65535) + integer('portOffset', 0, 65534)
+        if (gamePort > 65535) throw new GradleException('Browser client portOffset must keep the effective port at or below 65535.')
+        int webPort = integer('webPort', 1, 65535, '8090')
+        def descriptor = [
+                clientName: value('clientName'),
+                host: value('connectHost'),
+                port: gamePort,
+                websocketUrl: value('websocketUrl'),
+                websiteUrl: value('websiteUrl'),
+                webBindAddress: value('webBindAddress', '127.0.0.1'),
+                webPort: webPort,
+                webOrigin: value('webOrigin', "http://127.0.0.1:${webPort}"),
+                websocketProxyPort: integer('websocketProxyPort', 1, 65535, '8810'),
+                propertiesSha256: HexFormat.of().formatHex(MessageDigest.getInstance('SHA-256').digest(profileBytes))
+        ]
+        browserStaticAssets.get().file('client-config.json').asFile.setText(
+                JsonOutput.prettyPrint(JsonOutput.toJson(descriptor)) + '\n', 'UTF-8')
+    }
+}
+
+tasks.register('browserSite', Sync) {
+    group = 'build'
+    description = 'Builds the shared Java client for TeaVM and prepares its browser assets.'
+    dependsOn tasks.named('generateJavaScript'), tasks.named('generateWasmGC')
+    dependsOn tasks.named('copyWasmGCRuntime'), tasks.named('prepareBrowserAssets')
+    from(javaScriptOutput) {
+        into 'js'
+        if (!browserDebug) include 'client.js'
+    }
+    from(wasmOutput) {
+        into 'wasm'
+        if (!browserDebug) include 'client.wasm', 'client.wasm-runtime.js'
+    }
+    from(layout.buildDirectory.dir('static-assets'))
+    from('web')
+    into layout.buildDirectory.dir('site')
+}
+
+tasks.register('verifyBrowserGraphics', JavaExec) {
+    onlyIf { file('src/test/java/BrowserGraphicsParityTest.java').isFile() }
+    group = 'verification'
+    description = 'Compares browser framebuffer operations with Java2D rendering.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'BrowserGraphicsParityTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '512m'
+    jvmArgs '-Djava.awt.headless=true'
+}
+
+tasks.register('verifyBrowserCacheFile', JavaExec) {
+    onlyIf { file('src/test/java/BrowserCacheFileTest.java').isFile() }
+    group = 'verification'
+    description = 'Verifies writable browser cache files against the real shared cache format.'
+    dependsOn tasks.named('testClasses'), tasks.named('prepareBrowserAssets')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'BrowserCacheFileTest'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    maxHeapSize = '512m'
+    jvmArgs '-Djava.awt.headless=true'
+    args layout.buildDirectory.dir('static-assets/cache').get().asFile.absolutePath
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyBrowserGraphics'), tasks.named('verifyBrowserCacheFile')
+}

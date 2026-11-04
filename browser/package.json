@@ -1,0 +1,14 @@
+{
+  "name": "luna-teavm-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "gateway": "node gateway.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}

@@ -1,0 +1,20 @@
+# Replace play.example.com with the real public hostname before use.
+# This expects direct browser-to-Caddy traffic, without a CDN/proxy in front.
+# Luna must trust only 127.0.0.1 and use forwarded_ip_header: X-Real-IP.
+# The website is public; no password gate is configured.
+play.example.com {
+    encode zstd gzip
+
+    handle /game {
+        reverse_proxy 127.0.0.1:43595 {
+            # Replace a client-supplied value with Caddy's actual socket peer.
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    handle {
+        root * /var/www/luna-webclient/current
+        header Cache-Control "no-cache"
+        file_server
+    }
+}

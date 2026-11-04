@@ -2633,8 +2633,12 @@ public class client extends JagApplet {
                 return true;
             }
             if (opcode == 82) { // make interface (in)visible maybe?
-                boolean flag = buffer.getByte() == 1;
-                int interfaceId = buffer.getShort();
+                // Decode from one cursor snapshot before loading the interface.
+                int offset = buffer.position;
+                byte[] payload = buffer.buffer;
+                boolean flag = payload[offset] == 1;
+                int interfaceId = ((payload[offset + 1] & 0xff) << 8) | (payload[offset + 2] & 0xff);
+                buffer.position = offset + 3;
                 JagInterface.forId(interfaceId).aBoolean219 = flag;
                 opcode = -1;
                 return true;
@@ -4776,13 +4780,6 @@ public class client extends JagApplet {
         } catch (Exception _ex) {
         }
         if (abyte0 != null) {
-           /* aCRC32_1088.reset();
-            aCRC32_1088.update(abyte0);
-            int j1 = (int) aCRC32_1088.getValue();
-            if (j1 != j)
-                abyte0 = null;*/
-        }
-        if (abyte0 != null) {
             Archive class2 = new Archive(abyte0);
             return class2;
         }
@@ -6073,6 +6070,7 @@ public class client extends JagApplet {
     }
 
     public void drawGame() {
+        long interfaceStarted = ClientPerformance.begin(ClientPerformance.UI);
         // the login screen may have moved the origin to the centre of the window
         ((Graphics2D) super.graphics).setTransform(new AffineTransform());
         loginScreenCleared = false;
@@ -6102,6 +6100,7 @@ public class client extends JagApplet {
                 }
             }
             super.imageProducer.drawImage(0, 0, super.graphics);
+            ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
             return;
         }
         if (resizableUi != null) {
@@ -6141,7 +6140,9 @@ public class client extends JagApplet {
             }
         }
         if (loadingStage == 2) {
+            ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
             drawGameViewport();
+            interfaceStarted = ClientPerformance.begin(ClientPerformance.UI);
         }
         if (resizableUi != null) {
             drawResizableFrame();
@@ -6340,6 +6341,7 @@ public class client extends JagApplet {
             resizableUi.present((Graphics2D) super.graphics);
         }
         anInt951 = 0;
+        ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
     }
 
     /**
@@ -11943,6 +11945,7 @@ public class client extends JagApplet {
     }
 
     public void drawGameViewport() {
+        long preparationStarted = ClientPerformance.begin(ClientPerformance.SCENE_PREP);
         tickCounter1138++;
         addPlayersToSceneGraph(true);
         addNpcsToScenegraph(true);
@@ -12003,13 +12006,24 @@ public class client extends JagApplet {
         Model.mouseX = super.screenMouseX - layout.viewport.x;
         Model.mouseY = super.screenMouseY - layout.viewport.y;
         Drawable.clearScreen();
+        ClientPerformance.end(ClientPerformance.SCENE_PREP, preparationStarted);
+        long sceneStarted = ClientPerformance.begin(ClientPerformance.SCENE);
         renderWorldScene(k);
         sceneGraph.method255(anInt897);
+        ClientPerformance.end(ClientPerformance.SCENE, sceneStarted);
+        long overlayStarted = ClientPerformance.begin(ClientPerformance.OVERLAYS);
         method121(false);
         method127(true);
+        ClientPerformance.end(ClientPerformance.OVERLAYS, overlayStarted);
+        long textureStarted = ClientPerformance.begin(ClientPerformance.TEXTURES);
         animateTexture_65(l2);
+        ClientPerformance.end(ClientPerformance.TEXTURES, textureStarted);
+        overlayStarted = ClientPerformance.begin(ClientPerformance.OVERLAYS);
         draw3dScreen();
+        ClientPerformance.end(ClientPerformance.OVERLAYS, overlayStarted);
+        long copyStarted = ClientPerformance.begin(ClientPerformance.FRAMEBUFFER_COPY);
         gameViewportImage.drawImage(layout.viewport, super.graphics);
+        ClientPerformance.end(ClientPerformance.FRAMEBUFFER_COPY, copyStarted);
         anInt1216 = i1;
         anInt1217 = j1;
         anInt1218 = k1;

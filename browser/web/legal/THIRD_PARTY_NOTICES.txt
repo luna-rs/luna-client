@@ -1,0 +1,80 @@
+Luna web client: third-party components and asset provenance
+==========================================================
+
+These notices identify particular components and assets. They do not assign a
+single license to the Luna client, the game cache, or the website as a whole.
+
+TeaVM 0.16.0
+------------
+The JavaScript and WebAssembly builds use TeaVM and its runtime/class library.
+TeaVM is distributed under the Apache License, Version 2.0.
+
+The unmodified upstream license and notice accompany this file:
+  teavm-LICENSE.txt
+  teavm-NOTICE.txt
+
+Source:
+  https://github.com/konsoletyper/teavm/tree/0.16.0
+  https://raw.githubusercontent.com/konsoletyper/teavm/0.16.0/LICENSE
+  https://raw.githubusercontent.com/konsoletyper/teavm/0.16.0/NOTICE
+
+The TeaVM notice retains the upstream attributions to Alexey Andreev, the Apache
+Software Foundation, and Joda.org. These dependency notices do not license the
+inherited game client or game assets.
+
+ws 8.22.0: optional development tooling
+--------------------------------------
+The optional Node preview/legacy gateway uses the ws package under the MIT
+license. The complete package license is provided in ws-LICENSE.txt, including
+its original copyright notices. ws is not part of the static browser client and
+is not needed when the browser connects to Luna's native WebSocket listener.
+
+Source:
+  https://www.npmjs.com/package/ws/v/8.22.0
+  https://github.com/websockets/ws
+
+Florestan Basic GM GS soundbank
+------------------------------
+The inherited desktop asset data/soundbank.sf2 identifies itself in its embedded
+RIFF INFO metadata as "Florestan Basic GM GS" and records "Public Domain" in its
+ICOP field. Its embedded comment names these original project addresses:
+  http://go.to/florestan
+  http://nandoflorestan.cjb.net
+
+The asset entered Luna client history in commit:
+  bc622680122f8ab3d09aaf0ee8428b191055dca2
+
+This records the asset's own metadata and provenance. The browser build currently
+does not package the desktop SoundFont; its MIDI support is separate work.
+
+Archived RuneScape website artwork
+---------------------------------
+The classic website theme uses archived RuneScape website artwork, copyright
+Jagex Ltd. Its archive source is:
+  https://github.com/2003scape/rsc-www-archives/tree/41306290598973bc55798ef4ad290de8d0a384fe/2005
+
+Pinned archive revision:
+  41306290598973bc55798ef4ad290de8d0a384fe
+
+The archive provides provenance for those image files. No explicit redistribution
+license grant for the original Jagex artwork was found in the inspected archive
+material. Inclusion in an archive, this repository, or this notice is not a grant
+of permission and does not transfer ownership. RuneScape and related names and
+artwork belong to their respective owners.
+
+Inherited client and game cache
+-------------------------------
+This repository retains the Luna revision 377 client and bundled cache from its
+upstream project:
+  https://github.com/luna-rs/luna-client
+
+The imported source includes legacy decompiled client headers and game assets.
+The imported tree did not contain a project-wide LICENSE or NOTICE establishing
+a blanket redistribution license for that code and cache. Existing notices are
+retained. TeaVM's Apache license, ws's MIT license, and the SoundFont's metadata
+must not be interpreted as licensing these other materials.
+
+A private source repository does not make deployed assets private. Players receive
+the browser JavaScript/WebAssembly, website artwork, configuration, and cache
+files needed to run the client. Secrets and server private keys must remain
+outside all published browser assets.
