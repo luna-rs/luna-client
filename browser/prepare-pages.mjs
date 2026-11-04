@@ -7,9 +7,7 @@ import { fileURLToPath } from 'node:url';
 const stores = ['main_file_cache.dat', ...Array.from({ length: 5 }, (_, index) => `main_file_cache.idx${index}`)];
 const assets = ['index.html', 'cache.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
     'luna-web.css', 'luna-web.js',
-    ...['background.jpg', 'stoneback.gif', 'fm_topleft.gif', 'fm_top2.gif', 'fm_topright.gif',
-        'fm_left.gif', 'fm_right.gif', 'fm_bottomleft.gif', 'fm_bottom2.gif', 'fm_bottomright.gif',
-        'shinystonered.jpg', 'ssgreybright.png', 'ssredbright.jpg', 'navbar.gif']
+    ...['stoneback.gif', 'navbar.gif', 'navbar_mainmenu.gif', 'navbar_manual.gif', 'navbar_rules.gif']
         .map(name => `assets/theme/${name}`),
     ...['THIRD_PARTY_NOTICES.txt', 'teavm-LICENSE.txt', 'teavm-NOTICE.txt', 'ws-LICENSE.txt']
         .map(name => `legal/${name}`),

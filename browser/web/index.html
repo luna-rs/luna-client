@@ -3,114 +3,91 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Step into Luna, a familiar world of adventure. Play the Luna alpha directly in your browser.">
-    <meta name="theme-color" content="#171714">
+    <meta name="description" content="Play the Luna revision 377 client in your browser.">
+    <meta name="theme-color" content="#000000">
     <title>Luna · Play game</title>
     <link rel="stylesheet" href="luna-web.css">
 </head>
 <body>
 <a class="skip-link" href="#play">Skip to game</a>
-<div class="site-shell">
-    <header class="site-header">
-        <div class="identity">
-            <a class="wordmark" href="#play" aria-label="Luna home"><span>L</span><span>U</span><span>N</span><span>A</span></a>
-            <div class="identity-copy">
-                <h1 id="title">luna-rs #377</h1>
-                <p>A familiar world. A new adventure.</p>
-            </div>
-        </div>
-        <div class="welcome-note">
-            <span class="alpha-badge">ALPHA ADVENTURE</span>
-            <p>Welcome to Luna.</p>
-            <span>Your next adventure is just a click away.</span>
-        </div>
-    </header>
-    <nav class="main-navigation" aria-label="Main navigation">
-        <a class="current" href="#play" aria-current="page">Play game</a>
-        <a href="#help" data-open="help">How to play</a>
-        <a href="#settings" data-open="settings">Settings</a>
-        <a href="https://github.com/luna-rs/luna/releases" target="_blank" rel="noopener noreferrer">Updates</a>
-        <a href="https://github.com/luna-rs" target="_blank" rel="noopener noreferrer">Community</a>
-    </nav>
-    <main id="play">
-        <section class="stone-panel game-panel" aria-labelledby="play-title">
-            <div class="panel-heading">
-                <h2 id="play-title">Your adventure awaits</h2>
-                <p>The world of Luna, right here in your browser.</p>
-            </div>
-            <div class="launch-controls">
-                <button id="start" class="stone-button play-button" type="button" disabled>Play now</button>
-                <div class="client-status">
-                    <span class="small-label">CLIENT STATUS</span>
-                    <span id="status" role="status" aria-live="polite">Preparing your adventure…</span>
-                </div>
-                <a class="help-link" href="#help" data-open="help">Need a hand?</a>
-            </div>
-            <div class="game-stage" id="game-stage">
+<main id="play">
+    <h1 id="title" class="visually-hidden">luna-rs #377</h1>
+    <div class="client-shell">
+        <nav class="main-navigation" aria-label="Game navigation">
+            <a href="https://github.com/luna-rs/luna" target="_blank" rel="noopener noreferrer"><img src="assets/theme/navbar_mainmenu.gif" width="26" height="25" alt="">Main Menu</a>
+            <a href="#settings" data-dialog="settings"><img src="assets/theme/navbar_mainmenu.gif" width="26" height="25" alt="">World Select</a>
+            <a href="#help" data-dialog="help"><img src="assets/theme/navbar_manual.gif" width="39" height="25" alt="">Manual</a>
+            <a href="#security" data-dialog="security"><img src="assets/theme/navbar_rules.gif" width="20" height="25" alt="">Rules &amp; Security</a>
+            <button id="fullscreen-game" type="button">Fullscreen</button>
+        </nav>
+        <div class="game-stage" id="game-stage">
+            <div class="game-surface">
                 <div id="game-container">
                     <canvas id="game" width="765" height="503" tabindex="0" aria-label="Luna game client"></canvas>
                 </div>
+                <div id="launch-screen" class="launch-screen">
+                    <button id="start" class="stone-button" type="button" disabled>Play</button>
+                    <p id="status" role="status" aria-live="polite">Preparing game…</p>
+                    <a href="#help" data-dialog="help">Help</a>
+                </div>
             </div>
-            <p class="game-hint">Click inside the game to play. Right-click for more options. Your journey begins at the login screen.</p>
-        </section>
-        <div class="support-grid">
-            <details id="help" class="stone-panel support-panel">
-                <summary>Help &amp; controls</summary>
-                <div class="panel-content">
-                    <p>Press <strong>Play now</strong>, then log in inside the game. Your first visit may take a little longer while the game files download.</p>
-                    <dl class="controls-list">
-                        <dt>Left-click</dt><dd>Walk, select, or interact.</dd>
-                        <dt>Right-click</dt><dd>Open an object's or item's options.</dd>
-                        <dt>Arrow keys</dt><dd>Turn the camera.</dd>
-                        <dt>Enter</dt><dd>Start chatting.</dd>
-                    </dl>
-                    <p>If the game stops receiving keys, click inside it again. Music becomes available after you press Play.</p>
-                    <button id="focus-game" class="stone-button" type="button">Return to game</button>
-                    <details id="diagnostics" class="diagnostics">
-                        <summary>Diagnostics</summary>
-                        <!-- LUNA_BUILD_LABEL -->
-                        <p id="viewport-size">Fixed · 765 × 503 · native pixels</p>
-                        <p id="runtime-stats" aria-label="Client performance">Client not started.</p>
-                        <div id="performance-controls" class="diagnostic-controls">
-                            <label>Capture name <input id="performance-label" value="fixed-scene" maxlength="80"></label>
-                            <div class="diagnostic-buttons">
-                                <button class="stone-button" type="button" data-benchmark="start">Capture 30 seconds</button>
-                                <button class="stone-button" type="button" data-benchmark="stop">Stop capture</button>
-                                <button class="stone-button" type="button" data-benchmark="export">Export results</button>
-                            </div>
-                            <span id="performance-status" role="status">Capture controls become available after starting the game.</span>
-                        </div>
-                        <div id="diagnostics-tools"></div>
-                        <details class="startup-log">
-                            <summary>Startup log</summary>
-                            <pre id="log"></pre>
-                        </details>
-                    </details>
-                </div>
-            </details>
-            <details id="settings" class="stone-panel support-panel">
-                <summary>Game settings</summary>
-                <div class="panel-content">
-                    <label class="server-label" for="server">World</label>
-                    <select id="server" aria-label="Server">
-                        <option value="development">Development</option>
-                        <option value="beta">Beta</option>
-                    </select>
-                    <p>The game keeps its original, sharp pixel size. Display scaling and browser zoom are handled automatically.</p>
-                    <button id="fullscreen-game" class="stone-button" type="button">Fullscreen game</button>
-                    <p class="muted">Fullscreen gives the game a quiet backdrop; it keeps the same crisp view. Press Esc to return.</p>
-                    <p>Change music and sound inside the game's settings tab.</p>
-                </div>
-            </details>
         </div>
-    </main>
-    <footer class="site-footer">
-        <p><strong>Luna</strong> · A community adventure in revision 377.</p>
-        <p>Original RuneScape website artwork © Jagex Ltd. Archived by
-            <a href="https://github.com/2003scape/rsc-www-archives/tree/41306290598973bc55798ef4ad290de8d0a384fe/2005" target="_blank" rel="noopener noreferrer">2003scape</a>.</p>
-        <p><a href="legal/THIRD_PARTY_NOTICES.txt">Third-party notices</a></p>
-    </footer>
-</div>
+    </div>
+    <dialog id="help" aria-labelledby="manual-title">
+        <form method="dialog" class="dialog-close"><button type="submit" aria-label="Close manual">Close</button></form>
+        <h2 id="manual-title">Manual</h2>
+        <p>Press <strong>Play</strong>, then log in inside the game. Your first visit may take a little longer while the game files download.</p>
+        <dl class="controls-list">
+            <dt>Left-click</dt><dd>Walk, select, or interact.</dd>
+            <dt>Right-click</dt><dd>Open an object's or item's options.</dd>
+            <dt>Arrow keys</dt><dd>Turn the camera.</dd>
+            <dt>Enter</dt><dd>Start chatting.</dd>
+        </dl>
+        <p>If the game stops receiving keys, click inside it again. Music becomes available after you press Play.</p>
+        <button id="focus-game" class="stone-button" type="button">Return to game</button>
+        <details id="diagnostics" class="diagnostics">
+            <summary>Diagnostics</summary>
+            <!-- LUNA_BUILD_LABEL -->
+            <p id="viewport-size">Fixed · 765 × 503 · native pixels</p>
+            <p id="runtime-stats" aria-label="Client performance">Client not started.</p>
+            <div id="performance-controls" class="diagnostic-controls">
+                <label>Capture name <input id="performance-label" value="fixed-scene" maxlength="80"></label>
+                <div class="diagnostic-buttons">
+                    <button class="stone-button" type="button" data-benchmark="start">Capture 30 seconds</button>
+                    <button class="stone-button" type="button" data-benchmark="stop">Stop capture</button>
+                    <button class="stone-button" type="button" data-benchmark="export">Export results</button>
+                </div>
+                <span id="performance-status" role="status">Capture controls become available after starting the game.</span>
+            </div>
+            <div id="diagnostics-tools"></div>
+            <details class="startup-log">
+                <summary>Startup log</summary>
+                <pre id="log"></pre>
+            </details>
+        </details>
+        <p class="credits">Original RuneScape website artwork © Jagex Ltd. Archived by
+            <a href="https://github.com/2003scape/rsc-www-archives/tree/41306290598973bc55798ef4ad290de8d0a384fe/2005" target="_blank" rel="noopener noreferrer">2003scape</a>.
+            <a href="legal/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener noreferrer">Third-party notices</a>.</p>
+    </dialog>
+    <dialog id="settings" aria-labelledby="world-title">
+        <form method="dialog" class="dialog-close"><button type="submit" aria-label="Close world selection">Close</button></form>
+        <h2 id="world-title">World Select</h2>
+        <label class="server-label" for="server">World</label>
+        <select id="server" aria-label="Server">
+            <option value="development">Development</option>
+            <option value="beta">Beta</option>
+        </select>
+        <p>The browser client uses the configured Luna world. Log out before changing worlds.</p>
+        <p>Change music and sound inside the game's settings tab.</p>
+    </dialog>
+    <dialog id="security" aria-labelledby="security-title">
+        <form method="dialog" class="dialog-close"><button type="submit" aria-label="Close rules and security">Close</button></form>
+        <h2 id="security-title">Rules &amp; Security</h2>
+        <p>Keep your account password private and use a password unique to Luna.</p>
+        <p>Visit the <a href="https://github.com/luna-rs/luna" target="_blank" rel="noopener noreferrer">Luna project</a>
+            for project information, help and updates.</p>
+    </dialog>
+</main>
 <script>
     const log = document.getElementById('log');
     const messages = [];
@@ -129,11 +106,11 @@
     }
     window.addEventListener('error', event => {
         logMessage(event.error?.stack || event.message);
-        status.textContent = 'Something went wrong. Open Help for details.';
+        status.textContent = 'Something went wrong. Open Manual for details.';
     });
     window.addEventListener('unhandledrejection', event => {
         logMessage(event.reason?.stack || String(event.reason));
-        status.textContent = 'Something went wrong. Open Help for details.';
+        status.textContent = 'Something went wrong. Open Manual for details.';
     });
     window.LUNA_WEBSOCKET_URL = window.LUNA_WEBSOCKET_URL || location.origin.replace(/^http/, 'ws') + '/game';
     document.getElementById('start').addEventListener('click', () => {
@@ -141,10 +118,12 @@
         document.getElementById('start').disabled = true;
         document.getElementById('server').disabled = true;
         status.textContent = 'Connecting…';
+        document.getElementById('launch-screen').hidden = true;
         document.getElementById('game').focus();
         try { main([]); } catch (error) {
+            document.getElementById('launch-screen').hidden = false;
             logMessage(error.stack || String(error));
-            status.textContent = 'Unable to start the game. Open Help for details.';
+            status.textContent = 'Unable to start the game. Open Manual for details.';
         }
     });
     async function codeLoaded() {
@@ -166,7 +145,7 @@
             document.getElementById('start').disabled = false;
             status.textContent = 'Ready';
         } catch (error) {
-            status.textContent = 'Unable to prepare the game. Open Help for details.';
+            status.textContent = 'Unable to prepare the game. Open Manual for details.';
             logMessage(error.stack || String(error));
         }
     }

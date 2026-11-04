@@ -1,25 +1,40 @@
-/* Website controls stay separate from shared game input, rendering, and connection configuration. */
+/* Keep the historical game-page surround separate from client rendering and input. */
 (() => {
     'use strict';
     const game = document.getElementById('game');
     const stage = document.getElementById('game-stage');
+    const launch = document.getElementById('launch-screen');
+    const statusLabel = document.getElementById('status');
     const help = document.getElementById('help');
     const diagnostics = document.getElementById('diagnostics');
-    const statusLabel = document.getElementById('status');
+    let started = false;
 
-    function revealSection(id) {
-        if (id === 'help' || id === 'diagnostics') help.open = true;
-        if (id === 'diagnostics') diagnostics.open = true;
-        if (id === 'settings') document.getElementById('settings').open = true;
+    function openDialog(id) {
+        if (id === 'diagnostics') {
+            diagnostics.open = true;
+            id = 'help';
+        }
+        if (!['help', 'settings', 'security'].includes(id)) return;
+        const dialog = document.getElementById(id);
+        if (!dialog.open) dialog.showModal();
     }
-    document.querySelectorAll('[data-open]').forEach(link => {
-        link.addEventListener('click', () => revealSection(link.dataset.open));
+    document.querySelectorAll('[data-dialog]').forEach(link => {
+        link.addEventListener('click', event => {
+            event.preventDefault();
+            openDialog(link.dataset.dialog);
+        });
     });
-    window.addEventListener('hashchange', () => revealSection(location.hash.slice(1)));
-    revealSection(location.hash.slice(1));
+    window.addEventListener('hashchange', () => openDialog(location.hash.slice(1)));
+    openDialog(location.hash.slice(1));
+    document.querySelectorAll('dialog').forEach(dialog => {
+        dialog.addEventListener('close', () => {
+            if (started) game.focus({preventScroll: true});
+        });
+    });
+    document.getElementById('start').addEventListener('click', () => { started = true; });
     document.getElementById('focus-game').addEventListener('click', () => {
-        game.scrollIntoView({block: 'nearest'});
-        game.focus({preventScroll: true});
+        help.close();
+        (started ? game : document.getElementById('start')).focus({preventScroll: true});
     });
 
     const fullscreen = document.getElementById('fullscreen-game');
@@ -36,47 +51,49 @@
         }
     });
     document.addEventListener('fullscreenchange', () => {
-        fullscreen.textContent = document.fullscreenElement ? 'Leave fullscreen' : 'Fullscreen game';
+        fullscreen.textContent = document.fullscreenElement ? 'Leave fullscreen' : 'Fullscreen';
     });
 
-    // Pre-existing controls keep optional performance tools inside collapsed diagnostics instead of above the game.
     document.querySelectorAll('[data-benchmark]').forEach(button => {
         button.addEventListener('click', () => {
             const performance = window.LunaPerformance;
-            if (!performance) {
-                document.getElementById('performance-status').textContent = 'Start the game before recording a capture.';
-                return;
+            if (!performance) return;
+            if (button.dataset.benchmark === 'start') {
+                help.close();
+                performance.start(30, document.getElementById('performance-label').value);
             }
-            if (button.dataset.benchmark === 'start') performance.start(30, document.getElementById('performance-label').value);
             if (button.dataset.benchmark === 'stop') performance.stop();
             if (button.dataset.benchmark === 'export') performance.exportJSON();
         });
     });
 
-    // Keep runtime detail in the log while presenting short status messages around the game.
     const friendlyStatuses = new Map([
-        ['Client running', 'Ready — log in below'],
-        ['Client code could not load; see startup log', 'Unable to prepare the game. Open Help for details.'],
-        ['Client could not start; see startup log', 'Unable to start the game. Open Help for details.']
+        ['Client running', 'Ready'],
+        ['Client code could not load; see startup log', 'Unable to prepare the game. Open Manual for details.'],
+        ['Client could not load; see startup log', 'Unable to load the game. Open Manual for details.'],
+        ['Client could not start; see startup log', 'Unable to start the game. Open Manual for details.']
     ]);
     function updateStatus() {
         const original = statusLabel.textContent;
         const friendly = friendlyStatuses.get(original)
-            || (/(?:Exception|Error):/.test(original) ? 'Unable to start the game. Open Help for details.' : null);
+            || (/(?:Exception|Error):/.test(original) ? 'Unable to start the game. Open Manual for details.' : null);
         if (friendly) statusLabel.textContent = friendly;
         if (original === 'Client running') {
+            started = true;
+            launch.hidden = true;
             document.getElementById('performance-status').textContent = 'Ready to capture.';
+        } else if (/unable|could not|wrong|error|exception/i.test(statusLabel.textContent)) {
+            launch.hidden = false;
         }
-        const text = statusLabel.textContent;
-        statusLabel.dataset.state = /unable|wrong|error|exception/i.test(text) ? 'problem'
-            : /^ready/i.test(text) ? 'ready' : 'busy';
     }
     new MutationObserver(updateStatus).observe(statusLabel, {childList: true, characterData: true, subtree: true});
     updateStatus();
 
-    // CPU profiling is opt-in via ?profile; its asynchronously added panel belongs in Help too.
     const main = document.querySelector('main');
     const tools = document.getElementById('diagnostics-tools');
+    tools.addEventListener('click', event => {
+        if (event.target.closest('button')) help.close();
+    }, true);
     new MutationObserver(() => {
         const profiling = document.getElementById('cpu-profiling');
         if (profiling && profiling.parentElement !== tools) tools.append(profiling);
