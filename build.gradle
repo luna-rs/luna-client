@@ -22,7 +22,7 @@ application {
     applicationName = 'luna-dev'
 }
 
-def clientProperties = ['client.properties', 'client (2).properties']
+def clientProperties = ['client.properties', 'beta.properties']
 
 distributions {
     main {
@@ -94,7 +94,7 @@ tasks.register('betaJar', Jar) {
     description = 'Builds the same executable with the second root settings file bundled as client.properties.'
     dependsOn tasks.named('classes'), tasks.named('validateClientProperties')
     from sourceSets.main.output
-    from('client (2).properties') {
+    from('beta.properties') {
         rename { 'client.properties' }
     }
     destinationDirectory = layout.buildDirectory.dir('libs')
@@ -172,7 +172,7 @@ tasks.register('verifyBetaJar') {
     dependsOn tasks.named('jar'), tasks.named('betaJar')
     def artifacts = [
             [archive: tasks.named('jar').flatMap { it.archiveFile }, settings: 'client.properties'],
-            [archive: tasks.named('betaJar').flatMap { it.archiveFile }, settings: 'client (2).properties']
+            [archive: tasks.named('betaJar').flatMap { it.archiveFile }, settings: 'beta.properties']
     ]
     inputs.files(artifacts.collect { it.archive })
     doLast {
@@ -196,7 +196,7 @@ tasks.register('verifyBetaJar') {
                 jar.entries().each { entry ->
                     if (entry.name == 'luna/Constants.class' || entry.name == 'luna/RsaParser.class'
                             || entry.name == 'BetaClientLauncher.class' || entry.name.endsWith('.toml')
-                            || entry.name == 'client (2).properties') {
+                            || entry.name == 'beta.properties') {
                         throw new GradleException("Obsolete client resource must not be packaged: ${entry.name}")
                     }
                     if (entry.name.startsWith('cache/') || entry.name.startsWith('luna/cache/')) {

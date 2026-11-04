@@ -32,10 +32,9 @@
             if (started) game.focus({preventScroll: true});
         });
     });
-    document.getElementById('start').addEventListener('click', () => { started = true; });
     document.getElementById('focus-game').addEventListener('click', () => {
         help.close();
-        (started ? game : document.getElementById('start')).focus({preventScroll: true});
+        game.focus({preventScroll: true});
     });
 
     const fullscreen = document.getElementById('fullscreen-game');
@@ -83,11 +82,10 @@
             started = true;
             launch.hidden = true;
             reload.hidden = true;
-            game.focus({preventScroll: true});
+            if (!document.querySelector('dialog[open]')) game.focus({preventScroll: true});
             document.getElementById('performance-status').textContent = 'Ready to capture.';
         } else if (/unable|could not|wrong|error|exception/i.test(statusLabel.textContent)) {
             launch.hidden = false;
-            document.getElementById('start').hidden = true;
             reload.hidden = false;
         }
     }

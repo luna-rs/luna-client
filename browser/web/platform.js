@@ -29,6 +29,7 @@
     let displayViewportHeight;
     let displayRequest = 0;
     let displayRatioQuery;
+    let audioResume;
 
     /**
      * Keeps one game pixel equal to one physical display pixel without changing the Java framebuffer.
@@ -208,8 +209,10 @@
             if (!AudioContext) return;
             try {
                 if (!window._lunaAudio) window._lunaAudio = new AudioContext();
-                if (window._lunaAudio.state === 'suspended') {
-                    window._lunaAudio.resume().catch(error => console.warn('Audio: ' + error.message));
+                if (window._lunaAudio.state === 'suspended' && !audioResume) {
+                    audioResume = window._lunaAudio.resume()
+                        .catch(error => console.warn('Audio: ' + error.message))
+                        .finally(() => { audioResume = undefined; });
                 }
             } catch (error) {
                 console.warn('Audio: ' + error.message);
@@ -268,6 +271,12 @@
             presentationRequest = requestAnimationFrame(presentFrame);
         }
     };
+    function unlockAudioFromGesture(event) {
+        if (event.isTrusted) window.LunaBrowser.unlockAudio();
+    }
+    document.addEventListener('pointerdown', unlockAudioFromGesture, {capture: true, passive: true});
+    document.addEventListener('touchstart', unlockAudioFromGesture, {capture: true, passive: true});
+    document.addEventListener('keydown', unlockAudioFromGesture, {capture: true});
     window.addEventListener('resize', requestDisplayLayout);
     layoutDisplay();
 })();

@@ -45,9 +45,8 @@ public final class WavePlayer implements AutoCloseable {
 
     @JSBody(params = "data", script = """
             try {
-                var Audio = window.AudioContext || window.webkitAudioContext;
-                if (!Audio) return;
-                var a = window._lunaAudio || (window._lunaAudio = new Audio());
+                var a = window._lunaAudio;
+                if (!a || a.state !== 'running') return;
                 if (!window._lunaGain) {
                     window._lunaGain = a.createGain();
                     window._lunaGain.gain.value=typeof window._lunaVolume === 'number' ? window._lunaVolume : 1;
@@ -55,7 +54,6 @@ public final class WavePlayer implements AutoCloseable {
                 }
                 if (!window._lunaSounds) window._lunaSounds = new Set();
                 var generation = window._lunaSoundGeneration || 0;
-                if (a.state === 'suspended') a.resume().catch(function() {});
                 a.decodeAudioData(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
                     .then(function(buffer) {
                     if ((window._lunaSoundGeneration || 0) !== generation) return;
