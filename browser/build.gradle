@@ -220,13 +220,9 @@ tasks.named('copyWasmGCRuntime') {
 tasks.register('prepareBrowserAssets', Sync) {
     inputs.property('clientProperties', browserPropertiesName)
     inputs.file(browserPropertiesFile).withPropertyName('browserPropertiesFile')
-    from(zipTree(file('../data/bootstrap/cache.zip'))) {
+    from(rootProject.tasks.named('prepareReleaseCache').flatMap { it.outputDirectory }) {
         include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
-                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4'
-        into 'cache'
-    }
-    from('../data/bootstrap') {
-        include 'cache.sha256'
+                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4', 'cache.sha256'
         into 'cache'
     }
     from('../data/title') {

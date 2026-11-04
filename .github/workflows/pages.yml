@@ -37,6 +37,7 @@ jobs:
       - name: Build the shared Java browser client
         env:
           CLIENT_PROPERTIES: ${{ vars.CLIENT_PROPERTIES || 'client.properties' }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash ./gradlew --no-daemon --max-workers=2 :browser:browserSite -PclientProperties="$CLIENT_PROPERTIES"
 
       - name: Prepare the selected client website

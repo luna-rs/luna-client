@@ -3,6 +3,7 @@ import java.util.zip.ZipInputStream
 import java.security.MessageDigest
 import java.util.HexFormat
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
+import io.luna.build.PrepareReleaseCache
 
 plugins {
     id 'application'
@@ -23,6 +24,27 @@ application {
 }
 
 def clientProperties = ['client.properties', 'beta.properties']
+
+def cacheProfile = providers.gradleProperty('clientProperties').orElse('client.properties').map { String name ->
+    if (!(name ==~ /[A-Za-z0-9][A-Za-z0-9 ._()-]*\.properties/)) {
+        throw new GradleException('clientProperties must name a .properties file in the client root.')
+    }
+    def profile = new Properties()
+    String contents = file(name).getText('UTF-8')
+    if (contents.startsWith('\uFEFF')) contents = contents.substring(1)
+    profile.load(new StringReader(contents))
+    profile
+}
+
+def preparedCache = tasks.register('prepareReleaseCache', PrepareReleaseCache) {
+    group = 'build setup'
+    description = 'Downloads and verifies the released cache, then prepares shared browser and desktop assets.'
+    repository.set(cacheProfile.map { it.getProperty('cacheReleaseRepository', 'luna-rs/luna-client') })
+    releaseTag.set(cacheProfile.map { it.getProperty('cacheReleaseTag', 'latest') })
+    assetName.set(cacheProfile.map { it.getProperty('cacheReleaseAsset', 'cache.zip') })
+    localCacheZip.set(layout.file(providers.gradleProperty('cacheZip').map { file(it) }))
+    outputDirectory.set(layout.projectDirectory.dir('data/bootstrap'))
+}
 
 distributions {
     main {
@@ -56,7 +78,7 @@ tasks.named('processResources') {
         include 'soundbank.sf2', 'title/**'
         into 'data'
     }
-    from('data/bootstrap') {
+    from(preparedCache.flatMap { it.outputDirectory }) {
         include 'cache.zip', 'cache.sha256'
         into 'bootstrap'
     }
