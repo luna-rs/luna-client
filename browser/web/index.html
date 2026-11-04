@@ -27,6 +27,7 @@
                 </div>
                 <div id="launch-screen" class="launch-screen">
                     <button id="start" class="stone-button" type="button" disabled>Play</button>
+                    <button id="reload-client" class="stone-button" type="button" hidden>Reload client</button>
                     <p id="status" role="status" aria-live="polite">Preparing game…</p>
                     <a href="#help" data-dialog="help">Help</a>
                 </div>
@@ -91,10 +92,17 @@
     const log = document.getElementById('log');
     const messages = [];
     const status = document.getElementById('status');
+    let launching = false;
+    let cacheStoresLoading = 0;
     function logMessage(message) {
         messages.push(message);
         if (messages.length > 250) messages.shift();
         log.textContent = messages.join('\n') + '\n';
+        if (launching && message.startsWith('Loading browser cache: ')) {
+            status.textContent = 'Loading game files (' + (++cacheStoresLoading) + '/6)…';
+        } else if (launching && message.startsWith('Shared cache decoder ready: ')) {
+            status.textContent = 'Preparing login screen…';
+        }
     }
     for (const name of ['log', 'info', 'warn', 'error']) {
         const original = console[name].bind(console);
@@ -112,22 +120,32 @@
         status.textContent = 'Something went wrong. Open Manual for details.';
     });
     document.getElementById('start').addEventListener('click', () => {
-        window.LunaBrowser.unlockAudio();
-        document.getElementById('start').disabled = true;
-        document.getElementById('server').disabled = true;
-        status.textContent = 'Connecting…';
-        document.getElementById('launch-screen').hidden = true;
-        document.getElementById('game').focus();
-        try { main([]); } catch (error) {
+        try {
+            launching = true;
+            cacheStoresLoading = 0;
+            document.getElementById('start').disabled = true;
+            document.getElementById('start').hidden = true;
+            document.getElementById('server').disabled = true;
+            status.textContent = 'Loading game…';
+            window.LunaBrowser.unlockAudio();
+            main([]);
+        } catch (error) {
             document.getElementById('launch-screen').hidden = false;
             logMessage(error.stack || String(error));
             status.textContent = 'Unable to start the game. Open Manual for details.';
         }
     });
+    document.getElementById('reload-client').addEventListener('click', () => {
+        const freshPage = new URL(location.href);
+        freshPage.searchParams.set('clientReload', Date.now().toString(36));
+        location.replace(freshPage.href);
+    });
     async function codeLoaded() {
         try {
             if (!window.LUNA_CLIENT_CONFIG) {
-                const response = await fetch('client-config.json', {cache: 'no-store'});
+                const configurationUrl = typeof window.LunaAssetUrl === 'function'
+                    ? window.LunaAssetUrl('client-config.json') : 'client-config.json';
+                const response = await fetch(configurationUrl, {cache: 'no-store'});
                 if (!response.ok) {
                     throw new Error('Client endpoint configuration could not load (HTTP ' + response.status + ')');
                 }
@@ -177,7 +195,7 @@
 <script>
     if (new URLSearchParams(location.search).has('profile')) {
         const profiling = document.createElement('script');
-        profiling.src = 'profiling.js';
+        profiling.src = typeof window.LunaAssetUrl === 'function' ? window.LunaAssetUrl('profiling.js') : 'profiling.js';
         document.head.append(profiling);
     }
 </script>

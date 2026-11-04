@@ -51,7 +51,8 @@
                 }
             } catch (error) { console.warn('Browser cache storage unavailable: ' + error); }
         }
-        const response = await fetch(url, {cache: 'no-cache'});
+        const downloadUrl = typeof window.LunaAssetUrl === 'function' ? window.LunaAssetUrl(url) : url;
+        const response = await fetch(downloadUrl, {cache: 'no-cache'});
         if (!response.ok) throw new Error('Asset download failed: ' + url + ' (HTTP ' + response.status + ')');
         const buffer = await verify(await response.arrayBuffer());
         if (db) {

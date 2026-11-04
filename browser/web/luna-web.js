@@ -4,6 +4,7 @@
     const game = document.getElementById('game');
     const stage = document.getElementById('game-stage');
     const launch = document.getElementById('launch-screen');
+    const reload = document.getElementById('reload-client');
     const statusLabel = document.getElementById('status');
     const help = document.getElementById('help');
     const diagnostics = document.getElementById('diagnostics');
@@ -81,9 +82,13 @@
         if (original === 'Client running') {
             started = true;
             launch.hidden = true;
+            reload.hidden = true;
+            game.focus({preventScroll: true});
             document.getElementById('performance-status').textContent = 'Ready to capture.';
         } else if (/unable|could not|wrong|error|exception/i.test(statusLabel.textContent)) {
             launch.hidden = false;
+            document.getElementById('start').hidden = true;
+            reload.hidden = false;
         }
     }
     new MutationObserver(updateStatus).observe(statusLabel, {childList: true, characterData: true, subtree: true});

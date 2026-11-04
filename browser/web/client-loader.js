@@ -3,11 +3,12 @@
     'use strict';
     const requested = new URLSearchParams(location.search).get('backend') || 'auto';
     const status = document.getElementById('status');
+    const asset = source => typeof window.LunaAssetUrl === 'function' ? window.LunaAssetUrl(source) : source;
 
     function script(source) {
         return new Promise((resolve, reject) => {
             const element = document.createElement('script');
-            element.src = source;
+            element.src = asset(source);
             element.onload = resolve;
             element.onerror = () => reject(new Error('Client resource could not load: ' + source));
             document.head.append(element);
@@ -23,7 +24,7 @@
     async function webAssembly() {
         if (typeof WebAssembly !== 'object') throw new Error('WebAssembly is unavailable');
         await script('wasm/client.wasm-runtime.js');
-        const instance = await window.TeaVM.wasmGC.load('wasm/client.wasm');
+        const instance = await window.TeaVM.wasmGC.load(asset('wasm/client.wasm'));
         if (typeof instance.exports.main !== 'function') throw new Error('The client entry point is missing');
         window.main = args => instance.exports.main(args);
         window.LUNA_BROWSER_BACKEND = 'wasm';

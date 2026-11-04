@@ -54,6 +54,28 @@ function htmlText(value) {
         '"': '&quot;', "'": '&#39;'}[character]));
 }
 
+function configurationScript(browser, versions) {
+    return 'window.LUNA_CLIENT_CONFIG = ' + JSON.stringify(browser) + ';\n'
+        + 'window.LUNA_ASSET_VERSIONS = Object.freeze(' + JSON.stringify(versions) + ');\n'
+        + 'window.LunaAssetUrl = function (name) {\n'
+        + '    var base = new URL(".", document.baseURI);\n'
+        + '    var url = new URL(name, document.baseURI);\n'
+        + '    if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return name;\n'
+        + '    var resource = url.pathname.slice(base.pathname.length);\n'
+        + '    if (!Object.prototype.hasOwnProperty.call(window.LUNA_ASSET_VERSIONS, resource)) return name;\n'
+        + '    var version = window.LUNA_ASSET_VERSIONS[resource];\n'
+        + '    url.searchParams.set("v", version);\n'
+        + '    return url.href;\n'
+        + '};\n';
+}
+
+function versionHtmlAssets(html, versions) {
+    return html.replace(/\b(src|href)=("|')([^"']+)\2/g, (attribute, name, quote, resource) => {
+        return Object.hasOwn(versions, resource)
+            ? name + '=' + quote + resource + '?v=' + versions[resource] + quote : attribute;
+    });
+}
+
 /**
  * Copies a verified browser build and its selected properties profile into a separate website directory.
  *
@@ -109,12 +131,15 @@ export async function preparePages({ siteDirectory, outputDirectory, config }) {
             || originalHtml.split('<!-- LUNA_BUILD_LABEL -->').length !== 2) {
         throw new Error('Built page must contain one server selector, build label and its startup script');
     }
-    const html = originalHtml.replace(serverSelector,
+    const versions = Object.fromEntries([...files].filter(([name]) => name !== 'index.html')
+        .map(([name, bytes]) => [name, hash(bytes)]));
+    const boot = configurationScript(browser, versions);
+    const html = versionHtmlAssets(originalHtml.replace(serverSelector,
         '<select id="server" aria-label="Server" disabled><option value="active" selected>'
             + htmlText(browser.clientName) + '</option></select>')
         .replace('<!-- LUNA_BUILD_LABEL -->', '<span id="release-version">' + settings.release + '</span>')
-        .replace('<script>', '<script src="pages-config.js"></script>\n<script>');
-    const boot = 'window.LUNA_CLIENT_CONFIG = ' + JSON.stringify(browser) + ';\n';
+        .replace('<script>', '<script src="pages-config.js"></script>\n<script>'),
+        {...versions, 'pages-config.js': hash(boot)});
     const fingerprint = hash(stores.map(name => `${expected.get(name)}  ${name}\n`).join(''));
     const provenance = { release: settings.release, sourceCommit: settings.sourceCommit,
         browserCommit: /^[a-f0-9]{40}$/i.test(process.env.GITHUB_SHA || '') ? process.env.GITHUB_SHA : null,

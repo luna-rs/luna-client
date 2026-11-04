@@ -212,7 +212,7 @@ public final class BrowserDisplay {
                 }catch(lunaImageFailure){callback(0,0,null,String(lunaImageFailure));}
             };
             lunaImageElement.onerror=function(){callback(0,0,null,'Unable to load '+url);};
-            lunaImageElement.src=url;
+            lunaImageElement.src=typeof window.LunaAssetUrl==='function'?window.LunaAssetUrl(url):url;
             """)
     private static native void decodeUrlNative(String url, ImageCallback callback);
 }

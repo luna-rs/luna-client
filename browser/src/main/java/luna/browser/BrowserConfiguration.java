@@ -24,14 +24,17 @@ public final class BrowserConfiguration {
         if (contents != null) return;
         String sha256 = propertiesSha256();
         if (sha256 == null || !sha256.matches("[a-f0-9]{64}"))
-            throw new IOException("The generated properties checksum is missing. Rebuild the browser site.");
+            throw new IOException("The page contains outdated client files. Reload the page to update the client.");
         byte[] bytes = BrowserIO.fetchCheckedBytes("client.properties", sha256);
         if (bytes.length == 0 || bytes.length > 65536)
             throw new IOException("The selected browser client.properties is empty or oversized.");
         contents = new String(bytes, StandardCharsets.UTF_8);
     }
 
-    @JSBody(script = "return window.LUNA_CLIENT_CONFIG ? window.LUNA_CLIENT_CONFIG.propertiesSha256 : null;")
+    @JSBody(script = """
+            var checksum = window.LUNA_CLIENT_CONFIG && window.LUNA_CLIENT_CONFIG.propertiesSha256;
+            return typeof checksum === 'string' ? checksum : null;
+            """)
     private static native String propertiesSha256();
 
     public static String contents() {
