@@ -1,4 +1,5 @@
 name: Sync upstream client
+run-name: Sync upstream client by @${{ github.actor }}
 
 on:
   workflow_dispatch:
