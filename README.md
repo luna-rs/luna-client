@@ -1,8 +1,14 @@
-# Luna | Modified #377 Client
+# Luna | Revision 377 Desktop and Browser Clients
 
 The Java desktop client and browser client share one maintained source tree in
 [luna-rs/luna-client](https://github.com/luna-rs/luna-client). Both connect to the
-[Luna game server](https://github.com/luna-rs/luna).
+[Luna game server](https://github.com/luna-rs/luna), a permanent world where everyone is welcome to
+play and progress. Luna focuses on faithful classic gameplay with limited changes, **5× XP**,
+a standard economy with restricted item spawning, and **no character wipes**. Autonomous player
+bots train, trade, fight, and progress alongside you.
+
+Luna is actively developed, and feedback and bug reports help improve the world as you play.
+**HiveScape** will be the home for our custom content and “what if?” ideas.
 
 **[Play in your browser](https://luna-rs.github.io/luna-client/)**
 
@@ -90,7 +96,7 @@ files are downloaded from the built website and retained in browser storage.
 The selected beta profile currently uses a temporary Cloudflare endpoint backed
 by the existing PC relay. Its PC processes must remain available until a replacement
 is deployed and verified. Native Luna WebSocket support is available in the server
-source, but this client integration does not deploy or restart the beta server.
+source, but this client integration does not deploy or restart the live Luna server.
 
 The repository and delivered browser files are public. See [third-party notices](browser/web/legal/THIRD_PARTY_NOTICES.txt)
 for component licenses and asset provenance. They do not assign a blanket license
