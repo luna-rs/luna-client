@@ -43,6 +43,16 @@ jobs:
       - name: Prepare the selected client website
         run: node browser/build-webclient.mjs
 
+      - name: Include the separately released mobile web app
+        if: github.ref == 'refs/heads/master' && vars.PUBLISH_GITHUB_PAGES == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 browser/include-mobile.py build/webclient-site
+          if [ -d build/webclient-site/mobile ]; then
+            node browser/configuration.mjs --pages build/webclient-site/mobile
+          fi
+
       - name: Upload downloadable static website
         id: website
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
