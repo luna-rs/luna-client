@@ -35,6 +35,7 @@ SOURCE_FILES = {
     *[f"assets/title/{season}/{image}.png" for season in ("default", "christmas", "easter", "halloween") for image in ("background", "logo")],
 }
 FILES = SOURCE_FILES | {"pages-config.js", ".nojekyll", "release-provenance.json", "mobile.html"}
+DEFAULT_TITLE_FILES = {f"assets/title/default/{image}.png" for image in ("background", "logo")}
 DIRECTORIES = {str(parent) for name in FILES for parent in PurePosixPath(name).parents if str(parent) != "."}
 
 
@@ -76,15 +77,19 @@ def install_mobile(website, data, asset):
             else:
                 require(name in FILES and (item.file_size > 0 or name == ".nojekyll"), "Unexpected mobile runtime file.")
                 files.add(name)
-        require(files == FILES, "The mobile runtime package has missing files.")
+        # Accept the already-published mobile build while a newer title package is prepared separately.
+        title_files = DEFAULT_TITLE_FILES if files & DEFAULT_TITLE_FILES else set()
+        source_files = SOURCE_FILES - DEFAULT_TITLE_FILES | title_files
+        expected_files = FILES - DEFAULT_TITLE_FILES | title_files
+        require(files == expected_files, "The mobile runtime package has missing files.")
         for name in ("release-provenance.json", "client-config.json", "mobile.webmanifest", "pages-config.js"):
             require(archive.getinfo(name).file_size <= 256 * 1024, "Oversized mobile package metadata.")
         provenance = json.loads(archive.read("release-provenance.json"))
         require(re.fullmatch(r"[a-f0-9]{40}", provenance.get("sourceCommit", ""))
                 and provenance.get("mobileEntry") == "mobile.html", "The package has no mobile build provenance.")
         hashes = provenance.get("sourceAssets", {})
-        require(set(hashes) == SOURCE_FILES, "The mobile runtime hash inventory differs.")
-        for name in SOURCE_FILES - {"index.html"}:
+        require(set(hashes) == source_files, "The mobile runtime hash inventory differs.")
+        for name in source_files - {"index.html"}:
             with archive.open(name) as stream:
                 require(hashlib.file_digest(stream, "sha256").hexdigest() == hashes[name], "Mobile runtime hash mismatch: " + name)
         require(digest(archive.read("mobile.html")) == provenance.get("generatedAssets", {}).get("mobile.html"),
@@ -106,7 +111,7 @@ def install_mobile(website, data, asset):
         with tempfile.TemporaryDirectory(prefix=".mobile-site-", dir=website.parent) as staging:
             staged = Path(staging) / "mobile"
             staged.mkdir()
-            for name in sorted(FILES):
+            for name in sorted(expected_files):
                 output = staged / name
                 output.parent.mkdir(parents=True, exist_ok=True)
                 with archive.open(name) as source, output.open("xb") as target:
