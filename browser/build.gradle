@@ -148,7 +148,7 @@ tasks.register('generateSharedSources', Sync) {
                 new ClientConfiguration(path, updated, "");
                 StringBuilder output = new StringBuilder();
                 for (String key : PREFERENCES)
-                    output.append(key).append('=').append(updated.getProperty(key).trim()).append('\\n');
+                    output.append(preferenceLine(key, updated.getProperty(key))).append('\\n');
                 luna.browser.BrowserConfiguration.savePreferences(output.toString());
                 values.putAll(preferences);
         ''')

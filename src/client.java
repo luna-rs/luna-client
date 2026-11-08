@@ -31,6 +31,7 @@ import java.util.zip.CRC32;
 import luna.ClientConfiguration;
 import luna.ClientPaths;
 import luna.CacheBootstrap;
+import luna.LoginPreferences;
 import luna.TitleFlamePalette;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
@@ -55,6 +56,8 @@ public class client extends JagApplet {
             () -> signlink.musicPlayer.stop(), () -> signlink.musicPlayer.prepareTransition());
 
     private final SeasonalTitleMusic titleMusic = new SeasonalTitleMusic(music);
+    private final LoginPreferences loginPreferences = new LoginPreferences();
+    private JagImageProducer loginMusicButton;
     private final Object titleArtworkLock = new Object();
     private TitleArtwork titleArtwork;
     private SeasonalTitleTheme appliedTitleTheme;
@@ -5173,6 +5176,7 @@ public class client extends JagApplet {
             AnimationFrame.initFrames(fileFetcher.method343(553));
             Model.init(fileFetcher.method340(0), fileFetcher);
             if (!lowMemory) {
+                music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled());
                 titleMusic.update();
                 while (fileFetcher.method333() > 0) {
                     method77(false);
@@ -6510,6 +6514,7 @@ public class client extends JagApplet {
     }
 
     public void login(String username, String password, boolean reconnecting) {
+        loginPreferences.username(username);
         signlink.errorname = username;
         try {
             if (!reconnecting) {
@@ -7562,7 +7567,7 @@ public class client extends JagApplet {
         }
         checkSize();
         if (!isLoggedIn) {
-            music.setEnabled(musicEnabled && !lowMemory);
+            music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled() && !lowMemory);
             titleMusic.update();
             music.tick(20);
             method149(-724);
@@ -10747,6 +10752,7 @@ public class client extends JagApplet {
             loginScreenFont.drawString("Password: "
                             + StringUtils.asterisks(thisPlayerPassword) + ((anInt977 == 1) & (pulseCycle % 40 < 20) ? "@yel@|" : ""), 0xffffff, c / 2 - 88, k, true);
             k += 15;
+            drawRememberUsername();
             if (!flag) {
                 int j1 = c / 2 - 80;
                 int i2 = c1 / 2 + 50;
@@ -10785,7 +10791,91 @@ public class client extends JagApplet {
                 loginBackground_6.drawImage(562, 171, super.graphics);
             }
         }
+        drawLoginMusicButton();
         presentBackBuffer();
+    }
+
+    /**
+     * Keeps the remembered-name control clear of the original credential fields and buttons.
+     */
+    private int rememberUsernameLeft() {
+        int width = font_p11_full == null ? 100 : font_p11_full.method472((byte) 35, "Remember username");
+        return 202 + (360 - width - 18) / 2;
+    }
+
+    private int rememberUsernameWidth() {
+        return 18 + (font_p11_full == null ? 100 : font_p11_full.method472((byte) 35, "Remember username"));
+    }
+
+    private void drawRememberUsername() {
+        int left = rememberUsernameLeft() - 202;
+        int top = 115;
+        Drawable.drawFullRect(left, top, 13, 13, 0x27251f);
+        Drawable.drawRect(left, top, 13, 13, 0xa69a7d);
+        Drawable.drawRect(left + 1, top + 1, 11, 11, 0x514c40);
+        if (loginPreferences.rememberUsername()) {
+            for (int step = 0; step < 3; step++)
+                Drawable.drawFullRect(left + 3 + step, top + 6 + step, 2, 2, 0x72bd58);
+            for (int step = 0; step < 6; step++)
+                Drawable.drawFullRect(left + 5 + step, top + 8 - step, 2, 2, 0x72bd58);
+        }
+        boolean hover = super.mouseX >= left + 202 && super.mouseX < left + 202 + rememberUsernameWidth()
+                && super.mouseY >= 286 && super.mouseY < 300;
+        font_p11_full.drawString("Remember username", hover ? 0xffffff : 0xffff00, left + 18, 125, true);
+    }
+
+    /**
+     * Anchors the title-only music control to the window while using the title's translated coordinates.
+     */
+    private int loginMusicButtonX() {
+        return clientWidth - loginScreenOffsetX() - 42;
+    }
+
+    private int loginMusicButtonY() {
+        return clientHeight - loginScreenOffsetY() - 42;
+    }
+
+    private void drawLoginMusicButton() {
+        if (loginMusicButton == null) loginMusicButton = new JagImageProducer(32, 32, getParentComponent());
+        loginMusicButton.pushPixels();
+        boolean hover = super.mouseX >= loginMusicButtonX() && super.mouseX < loginMusicButtonX() + 32
+                && super.mouseY >= loginMusicButtonY() && super.mouseY < loginMusicButtonY() + 32;
+        Drawable.drawFullRect(0, 0, 32, 32, 0x33322e);
+        Drawable.drawRect(0, 0, 32, 32, 0x101010);
+        Drawable.drawRect(1, 1, 30, 30, hover ? 0xc7af75 : 0x8b8170);
+        Drawable.drawRect(3, 3, 26, 26, 0x555148);
+        int color = loginPreferences.loginMusicEnabled() ? 0xd4c49c : 0x9c9687;
+        Drawable.drawFullRect(7, 13, 5, 7, color);
+        for (int step = 0; step < 6; step++)
+            Drawable.drawVerticalLine(color, 11 + step, 12 - step, 9 + step * 2);
+        Drawable.drawVerticalLine(color, 20, 12, 9);
+        Drawable.drawVerticalLine(color, 24, 9, 15);
+        Drawable.drawHorizontalLine(color, 21, 10, 2);
+        Drawable.drawHorizontalLine(color, 21, 22, 2);
+        if (!loginPreferences.loginMusicEnabled()) {
+            for (int step = 0; step < 22; step++)
+                Drawable.drawFullRect(5 + step, 25 - step, 2, 2, 0xc6382c);
+        }
+        loginMusicButton.drawImage(loginMusicButtonX(), loginMusicButtonY(), super.graphics);
+    }
+
+    private boolean clickLoginPreference() {
+        if (super.anInt28 != 1) return false;
+        if (super.anInt29 >= loginMusicButtonX() && super.anInt29 < loginMusicButtonX() + 32
+                && super.anInt30 >= loginMusicButtonY() && super.anInt30 < loginMusicButtonY() + 32) {
+            loginPreferences.loginMusicEnabled(!loginPreferences.loginMusicEnabled());
+            music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled() && !lowMemory);
+            super.anInt28 = 0;
+            return true;
+        }
+        if (loginScreenState == 2 && super.anInt29 >= rememberUsernameLeft()
+                && super.anInt29 < rememberUsernameLeft() + rememberUsernameWidth()
+                && super.anInt30 >= 286 && super.anInt30 < 300) {
+            loginPreferences.rememberUsername(!loginPreferences.rememberUsername(), thisPlayerName);
+            super.anInt28 = 0;
+            return true;
+        }
+        return false;
     }
 
     public void addNewNpcs(JagBuffer buf, int i, boolean flag) {
@@ -11840,6 +11930,8 @@ public class client extends JagApplet {
         while (i >= 0) {
             opcode = buffer.getByte();
         }
+        loginPreferences.username(thisPlayerName);
+        if (clickLoginPreference()) return;
         if (loginScreenState == 0) {
             int j = super.width / 2 - 80;
             int i1 = super.height / 2 + 20;
@@ -11855,7 +11947,7 @@ public class client extends JagApplet {
                 statusLineOne = "";
                 statusLineTwo = "Enter your username & password.";
                 loginScreenState = 2;
-                anInt977 = 0;
+                anInt977 = thisPlayerName.isEmpty() ? 0 : 1;
                 return;
             }
         } else {
@@ -11883,8 +11975,6 @@ public class client extends JagApplet {
                 if (super.anInt28 == 1 && super.anInt29 >= j1 - 75 && super.anInt29 <= j1 + 75
                         && super.anInt30 >= l1 - 20 && super.anInt30 <= l1 + 20) {
                     loginScreenState = 0;
-                    //thisPlayerName = "";
-                    //aString1093 = "";
                 }
                 do {
                     int i2 = readCharFromChatbox();
@@ -11918,6 +12008,7 @@ public class client extends JagApplet {
                             thisPlayerPassword = thisPlayerPassword.substring(0, 20);
                     }
                 } while (true);
+                loginPreferences.username(thisPlayerName);
                 return;
             }
             if (loginScreenState == 3) {
@@ -12335,8 +12426,8 @@ public class client extends JagApplet {
         aCRC32_1088 = new CRC32();
         anInt1089 = -1;
         anIntArray1090 = new int[50];
-        thisPlayerName = "luna";
-        thisPlayerPassword = "luna";
+        thisPlayerName = loginPreferences.username();
+        thisPlayerPassword = "";
         aBoolean1097 = false;
         aBoolean1098 = false;
         anIntArray1099 = new int[5];
