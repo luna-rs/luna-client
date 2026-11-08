@@ -13,6 +13,7 @@ import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -28,31 +29,49 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Installs the bundled game stores before any cache handles are opened.
- * Existing game stores are replaced on every launch; user settings and identifiers are retained.
+ * Verifies launcher-managed game stores or installs the bundled seed before cache handles are opened.
+ * User settings and identifiers are retained.
  *
  * @author lare96
  */
 public final class CacheBootstrap {
 
+    /**
+     * Identifies clients that preserve and verify launcher-managed cache stores.
+     */
+    public static final String MANAGED_CACHE_PROTOCOL = "LUNA_MANAGED_CACHE_V1";
+
     static final List<String> STORE_NAMES = List.of("main_file_cache.dat", "main_file_cache.idx0",
             "main_file_cache.idx1", "main_file_cache.idx2", "main_file_cache.idx3", "main_file_cache.idx4");
     private static final long MAX_CACHE_BYTES = 512L * 1024 * 1024;
     private static final String LOCK_FILE = ".cache-bootstrap.lock";
+    private static final String CLIENT_LOCK_FILE = ".cache-client.lock";
+    private static final String MANAGED_RECORD = ".luna-cache-managed.properties";
+    private static final String MANAGED_MANIFEST = "luna-cache.sha256";
+    private static final Map<Path, ClientCacheLock> CLIENT_LOCKS = new LinkedHashMap<>();
+    private static boolean clientLockHookInstalled;
 
     private CacheBootstrap() {
     }
 
     /**
-     * Replaces the six game stores with verified packaged copies at the shared user-home cache path.
+     * Retains verified managed stores, or installs the packaged seed at the shared user-home cache path.
      * Direct IDE class-directory launches may use the source-tree seed when no packaged pair exists.
      */
     public static void installBundledCache() throws IOException {
+        withCacheLock(ClientPaths.cacheDirectory(), true, (cache, parent) -> {
+            if (preserveManagedCache(cache)) return;
+            installSeed(cache, parent);
+        });
+    }
+
+    private static void installSeed(Path cache, Path parent) throws IOException {
         ClassLoader loader = CacheBootstrap.class.getClassLoader();
         boolean archivePresent = loader.getResource("bootstrap/cache.zip") != null;
         boolean manifestPresent = loader.getResource("bootstrap/cache.sha256") != null;
@@ -61,7 +80,7 @@ public final class CacheBootstrap {
         if (archivePresent) {
             try (InputStream archive = ClientResources.openBundled("bootstrap/cache.zip");
                  InputStream manifest = ClientResources.openBundled("bootstrap/cache.sha256")) {
-                install(ClientPaths.cacheDirectory(), archive, manifest);
+                installLocked(cache, parent, archive, manifest, Files::move);
             }
         } else {
             if (!runningFromClassesDirectory())
@@ -69,7 +88,7 @@ public final class CacheBootstrap {
             Path seed = Path.of("data", "bootstrap");
             try (InputStream archive = Files.newInputStream(seed.resolve("cache.zip"));
                  InputStream manifest = Files.newInputStream(seed.resolve("cache.sha256"))) {
-                install(ClientPaths.cacheDirectory(), archive, manifest);
+                installLocked(cache, parent, archive, manifest, Files::move);
             }
         }
     }
@@ -88,6 +107,12 @@ public final class CacheBootstrap {
     }
 
     static void install(Path directory, InputStream archive, InputStream manifest, FileMover mover) throws IOException {
+        withCacheLock(directory, false, (cache, parent) -> {
+            if (!preserveManagedCache(cache)) installLocked(cache, parent, archive, manifest, mover);
+        });
+    }
+
+    private static void withCacheLock(Path directory, boolean retainClientLock, CacheAction action) throws IOException {
         Path cache = directory.toAbsolutePath().normalize();
         Path parent = cache.getParent();
         if (parent == null || parent.getParent() == null || !"cache".equals(cache.getFileName().toString())
@@ -98,14 +123,123 @@ public final class CacheBootstrap {
         if (Files.isSymbolicLink(parent) || !parent.toRealPath().equals(expectedParent))
             throw new IOException("The Luna cache parent must not be a link: " + parent);
         validateCacheDirectory(cache, expectedParent);
+        if (retainClientLock) retainClientLock(expectedParent, ClientStartup.managed());
         Path lockPath = parent.resolve(LOCK_FILE);
         if (Files.exists(lockPath, LinkOption.NOFOLLOW_LINKS)
                 && !Files.isRegularFile(lockPath, LinkOption.NOFOLLOW_LINKS))
             throw new IOException("Invalid cache installation lock: " + lockPath);
-        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+        try (FileChannel channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
              FileLock lock = acquireLock(channel, cache)) {
-            installLocked(cache, expectedParent, archive, manifest, mover);
+            action.run(cache, expectedParent);
+        } catch (FileSystemException exception) {
+            throw new IOException("The Luna cache could not be accessed. Close other Luna clients, then try again. "
+                    + exception.getMessage(), exception);
         }
+    }
+
+    private static boolean preserveManagedCache(Path cache) throws IOException {
+        Path record = cache.resolve(MANAGED_RECORD);
+        Path manifest = cache.resolve(MANAGED_MANIFEST);
+        if (!Files.exists(record, LinkOption.NOFOLLOW_LINKS) && !Files.exists(manifest, LinkOption.NOFOLLOW_LINKS)) return false;
+        try {
+            if (!Files.isRegularFile(record, LinkOption.NOFOLLOW_LINKS)
+                    || !Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS))
+                throw new IOException("The managed cache record or checksum manifest is missing or is not a regular file.");
+            byte[] recordBytes;
+            try (InputStream input = Files.newInputStream(record, LinkOption.NOFOLLOW_LINKS)) {
+                recordBytes = input.readNBytes(16_385);
+            }
+            if (recordBytes.length > 16_384) throw new IOException("The managed cache record is oversized.");
+            Properties properties = new Properties();
+            properties.load(new ByteArrayInputStream(recordBytes));
+            String archiveHash = properties.getProperty("archiveSha256", "");
+            String manifestHash = properties.getProperty("manifestSha256", "");
+            String assetId = properties.getProperty("assetId", "");
+            String version = properties.getProperty("version", "");
+            if (!"1".equals(properties.getProperty("formatVersion")) || !archiveHash.matches("[0-9a-f]{64}")
+                    || !manifestHash.matches("[0-9a-f]{64}") || !assetId.matches("0|[1-9][0-9]*")
+                    || version.isBlank() || version.length() > 128 || version.codePoints().anyMatch(Character::isISOControl))
+                throw new IOException("The managed cache record has invalid metadata.");
+            Long.parseLong(assetId);
+            byte[] manifestBytes;
+            try (InputStream input = Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
+                manifestBytes = input.readNBytes(4097);
+            }
+            if (manifestBytes.length > 4096 || !manifestHash.equals(HexFormat.of().formatHex(sha256().digest(manifestBytes))))
+                throw new IOException("The managed cache checksum manifest has changed.");
+            Map<String, String> hashes = readManifest(new ByteArrayInputStream(manifestBytes));
+            long total = 0;
+            byte[] buffer = new byte[32_768];
+            for (String name : STORE_NAMES) {
+                Path store = cache.resolve(name);
+                if (!Files.isRegularFile(store, LinkOption.NOFOLLOW_LINKS))
+                    throw new IOException("The managed cache store is missing or is not a regular file: " + name);
+                long size = 0;
+                MessageDigest digest = sha256();
+                try (InputStream input = Files.newInputStream(store, LinkOption.NOFOLLOW_LINKS)) {
+                    for (int count; (count = input.read(buffer)) != -1;) {
+                        size += count;
+                        total += count;
+                        if (total > MAX_CACHE_BYTES) throw new IOException("The managed cache exceeds its size limit.");
+                        digest.update(buffer, 0, count);
+                    }
+                }
+                if (size == 0 || !hashes.get(name).equals(HexFormat.of().formatHex(digest.digest())))
+                    throw new IOException("The managed cache store has changed: " + name);
+            }
+            return true;
+        } catch (IOException | IllegalArgumentException exception) {
+            throw new IOException("The launcher-managed Luna cache is incomplete or changed at " + cache
+                    + ". Open the Luna launcher to repair the cache, then try again. " + exception.getMessage(), exception);
+        }
+    }
+
+    private static synchronized void retainClientLock(Path parent, boolean shared) throws IOException {
+        Path path = parent.resolve(CLIENT_LOCK_FILE);
+        ClientCacheLock existing = CLIENT_LOCKS.get(path);
+        if (existing != null && existing.lock.isValid()) return;
+        if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+            throw new IOException("The Luna client cache guard must be a regular file: " + path);
+        FileChannel channel = FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.READ,
+                StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+        FileLock lock = null;
+        try {
+            try {
+                lock = channel.tryLock(0, Long.MAX_VALUE, shared);
+            } catch (OverlappingFileLockException exception) {
+                throw new IOException("Luna is already using this cache. Close the existing Luna client, then try again.", exception);
+            }
+            if (lock == null) throw new IOException("Luna is already using this cache. Close the existing Luna client, then try again.");
+            if (shared && !lock.isShared()) throw new IOException("This runtime cannot share Luna's cache guard safely.");
+            if (!clientLockHookInstalled) {
+                Runtime.getRuntime().addShutdownHook(new Thread(CacheBootstrap::closeClientLocks, "Luna-cache-lock-release"));
+                clientLockHookInstalled = true;
+            }
+            CLIENT_LOCKS.put(path, new ClientCacheLock(channel, lock));
+        } catch (IOException | RuntimeException exception) {
+            try {
+                if (lock != null) lock.release();
+            } catch (IOException cleanup) {
+                exception.addSuppressed(cleanup);
+            }
+            try {
+                channel.close();
+            } catch (IOException cleanup) {
+                exception.addSuppressed(cleanup);
+            }
+            throw exception;
+        }
+    }
+
+    private static synchronized void closeClientLocks() {
+        for (ClientCacheLock held : CLIENT_LOCKS.values()) {
+            try {
+                held.close();
+            } catch (IOException ignored) {
+                // Process shutdown releases any remaining operating-system locks.
+            }
+        }
+        CLIENT_LOCKS.clear();
     }
 
     private static FileLock acquireLock(FileChannel channel, Path cache) throws IOException {
@@ -285,5 +419,39 @@ public final class CacheBootstrap {
     @FunctionalInterface
     interface FileMover {
         Path move(Path source, Path target) throws IOException;
+    }
+
+    /**
+     * Runs cache work while the brief installation guard is held.
+     *
+     * @author lare96
+     */
+    @FunctionalInterface
+    private interface CacheAction {
+        void run(Path cache, Path parent) throws IOException;
+    }
+
+    /**
+     * Retains the client's shared or exclusive cache guard until the process exits.
+     *
+     * @author lare96
+     */
+    private static final class ClientCacheLock implements AutoCloseable {
+        private final FileChannel channel;
+        private final FileLock lock;
+
+        private ClientCacheLock(FileChannel channel, FileLock lock) {
+            this.channel = channel;
+            this.lock = lock;
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                if (lock.isValid()) lock.release();
+            } finally {
+                channel.close();
+            }
+        }
     }
 }

@@ -203,9 +203,10 @@ tasks.register('verifyBetaJar') {
                 if (jar.manifest.mainAttributes.getValue('Main-Class') != application.mainClass.get()) {
                     throw new GradleException('Both executable JARs must use the same client launcher.')
                 }
-                def required = ['client.class', 'ClientLauncher.class', 'luna/ClientConfiguration.class', 'luna/CacheBootstrap.class', 'client.properties',
+                def required = ['client.class', 'ClientLauncher.class', 'luna/ClientConfiguration.class', 'luna/CacheBootstrap.class',
+                        'luna/ClientStartup.class', 'client.properties',
                         'data/soundbank.sf2', 'bootstrap/cache.zip', 'bootstrap/cache.sha256']
-                ['christmas', 'easter', 'halloween'].each { season ->
+                ['default', 'christmas', 'easter', 'halloween'].each { season ->
                     ['background.png', 'logo.png'].each { image ->
                         required.add("data/title/${season}/${image}")
                     }
@@ -213,6 +214,14 @@ tasks.register('verifyBetaJar') {
                 required.each { path ->
                     if (jar.getJarEntry(path.toString()) == null) {
                         throw new GradleException("Missing packaged runtime resource: ${path}")
+                    }
+                }
+                ['luna/CacheBootstrap.class': 'LUNA_MANAGED_CACHE_V1',
+                 'luna/ClientStartup.class': 'LUNA_CLIENT_PREPARED'].each { path, marker ->
+                    jar.getInputStream(jar.getJarEntry(path)).withCloseable { input ->
+                        if (!new String(input.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1).contains(marker)) {
+                            throw new GradleException("Missing launcher compatibility protocol: ${marker}")
+                        }
                     }
                 }
                 jar.entries().each { entry ->

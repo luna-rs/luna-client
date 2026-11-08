@@ -87,7 +87,20 @@ public class JagApplet extends Applet implements Runnable {
             long started = ClientPerformance.begin(ClientPerformance.PRESENT);
             BrowserDisplay.present(buffer.pixels, buffer.width, buffer.height);
             ClientPerformance.end(ClientPerformance.PRESENT, started);
+            framePresented();
         }
+    }
+
+    /**
+     * Runs after a completed frame has been handed to the browser canvas.
+     */
+    protected void framePresented() {
+    }
+
+    /**
+     * Runs after drawing a complete back buffer, before its presentation.
+     */
+    protected void frameRendered() {
     }
 
     protected final void invalidateFramePresentation() { }
@@ -102,6 +115,7 @@ public class JagApplet extends Applet implements Runnable {
             load();
             if (this instanceof client game && (game.aBoolean1283 || game.aBoolean1097 || game.aBoolean1016)) {
                 repaintGame();
+                frameRendered();
                 presentBackBuffer();
                 BrowserClientMain.clientFailed();
                 return;
@@ -145,7 +159,10 @@ public class JagApplet extends Applet implements Runnable {
                     scheduler.frameStarted(frameStart);
                     ensureBackBuffer(); updateMouseInput();
                     rendering = true;
-                    try { repaintGame(); }
+                    try {
+                        repaintGame();
+                        frameRendered();
+                    }
                     finally { rendering = false; }
                     ClientPerformance.frameRendered(performanceFrameStarted);
                     presentBackBuffer();

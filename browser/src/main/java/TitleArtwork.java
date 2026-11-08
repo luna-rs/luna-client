@@ -1,13 +1,14 @@
 import java.util.EnumMap;
 import java.util.Map;
 import luna.SeasonalTitleTheme;
+import luna.TitleScene;
 import luna.browser.awt.BrowserDisplay;
 import luna.browser.awt.Canvas;
 import luna.browser.awt.Graphics2D;
 import luna.browser.awt.image.BufferedImage;
 
 /**
- * Composes the original cache title and seasonal PNG assets using browser image decoding.
+ * Composes viewport-resolution default art and seasonal PNG assets using browser image decoding.
  *
  * @author lare96
  */
@@ -16,6 +17,12 @@ public final class TitleArtwork {
     private final BufferedImage background;
     private final RgbSprite logo;
     private final Map<SeasonalTitleTheme, BufferedImage> images = new EnumMap<>(SeasonalTitleTheme.class);
+    private boolean defaultSceneLoaded;
+    private TitleScene defaultScene;
+    private TitleScene.Frame defaultFrame;
+    private BufferedImage defaultFrameImage;
+    private TitleScene.Rect previousLeftFlame;
+    private TitleScene.Rect previousRightFlame;
 
     public TitleArtwork(Archive archive) {
         RgbSprite half = new RgbSprite(archive.get("title.dat"), new Canvas());
@@ -29,9 +36,14 @@ public final class TitleArtwork {
         logo = new RgbSprite(archive, "logo", 0);
     }
 
-    public BufferedImage imageFor(SeasonalTitleTheme theme) {
+    public synchronized BufferedImage imageFor(SeasonalTitleTheme theme) {
         BufferedImage cached = images.get(theme);
         if (cached != null) return cached;
+        if (theme == SeasonalTitleTheme.DEFAULT && hasDefaultScene()) {
+            BufferedImage result = defaultFrameFor(WIDTH, HEIGHT, 0, 0);
+            images.put(theme, result);
+            return result;
+        }
         BufferedImage result = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = result.createGraphics();
         graphics.drawImage(background, 0, 0, null);
@@ -62,9 +74,103 @@ public final class TitleArtwork {
         return result;
     }
 
+    /**
+     * Enables the full-resolution scene only when both default PNG assets are usable.
+     */
+    public synchronized boolean hasDefaultScene() {
+        if (!defaultSceneLoaded) {
+            defaultSceneLoaded = true;
+            BufferedImage defaultBackground = load(SeasonalTitleTheme.DEFAULT, "background.png");
+            BufferedImage defaultLogo = load(SeasonalTitleTheme.DEFAULT, "logo.png");
+            if (defaultLogo != null) defaultLogo = crop(defaultLogo);
+            if (defaultBackground != null && defaultLogo != null) {
+                defaultScene = new TitleScene(defaultBackground.getRGB(0, 0, defaultBackground.width,
+                        defaultBackground.height, null, 0, defaultBackground.width),
+                        defaultBackground.width, defaultBackground.height,
+                        defaultLogo.getRGB(0, 0, defaultLogo.width, defaultLogo.height,
+                                null, 0, defaultLogo.width), defaultLogo.width, defaultLogo.height);
+            }
+        }
+        return defaultScene != null;
+    }
+
+    /**
+     * Draws the shared bilinear composition at physical framebuffer resolution.
+     */
+    public synchronized void drawDefaultScene(Graphics2D graphics, int width, int height,
+                                               int uiOffsetX, int uiOffsetY) {
+        BufferedImage frame = defaultFrameFor(width, height, uiOffsetX, uiOffsetY);
+        if (frame == null) return;
+        graphics.drawImage(frame, 0, 0, null);
+        previousLeftFlame = null;
+        previousRightFlame = null;
+    }
+
+    /**
+     * Restores only the torch areas before drawing this frame's transparent flame strips.
+     */
+    public synchronized void drawDefaultFlames(Graphics2D graphics, BufferedImage left, BufferedImage right,
+                                                int width, int height, int uiOffsetX, int uiOffsetY) {
+        if (defaultFrameFor(width, height, uiOffsetX, uiOffsetY) == null) return;
+        if (previousLeftFlame != defaultFrame.leftFlame) restoreFlame(graphics, previousLeftFlame);
+        if (previousRightFlame != defaultFrame.rightFlame) restoreFlame(graphics, previousRightFlame);
+        restoreFlame(graphics, defaultFrame.leftFlame);
+        restoreFlame(graphics, defaultFrame.rightFlame);
+        drawFlame(graphics, left, defaultFrame.leftFlame);
+        drawFlame(graphics, right, defaultFrame.rightFlame);
+        previousLeftFlame = defaultFrame.leftFlame;
+        previousRightFlame = defaultFrame.rightFlame;
+    }
+
+    /**
+     * Copies the matching viewport pixels behind a login panel, preserving the HD scene at its edges.
+     */
+    public synchronized boolean copyDefaultRegion(int[] target, int targetWidth, int targetHeight,
+                                                   int x, int y, int viewportWidth, int viewportHeight,
+                                                   int uiOffsetX, int uiOffsetY) {
+        if (target == null || targetWidth < 1 || targetHeight < 1
+                || targetWidth > Integer.MAX_VALUE / targetHeight
+                || target.length < targetWidth * targetHeight || x < 0 || y < 0
+                || targetWidth > viewportWidth || targetHeight > viewportHeight
+                || x > viewportWidth - targetWidth || y > viewportHeight - targetHeight
+                || defaultFrameFor(viewportWidth, viewportHeight, uiOffsetX, uiOffsetY) == null) return false;
+        for (int row = 0; row < targetHeight; row++) {
+            System.arraycopy(defaultFrame.pixels, (y + row) * viewportWidth + x,
+                    target, row * targetWidth, targetWidth);
+        }
+        return true;
+    }
+
+    private BufferedImage defaultFrameFor(int width, int height, int uiOffsetX, int uiOffsetY) {
+        if (width < 1 || height < 1 || !hasDefaultScene()) return null;
+        TitleScene.Frame frame = defaultScene.frameFor(width, height, uiOffsetX, uiOffsetY);
+        if (frame != defaultFrame) {
+            defaultFrame = frame;
+            defaultFrameImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            System.arraycopy(frame.pixels, 0, defaultFrameImage.pixels, 0, frame.pixels.length);
+        }
+        return defaultFrameImage;
+    }
+
+    private void restoreFlame(Graphics2D graphics, TitleScene.Rect bounds) {
+        if (bounds == null) return;
+        int left = Math.max(0, bounds.x), top = Math.max(0, bounds.y);
+        int right = Math.min(defaultFrame.width, bounds.x + bounds.width);
+        int bottom = Math.min(defaultFrame.height, bounds.y + bounds.height);
+        if (left < right && top < bottom)
+            graphics.drawImage(defaultFrameImage, left, top, right, bottom, left, top, right, bottom, null);
+    }
+
+    private static void drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds) {
+        if (flame != null) graphics.drawImage(flame, bounds.x, bounds.y, bounds.width, bounds.height, null);
+    }
+
     private static BufferedImage load(SeasonalTitleTheme theme, String file) {
-        if (theme == SeasonalTitleTheme.DEFAULT) return null;
-        try { return BrowserDisplay.decodeUrl("assets/title/" + theme.directory() + "/" + file); }
+        try {
+            BufferedImage image = BrowserDisplay.decodeUrl("assets/title/" + theme.directory() + "/" + file);
+            return image != null && image.width > 0 && image.height > 0
+                    && image.width <= 4096 && image.height <= 4096 ? image : null;
+        }
         catch (RuntimeException failure) { System.err.println("Seasonal title fallback: " + failure); return null; }
     }
 

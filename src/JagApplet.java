@@ -9,6 +9,8 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.AlphaComposite;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -124,7 +126,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		frame.setMinimumContentSize(MIN_CONTENT_WIDTH, MIN_CONTENT_HEIGHT);
 		// discard resize events from before this rebuild; the size we just set is the current one
 		resizedWidth = resizedHeight = -1;
-		screenGraphics = frame.getGraphics();
+		screenGraphics = luna.ClientStartup.hidden() ? null : frame.getGraphics();
 		ensureBackBuffer();
 	}
 
@@ -134,7 +136,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	 */
 	public void ensureBackBuffer() {
 		synchronized (presentLock) {
-			if (screenGraphics == null) {
+			if (screenGraphics == null && !luna.ClientStartup.hidden()) {
 				screenGraphics = getParentComponent().getGraphics();
 			}
 			int w = getContentWidth();
@@ -173,16 +175,59 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 
 	private boolean presentFrame(BufferedImage buffer) {
 		synchronized (presentLock) {
+			if (luna.ClientStartup.hidden()) return false;
+			if (screenGraphics == null) screenGraphics = getParentComponent().getGraphics();
 			Graphics screen = screenGraphics;
 			if (buffer != null && screen != null) {
 				long started = ClientPerformance.begin(ClientPerformance.PRESENT);
-				screen.drawImage(buffer, 0, 0, null);
-				ClientPerformance.end(ClientPerformance.PRESENT, started);
-				ClientPerformance.presented();
-				return true;
+				float alpha = luna.ClientStartup.presentationAlpha();
+				boolean presented;
+				try {
+					if (alpha < 1f) {
+						Graphics2D output = (Graphics2D) screen.create();
+						try {
+							output.setColor(Color.BLACK);
+							output.fillRect(0, 0, buffer.getWidth(), buffer.getHeight());
+							output.setComposite(AlphaComposite.SrcOver.derive(alpha));
+							presented = output.drawImage(buffer, 0, 0, null);
+						} finally {
+							output.dispose();
+						}
+					} else {
+						presented = screen.drawImage(buffer, 0, 0, null);
+					}
+				} finally {
+					ClientPerformance.end(ClientPerformance.PRESENT, started);
+				}
+				if (presented) {
+					ClientPerformance.presented();
+					if (alpha >= 1f) framePresented();
+				}
+				return presented;
 			}
 			return false;
 		}
+	}
+
+	/**
+	 * Runs after a complete frame reaches a visible window at full opacity.
+	 */
+	protected void framePresented() {
+	}
+
+	/**
+	 * Runs after a complete back buffer is drawn, including while a launcher keeps the window hidden.
+	 */
+	protected void frameRendered() {
+	}
+
+	/**
+	 * Refreshes the visible window after its launcher's splash has finished.
+	 */
+	public final void startupRevealed() {
+		if (frame != null) screenGraphics = frame.getGraphics();
+		clearBackground = true;
+		needsUIRedraw();
 	}
 
 	/**
@@ -191,7 +236,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	private boolean queueFrame() {
 		synchronized (presentLock) {
 			BufferedImage source = backBuffer;
-			if (source == null || screenGraphics == null)
+			if (source == null || screenGraphics == null && !luna.ClientStartup.hidden())
 				return false;
 			if (presentationBuffer == null || presentationBuffer.getWidth() != source.getWidth()
 					|| presentationBuffer.getHeight() != source.getHeight())
@@ -258,7 +303,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		frame.addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
-				screenGraphics = frame.getGraphics();
+				screenGraphics = luna.ClientStartup.hidden() ? null : frame.getGraphics();
 				resizedWidth = frame.getContentWidth();
 				resizedHeight = frame.getContentHeight();
 				clearBackground = true;
@@ -305,7 +350,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		width = _width;
 		height = _height;
 		frame = new JagFrame(width, height, this, false);
-		screenGraphics = getParentComponent().getGraphics();
+		screenGraphics = luna.ClientStartup.hidden() ? null : getParentComponent().getGraphics();
 		ensureBackBuffer();
 		imageProducer = new JagImageProducer(width, height, getParentComponent());
 		startThread(this, Thread.MIN_PRIORITY);
@@ -413,6 +458,7 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 		scheduledRenderThread = Thread.currentThread();
 		try {
 			repaintGame();
+			frameRendered();
 		} finally {
 			scheduledRenderThread = null;
 		}
@@ -675,6 +721,8 @@ public class JagApplet extends Applet implements Runnable, MouseListener, MouseM
 	}
 
 	public void windowClosing(WindowEvent windowevent) {
+		System.out.println("LUNA_CLIENT_WINDOW_CLOSING");
+		System.out.flush();
 		destroy();
 	}
 

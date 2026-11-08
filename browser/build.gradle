@@ -220,6 +220,13 @@ tasks.named('copyWasmGCRuntime') {
 tasks.register('prepareBrowserAssets', Sync) {
     inputs.property('clientProperties', browserPropertiesName)
     inputs.file(browserPropertiesFile).withPropertyName('browserPropertiesFile')
+    doFirst {
+        ['background.png', 'logo.png'].each { image ->
+            if (!rootProject.file("data/title/default/${image}").isFile()) {
+                throw new GradleException("Missing default title artwork: data/title/default/${image}")
+            }
+        }
+    }
     from(rootProject.tasks.named('prepareReleaseCache').flatMap { it.outputDirectory }) {
         include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
                 'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4', 'cache.sha256'

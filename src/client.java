@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.zip.CRC32;
@@ -30,6 +31,7 @@ import java.util.zip.CRC32;
 import luna.ClientConfiguration;
 import luna.ClientPaths;
 import luna.CacheBootstrap;
+import luna.TitleFlamePalette;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
 import sign.signlink;
@@ -56,6 +58,14 @@ public class client extends JagApplet {
     private final Object titleArtworkLock = new Object();
     private TitleArtwork titleArtwork;
     private SeasonalTitleTheme appliedTitleTheme;
+    private java.awt.image.BufferedImage loginFlameOverlayLeft;
+    private java.awt.image.BufferedImage loginFlameOverlayRight;
+    private int[] loginFlameOverlayPixelsLeft;
+    private int[] loginFlameOverlayPixelsRight;
+    private boolean startupLoaded;
+    private boolean startupLoginFrameDrawn;
+    private static boolean startupReadyReported;
+    private static boolean startupFailureReported;
     private int cameraShakeCycle = Integer.MIN_VALUE;
     private final int[] cameraShakeOffsets = new int[5];
 
@@ -645,6 +655,7 @@ public class client extends JagApplet {
     }
 
     public static void main(String args[]) {
+        luna.ClientStartup.initialize();
         ClientLauncher.validateArguments(args);
         ClientLauncher.configureGraphics();
         try {
@@ -660,6 +671,7 @@ public class client extends JagApplet {
             Runtime.getRuntime().addShutdownHook(new Thread(() -> settings.save()));
             cl.start(765, 503);
         } catch (Exception exception) {
+            reportStartupFailure();
             System.err.println(ClientConfiguration.get().string("clientName") + " could not start: " + exception.getMessage());
             exception.printStackTrace();
             System.exit(1);
@@ -1025,6 +1037,7 @@ public class client extends JagApplet {
     }
 
     public void printError_19(String s) {
+        reportStartupFailure();
         System.out.println(s);
         try {
             getAppletContext().showDocument(new URL(getCodeBase(), "loaderror_" + s + ".html"));
@@ -4371,52 +4384,10 @@ public class client extends JagApplet {
         }
 
         anIntArray1311 = new int[256];
-        for (int l = 0; l < 64; l++) {
-            anIntArray1311[l] = l * 0x40000;
-        }
-
-        for (int i1 = 0; i1 < 64; i1++) {
-            anIntArray1311[i1 + 64] = 0xff0000 + 1024 * i1;
-        }
-
-        for (int j1 = 0; j1 < 64; j1++) {
-            anIntArray1311[j1 + 128] = 0xffff00 + 4 * j1;
-        }
-
-        for (int k1 = 0; k1 < 64; k1++) {
-            anIntArray1311[k1 + 192] = 0xffffff;
-        }
-
         anIntArray1312 = new int[256];
-        for (int l1 = 0; l1 < 64; l1++) {
-            anIntArray1312[l1] = l1 * 1024;
-        }
-
-        for (int i2 = 0; i2 < 64; i2++)
-            anIntArray1312[i2 + 64] = 65280 + 4 * i2;
-
-        for (int j2 = 0; j2 < 64; j2++)
-            anIntArray1312[j2 + 128] = 65535 + 0x40000 * j2;
-
-        for (int k2 = 0; k2 < 64; k2++)
-            anIntArray1312[k2 + 192] = 0xffffff;
-
         anIntArray1313 = new int[256];
-        for (int l2 = 0; l2 < 64; l2++) {
-            anIntArray1313[l2] = l2 * 4;
-        }
-
-        for (int i3 = 0; i3 < 64; i3++) {
-            anIntArray1313[i3 + 64] = 255 + 0x40000 * i3;
-        }
-
-        for (int j3 = 0; j3 < 64; j3++) {
-            anIntArray1313[j3 + 128] = 0xff00ff + 1024 * j3;
-        }
-
-        for (int k3 = 0; k3 < 64; k3++) {
-            anIntArray1313[k3 + 192] = 0xffffff;
-        }
+        TitleFlamePalette.fill(appliedTitleTheme == SeasonalTitleTheme.DEFAULT,
+                anIntArray1311, anIntArray1312, anIntArray1313);
 
         anIntArray1310 = new int[256];
         anIntArray1176 = new int[32768];
@@ -5159,11 +5130,13 @@ public class client extends JagApplet {
         }
         if (started) {
             aBoolean1016 = true;
+            reportStartupFailure();
             return;
         }
         started = true;
         if (!ClientConfiguration.get().string("connectHost").equalsIgnoreCase(method37(-42588))) {
             aBoolean1097 = true;
+            reportStartupFailure();
             return;
         }
         if (signlink.cache_dat != null) {
@@ -5509,11 +5482,13 @@ public class client extends JagApplet {
             GameObject.aClient1723 = this;
             ObjectDefinition.aClient770 = this;
             NpcDefinition.aClient629 = this;
+            startupLoaded = true;
             return;
         } catch (Exception exception) {
+            aBoolean1283 = true;
+            reportStartupFailure();
             signlink.reporterror("loaderror " + aString1027 + " " + anInt1322);
         }
-        aBoolean1283 = true;
     }
 
     public void animateTexture_65(int i) {
@@ -8040,6 +8015,16 @@ public class client extends JagApplet {
     }
 
     private void renderLoginFlamesLocked() {
+        boolean highDefinition = hasHighResolutionTitle();
+        int[] leftPixels = loginFlameLeft.pixels;
+        int[] rightPixels = loginFlameRight.pixels;
+        if (highDefinition) {
+            prepareLoginFlameOverlays();
+            leftPixels = loginFlameOverlayPixelsLeft;
+            rightPixels = loginFlameOverlayPixelsRight;
+            Arrays.fill(leftPixels, 0);
+            Arrays.fill(rightPixels, 0);
+        }
         char c = '\u0100';
         if (anInt1047 > 0) {
             for (int j = 0; j < 256; j++) {
@@ -8068,8 +8053,8 @@ public class client extends JagApplet {
             }
 
         }
-        for (int i1 = 0; i1 < 33920; i1++) {
-            loginFlameLeft.pixels[i1] = sprite_1017.pixels_1489[i1];
+        if (!highDefinition) for (int i1 = 0; i1 < 33920; i1++) {
+            leftPixels[i1] = sprite_1017.pixels_1489[i1];
         }
 
         int j1 = 0;
@@ -8086,8 +8071,10 @@ public class client extends JagApplet {
                     int i4 = k3;
                     int k4 = 256 - k3;
                     k3 = anIntArray1310[k3];
-                    int i5 = loginFlameLeft.pixels[k1];
-                    loginFlameLeft.pixels[k1++] = ((k3 & 0xff00ff) * i4 + (i5 & 0xff00ff) * k4 & 0xff00ff00)
+                    int i5 = leftPixels[k1];
+                    int leftIndex = k1++;
+                    leftPixels[leftIndex] = highDefinition ? titleFlameAlpha(i4, leftIndex) << 24 | k3
+                            : ((k3 & 0xff00ff) * i4 + (i5 & 0xff00ff) * k4 & 0xff00ff00)
                             + ((k3 & 0xff00) * i4 + (i5 & 0xff00) * k4 & 0xff0000) >> 8;
                 } else {
                     k1++;
@@ -8097,9 +8084,9 @@ public class client extends JagApplet {
             k1 += k2;
         }
 
-        loginFlameLeft.drawImage(0, 0, super.graphics);
-        for (int j2 = 0; j2 < 33920; j2++)
-            loginFlameRight.pixels[j2] = sprite_1018.pixels_1489[j2];
+        if (!highDefinition) loginFlameLeft.drawImage(0, 0, super.graphics);
+        if (!highDefinition) for (int j2 = 0; j2 < 33920; j2++)
+            rightPixels[j2] = sprite_1018.pixels_1489[j2];
 
         j1 = 0;
         k1 = 1176;
@@ -8113,8 +8100,10 @@ public class client extends JagApplet {
                     int j5 = l4;
                     int k5 = 256 - l4;
                     l4 = anIntArray1310[l4];
-                    int l5 = loginFlameRight.pixels[k1];
-                    loginFlameRight.pixels[k1++] = ((l4 & 0xff00ff) * j5 + (l5 & 0xff00ff) * k5 & 0xff00ff00)
+                    int l5 = rightPixels[k1];
+                    int rightIndex = k1++;
+                    rightPixels[rightIndex] = highDefinition ? titleFlameAlpha(j5, rightIndex) << 24 | l4
+                            : ((l4 & 0xff00ff) * j5 + (l5 & 0xff00ff) * k5 & 0xff00ff00)
                             + ((l4 & 0xff00) * j5 + (l5 & 0xff00) * k5 & 0xff0000) >> 8;
                 } else {
                     k1++;
@@ -8125,7 +8114,40 @@ public class client extends JagApplet {
             k1 += 128 - l3 - j3;
         }
 
-        loginFlameRight.drawImage(637, 0, super.graphics);
+        if (highDefinition) {
+            Graphics2D canvas = (Graphics2D) super.graphics.create();
+            try {
+                canvas.setTransform(new AffineTransform());
+                titleArtwork.drawDefaultFlames(canvas, loginFlameOverlayLeft, loginFlameOverlayRight,
+                        clientWidth, clientHeight, loginScreenOffsetX(), loginScreenOffsetY());
+            } finally {
+                canvas.dispose();
+            }
+        } else {
+            loginFlameRight.drawImage(637, 0, super.graphics);
+        }
+    }
+
+    /**
+     * Reuses transparent fire buffers so high-resolution artwork remains sharp beneath the animated flames.
+     */
+    private void prepareLoginFlameOverlays() {
+        if (loginFlameOverlayLeft != null) return;
+        loginFlameOverlayLeft = new java.awt.image.BufferedImage(128, 265, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        loginFlameOverlayRight = new java.awt.image.BufferedImage(128, 265, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        loginFlameOverlayPixelsLeft = ((java.awt.image.DataBufferInt) loginFlameOverlayLeft.getRaster().getDataBuffer()).getData();
+        loginFlameOverlayPixelsRight = ((java.awt.image.DataBufferInt) loginFlameOverlayRight.getRaster().getDataBuffer()).getData();
+    }
+
+    /**
+     * Feathers the original heat-map edges so scaled torch fire never exposes the rectangular simulation boundary.
+     */
+    private static int titleFlameAlpha(int intensity, int index) {
+        int x = index % 128, y = index / 128;
+        int sides = Math.min(255, Math.min(x, 127 - x) * 255 / 16);
+        int top = Math.min(255, Math.max(0, y - 7) * 255 / 16);
+        int base = Math.min(255, Math.max(0, 264 - y) * 255 / 3);
+        return ((intensity * sides / 255) * top / 255) * base / 255;
     }
 
     public void adjustVolume(boolean flag, byte byte0, int i) {
@@ -10264,6 +10286,7 @@ public class client extends JagApplet {
     }
 
     public void drawErrorScreen() {
+        reportStartupFailure();
         Graphics g = super.graphics;
         g.setColor(Color.black);
         g.fillRect(0, 0, 765, 503);
@@ -10420,18 +10443,72 @@ public class client extends JagApplet {
                 updateLoginFlames((byte) 1);
                 renderLoginFlames();
             }
+            startupLoginFrameDrawn = true;
         } else {
             drawGame();
         }
         anInt1094 = 0;
     }
 
+    @Override
+    protected void frameRendered() {
+        if (startupLoaded && startupLoginFrameDrawn && !isLoggedIn
+                && !aBoolean1016 && !aBoolean1283 && !aBoolean1097) {
+            luna.ClientStartup.prepared();
+        }
+    }
+
+    @Override
+    protected void framePresented() {
+        if (startupLoaded && startupLoginFrameDrawn && !isLoggedIn
+                && !aBoolean1016 && !aBoolean1283 && !aBoolean1097) {
+            reportStartupReady();
+            luna.ClientStartup.frameShown();
+        } else if (startupFailureReported) {
+            luna.ClientStartup.frameShown();
+        }
+    }
+
     /**
-     * In the resizable mode the 765x503 login screen is drawn in the centre of the window, with black around it.
-     * The back buffer Graphics is moved to the centre for the login screen and back to the corner for the game.
+     * Announces the first successfully presented login screen to an observing launcher.
+     */
+    private static synchronized void reportStartupReady() {
+        if (startupReadyReported || startupFailureReported) return;
+        startupReadyReported = true;
+        System.out.println("LUNA_CLIENT_READY");
+        System.out.flush();
+    }
+
+    /**
+     * Releases a managed splash when startup fails even if the client remains on an error screen.
+     */
+    private static synchronized void reportStartupFailure() {
+        if (startupReadyReported || startupFailureReported) return;
+        startupFailureReported = true;
+        luna.ClientStartup.failed();
+        System.out.println("LUNA_CLIENT_STARTUP_FAILED");
+        System.out.flush();
+    }
+
+    /**
+     * Paints default artwork at window resolution while keeping the original login controls centered and unscaled.
+     * Seasonal and missing-artwork fallbacks retain the classic title layout.
      */
     private void prepareLoginScreenGraphics() {
         Graphics2D g = (Graphics2D) super.graphics;
+        if (hasHighResolutionTitle()) {
+            if (shouldRenderUI || !loginScreenCleared) {
+                synchronized (titleArtworkLock) {
+                    g.setTransform(new AffineTransform());
+                    titleArtwork.drawDefaultScene(g, clientWidth, clientHeight,
+                            loginScreenOffsetX(), loginScreenOffsetY());
+                    loginScreenCleared = true;
+                    shouldRenderUI = true;
+                }
+            }
+            g.setTransform(AffineTransform.getTranslateInstance(loginScreenOffsetX(), loginScreenOffsetY()));
+            return;
+        }
         // also clear when coming from the game (logging out), which leaves its last frame in the back buffer
         if (clientSize == 1 && (shouldRenderUI || !loginScreenCleared)) {
             g.setTransform(new AffineTransform());
@@ -10442,6 +10519,26 @@ public class client extends JagApplet {
             shouldRenderUI = true;
         }
         g.setTransform(AffineTransform.getTranslateInstance(loginScreenOffsetX(), loginScreenOffsetY()));
+    }
+
+    /**
+     * Reports when the bundled full-resolution default scene can replace the legacy opaque title panels.
+     */
+    private boolean hasHighResolutionTitle() {
+        return !isLoggedIn && appliedTitleTheme == SeasonalTitleTheme.DEFAULT
+                && titleArtwork != null && titleArtwork.hasDefaultScene();
+    }
+
+    /**
+     * Samples the physical HD scene beneath the native login panel, including its rounded transparent corners.
+     */
+    private void prepareLoginBoxBackground() {
+        if (!hasHighResolutionTitle()) return;
+        synchronized (titleArtworkLock) {
+            titleArtwork.copyDefaultRegion(loginboxElement.pixels, loginboxElement.width, loginboxElement.height,
+                    loginScreenOffsetX() + 202, loginScreenOffsetY() + 171,
+                    clientWidth, clientHeight, loginScreenOffsetX(), loginScreenOffsetY());
+        }
     }
 
     /**
@@ -10613,6 +10710,7 @@ public class client extends JagApplet {
     public void drawLoginScreen(boolean flag) {
         prepareLoginUI();
         updateTitleArtwork();
+        prepareLoginBoxBackground();
         loginboxElement.pushPixels();
         titlebox_1292.drawSprite(0, 0);
         //char c = '\u0168';
@@ -10623,7 +10721,7 @@ public class client extends JagApplet {
             int j = c1 / 2 + 80;
             font_p11_full.drawString(fileFetcher.aString1347, c / 2, j, true, 0x75a9a9);
             j = c1 / 2 - 20;
-            loginScreenFont.drawString("Welcome to RuneScape", c / 2, j, true, 0xffff00);
+            loginScreenFont.drawString("Welcome to Luna", c / 2, j, true, 0xffff00);
             j += 30;
             int i1 = c / 2 - 80;
             int l1 = c1 / 2 + 20;
@@ -10678,12 +10776,14 @@ public class client extends JagApplet {
         loginboxElement.drawImage(202, 171, super.graphics);
         if (shouldRenderUI) {
             shouldRenderUI = false;
-            loginBackground_1.drawImage(128, 0, super.graphics);
-            loginBackground_2.drawImage(202, 371, super.graphics);
-            loginBackground_3.drawImage(0, 265, super.graphics);
-            loginBackground_4.drawImage(562, 265, super.graphics);
-            loginBackground_5.drawImage(128, 171, super.graphics);
-            loginBackground_6.drawImage(562, 171, super.graphics);
+            if (!hasHighResolutionTitle()) {
+                loginBackground_1.drawImage(128, 0, super.graphics);
+                loginBackground_2.drawImage(202, 371, super.graphics);
+                loginBackground_3.drawImage(0, 265, super.graphics);
+                loginBackground_4.drawImage(562, 265, super.graphics);
+                loginBackground_5.drawImage(128, 171, super.graphics);
+                loginBackground_6.drawImage(562, 171, super.graphics);
+            }
         }
         presentBackBuffer();
     }
@@ -11101,12 +11201,14 @@ public class client extends JagApplet {
             super.drawLoadingText(i, text);
             return;
         }
+        if (!isLoggedIn) prepareLoginScreenGraphics();
+        prepareLoginBoxBackground();
         loginboxElement.pushPixels();
         char c = '\u0168';
         char c1 = '\310';
         byte byte0 = 20;
         loginScreenFont.drawHorizontallyCenteredString(c / 2, c1 / 2 - 26 - byte0, 0xffffff,
-                "RuneScape is loading - please wait...");
+                "Luna is loading - please wait...");
         int j = c1 / 2 - 18 - byte0;
         Drawable.drawRect(c / 2 - 152, j, 304, 34, 0x8c1111);
         Drawable.drawRect(c / 2 - 151, j + 1, 302, 32, 0);
@@ -11116,14 +11218,16 @@ public class client extends JagApplet {
         loginboxElement.drawImage(202, 171, super.graphics);
         if (shouldRenderUI) {
             shouldRenderUI = false;
-            loginFlameLeft.drawImage(0, 0, super.graphics);
-            loginFlameRight.drawImage(637, 0, super.graphics);
-            loginBackground_1.drawImage(128, 0, super.graphics);
-            loginBackground_2.drawImage(202, 371, super.graphics);
-            loginBackground_3.drawImage(0, 265, super.graphics);
-            loginBackground_4.drawImage(562, 265, super.graphics);
-            loginBackground_5.drawImage(128, 171, super.graphics);
-            loginBackground_6.drawImage(562, 171, super.graphics);
+            if (!hasHighResolutionTitle()) {
+                loginFlameLeft.drawImage(0, 0, super.graphics);
+                loginFlameRight.drawImage(637, 0, super.graphics);
+                loginBackground_1.drawImage(128, 0, super.graphics);
+                loginBackground_2.drawImage(202, 371, super.graphics);
+                loginBackground_3.drawImage(0, 265, super.graphics);
+                loginBackground_4.drawImage(562, 265, super.graphics);
+                loginBackground_5.drawImage(128, 171, super.graphics);
+                loginBackground_6.drawImage(562, 171, super.graphics);
+            }
         }
         presentBackBuffer();
     }
@@ -11156,6 +11260,12 @@ public class client extends JagApplet {
                 System.arraycopy(loginFlameRight.pixels, 0, sprite_1018.pixels_1489, 0, loginFlameRight.pixels.length);
             }
             appliedTitleTheme = theme;
+            if (anIntArray1311 != null && anIntArray1312 != null && anIntArray1313 != null) {
+                TitleFlamePalette.fill(theme == SeasonalTitleTheme.DEFAULT,
+                        anIntArray1311, anIntArray1312, anIntArray1313);
+                anInt1047 = anInt1048 = 0;
+            }
+            loginScreenCleared = false;
             shouldRenderUI = true;
         }
     }
@@ -11193,6 +11303,10 @@ public class client extends JagApplet {
 
     public void resetWhenBoolTrue() {
         loginFlamesReady = false;
+        loginFlameOverlayLeft = null;
+        loginFlameOverlayRight = null;
+        loginFlameOverlayPixelsLeft = null;
+        loginFlameOverlayPixelsRight = null;
         titlebox_1292 = null;
         titlebutton_1293 = null;
         runes_array1117 = null;
