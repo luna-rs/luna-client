@@ -41,6 +41,8 @@ import java.util.Map;
  */
 @DisableCachingByDefault(because = "Release asset contents can change without a source commit.")
 public abstract class PrepareReleaseCache extends DefaultTask {
+    private static final int REQUEST_ATTEMPTS = 3;
+
     public PrepareReleaseCache() {
         getRepository().convention("luna-rs/luna-client");
         getReleaseTag().convention("latest");
@@ -101,7 +103,7 @@ public abstract class PrepareReleaseCache extends DefaultTask {
                 source.put("releaseTag", asset.tag());
                 source.put("assetId", asset.id());
                 source.put("downloadUrl", asset.downloadUrl().toString());
-                Path archive = download(http, asset);
+                Path archive = download(http, repository, asset);
                 ReleaseCache.prepare(archive, output, asset.sha256(), asset.size(), source);
                 getLogger().lifecycle("Prepared six verified cache stores from {}/{} (SHA-256 {}).", repository, asset.tag(), asset.sha256());
             }
@@ -141,7 +143,7 @@ public abstract class PrepareReleaseCache extends DefaultTask {
         }
     }
 
-    private Path download(HttpClient http, ReleaseCache.Asset asset) throws IOException, InterruptedException {
+    private Path download(HttpClient http, String repository, ReleaseCache.Asset asset) throws IOException, InterruptedException {
         Path directory = getDownloadDirectory().get().getAsFile().toPath().toAbsolutePath().normalize();
         for (Path part = directory; part != null; part = part.getParent()) {
             if (Files.isSymbolicLink(part)) throw new IOException("Cache download directory must not contain links.");
@@ -159,7 +161,8 @@ public abstract class PrepareReleaseCache extends DefaultTask {
         }
         Path temporary = Files.createTempFile(directory, "cache-download-", ".tmp");
         try {
-            try (InputStream input = response(http, asset.downloadUrl(), false); var output = Files.newOutputStream(temporary)) {
+            URI binary = URI.create("https://api.github.com/repos/" + repository + "/releases/assets/" + asset.id());
+            try (InputStream input = response(http, binary, false); var output = Files.newOutputStream(temporary)) {
                 byte[] buffer = new byte[65536];
                 long total = 0;
                 for (int read; (read = input.read(buffer)) != -1;) {
@@ -176,22 +179,23 @@ public abstract class PrepareReleaseCache extends DefaultTask {
         }
     }
 
-    private InputStream response(HttpClient http, URI initial, boolean api) throws IOException, InterruptedException {
+    private static InputStream response(HttpClient http, URI initial, boolean metadata) throws IOException, InterruptedException {
         URI uri = initial;
         for (int redirects = 0; redirects <= 5; redirects++) {
             String host = uri.getHost();
-            boolean allowed = api ? "api.github.com".equals(host) : "github.com".equals(host)
+            boolean apiHost = "api.github.com".equals(host);
+            boolean allowed = metadata ? apiHost : apiHost || "github.com".equals(host)
                     || "objects.githubusercontent.com".equals(host) || "release-assets.githubusercontent.com".equals(host)
                     || "github-releases.githubusercontent.com".equals(host);
             if (!allowed || !"https".equals(uri.getScheme()) || uri.getUserInfo() != null) throw new IOException("Unexpected release download host.");
             HttpRequest.Builder request = HttpRequest.newBuilder(uri).timeout(Duration.ofMinutes(3))
-                    .header("User-Agent", "luna-client-cache-build").header("Accept", api ? "application/vnd.github+json" : "application/octet-stream");
-            if (api) {
+                    .header("User-Agent", "luna-client-cache-build").header("Accept", metadata ? "application/vnd.github+json" : "application/octet-stream");
+            if (apiHost) {
                 request.header("X-GitHub-Api-Version", "2022-11-28");
                 String token = System.getenv("GITHUB_TOKEN");
                 if (token != null && !token.isBlank()) request.header("Authorization", "Bearer " + token);
             }
-            HttpResponse<InputStream> result = http.send(request.GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> result = sendWithRetries(http, request.GET().build());
             int status = result.statusCode();
             if (status == 200) return result.body();
             result.body().close();
@@ -203,5 +207,34 @@ public abstract class PrepareReleaseCache extends DefaultTask {
             }
         }
         throw new IOException("Too many release download redirects.");
+    }
+
+    /**
+     * Retries safe GET transport failures and temporary gateway responses without relaxing release validation.
+     */
+    private static HttpResponse<InputStream> sendWithRetries(HttpClient http, HttpRequest request)
+            throws IOException, InterruptedException {
+        for (int attempt = 1; attempt <= REQUEST_ATTEMPTS; attempt++) {
+            HttpResponse<InputStream> result;
+            try {
+                result = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            } catch (IOException failure) {
+                if (attempt == REQUEST_ATTEMPTS) {
+                    throw new IOException("GitHub release request to " + request.uri().getHost()
+                            + " failed after " + REQUEST_ATTEMPTS + " attempts; check network access.");
+                }
+                Thread.sleep(1000L * attempt);
+                continue;
+            }
+            int status = result.statusCode();
+            if (attempt == REQUEST_ATTEMPTS || status != 502 && status != 503 && status != 504) return result;
+            try {
+                result.body().close();
+            } catch (IOException ignored) {
+                // A failed temporary response must not prevent a fresh bounded request.
+            }
+            Thread.sleep(1000L * attempt);
+        }
+        throw new IOException("GitHub release request exceeded its retry limit.");
     }
 }

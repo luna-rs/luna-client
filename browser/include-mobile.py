@@ -12,7 +12,9 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from io import BytesIO
@@ -22,6 +24,9 @@ TAG = "v0.5.0-alpha"
 NAME = "luna-mobile-web.zip"
 MAX_ZIP = 256 * 1024 * 1024
 MAX_EXPANDED = 512 * 1024 * 1024
+REQUEST_ATTEMPTS = 3
+DOWNLOAD_HOSTS = {"api.github.com", "github.com", "objects.githubusercontent.com",
+                  "release-assets.githubusercontent.com", "github-releases.githubusercontent.com"}
 SOURCE_FILES = {
     "index.html", "cache.js", "platform.js", "performance.js", "profiling.js", "client-loader.js",
     "luna-web.css", "luna-web.js", "mobile-boot.js", "mobile-input.js", "mobile.js", "mobile.css",
@@ -131,14 +136,52 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def release_response(url, binary=False):
+    opener = urllib.request.build_opener(NoRedirect)
+    for _ in range(6):
+        destination = urllib.parse.urlsplit(url)
+        host = destination.hostname
+        require(destination.scheme == "https" and destination.username is None and destination.password is None
+                and destination.port in (None, 443)
+                and (host in DOWNLOAD_HOSTS if binary else host == "api.github.com"),
+                "Unexpected mobile release download host.")
+        headers = {"Accept": "application/octet-stream" if binary else "application/vnd.github+json",
+                   "User-Agent": "Luna-mobile-Pages-package"}
+        if host == "api.github.com":
+            headers["X-GitHub-Api-Version"] = "2022-11-28"
+            if os.environ.get("GITHUB_TOKEN"):
+                headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+        for attempt in range(1, REQUEST_ATTEMPTS + 1):
+            try:
+                response = opener.open(urllib.request.Request(url, headers=headers), timeout=60 if binary else 30)
+                if response.status != 200:
+                    response.close()
+                    raise ValueError("Unexpected mobile release response.")
+                return response
+            except urllib.error.HTTPError as error:
+                status = error.code
+                location = error.headers.get("Location")
+                error.close()
+                if status in (301, 302, 303, 307, 308):
+                    require(location, "Mobile release redirect lacks its destination.")
+                    url = urllib.parse.urljoin(url, location)
+                    break
+                if status not in (502, 503, 504) or attempt == REQUEST_ATTEMPTS:
+                    raise
+            except (urllib.error.URLError, OSError):
+                if attempt == REQUEST_ATTEMPTS:
+                    raise
+            time.sleep(attempt)
+    raise ValueError("Too many mobile release download redirects.")
+
+
 def include_mobile(website):
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "Luna-mobile-Pages-package"}
-    if os.environ.get("GITHUB_TOKEN"):
-        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
     url = "https://api.github.com/repos/" + REPOSITORY + "/releases/tags/" + TAG
     try:
-        with urllib.request.build_opener(NoRedirect).open(urllib.request.Request(url, headers=headers), timeout=30) as response:
-            release = json.loads(response.read(2 * 1024 * 1024))
+        with release_response(url) as response:
+            metadata = response.read(2 * 1024 * 1024 + 1)
+            require(len(metadata) <= 2 * 1024 * 1024, "The mobile release metadata exceeds its size limit.")
+            release = json.loads(metadata)
     except urllib.error.HTTPError as error:
         if error.code == 404:
             return {"mobile": False, "reason": "No mobile release package is published."}
@@ -149,12 +192,14 @@ def include_mobile(website):
         return {"mobile": False, "reason": "No mobile release package is attached."}
     require(len(matches) == 1 and matches[0].get("state") == "uploaded", "The mobile release asset is ambiguous.")
     asset = matches[0]
-    require(isinstance(asset.get("size"), int) and 0 < asset["size"] <= MAX_ZIP
+    require(type(asset.get("id")) is int and asset["id"] > 0
+            and type(asset.get("size")) is int and 0 < asset["size"] <= MAX_ZIP
             and re.fullmatch(r"sha256:[a-f0-9]{64}", asset.get("digest", "")), "Invalid mobile release asset metadata.")
     download = "https://github.com/" + REPOSITORY + "/releases/download/" + TAG + "/" + NAME
     require(asset.get("browser_download_url") == download, "Unexpected mobile download destination.")
-    # This public download receives no GitHub token, including across signed asset redirects.
-    with urllib.request.urlopen(urllib.request.Request(download, headers={"User-Agent": headers["User-Agent"]}), timeout=60) as response:
+    # The API avoids the public download redirect; subsequent CDN requests never receive the workflow token.
+    binary = "https://api.github.com/repos/" + REPOSITORY + "/releases/assets/" + str(asset["id"])
+    with release_response(binary, binary=True) as response:
         data = response.read(MAX_ZIP + 1)
     return install_mobile(website, data, asset)
 
