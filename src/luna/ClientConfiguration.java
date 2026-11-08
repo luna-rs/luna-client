@@ -38,6 +38,10 @@ public final class ClientConfiguration {
         this.path = path;
         this.values = values;
         this.template = contents.lines().toList();
+        String name = values.getProperty("clientName", "").trim();
+        if ("luna-rs #377 (beta)".equalsIgnoreCase(name) || "Luna Beta".equalsIgnoreCase(name)) {
+            values.setProperty("clientName", "luna-rs #377");
+        }
         validate();
     }
 
