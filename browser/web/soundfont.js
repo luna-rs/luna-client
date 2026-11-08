@@ -90,7 +90,7 @@
         create(audio, destination) {
             if (!audio?.audioWorklet || audio.state === 'closed' || !destination)
                 return Promise.reject(Error('SoundFont music requires a usable AudioWorklet context'));
-            let synth, node, disposed = false, retired = false;
+            let synth, node, disposed = false, retired = false, timelineId = 0, timelineListener;
             const closePort = () => {
                 if (retired) return;
                 retired = true;
@@ -102,6 +102,7 @@
             const dispose = () => {
                 if (disposed) return;
                 disposed = true;
+                timelineListener = undefined;
                 // The worklet acknowledges disposal before closing its port, and returns false from process().
                 // Keep a suspended context's message queued until it resumes, so a detached processor cannot revive.
                 try { node?.port.postMessage({lunaMusic: 1, dispose: true}); } catch { closePort(); }
@@ -123,6 +124,19 @@
                         node.addEventListener('processorerror', onProcessorError);
                         node.port.addEventListener('message', event => {
                             if (event.data?.lunaDisposed) { event.stopImmediatePropagation(); closePort(); }
+                            else if (Number.isSafeInteger(event.data?.lunaTimeline)) {
+                                event.stopImmediatePropagation();
+                                const listener = timelineListener;
+                                const message = event.data;
+                                if (!listener || listener.id !== message.lunaTimeline
+                                        || !['started', 'ended', 'error'].includes(message.type)) return;
+                                if (message.type === 'started') {
+                                    if (listener.started) return;
+                                    listener.started = true;
+                                } else timelineListener = undefined;
+                                listener.notify({type: message.type, duration: listener.duration,
+                                    error: typeof message.error === 'string' ? message.error.slice(0, 200) : 'Audio timeline failed'});
+                            }
                         });
                         node.port.start();
                         audio.addEventListener('statechange', onContextState);
@@ -141,11 +155,31 @@
                 synth.setSystemParameter('reverbGain', 1);
                 synth.setSystemParameter('chorusGain', 1);
                 synth.connect(destination);
-                const cancel = reset => { if (!disposed) node.port.postMessage({lunaMusic: 1, reset}); };
+                const cancel = reset => {
+                    timelineListener = undefined;
+                    if (!disposed) node.port.postMessage({lunaMusic: 1, reset});
+                };
                 cancel(true);
                 return {
                     reset() { cancel(true); },
                     stopMIDI() { cancel(false); },
+                    playTimeline(song, loop, startAt, notify) {
+                        if (disposed) throw Error('Browser music is closed');
+                        if (!song || !Array.isArray(song.events) || !song.events.length || song.events.length > 100000
+                                || !Number.isFinite(song.duration) || song.duration < 20 || song.duration > 3600000
+                                || !Number.isFinite(startAt) || startAt > audio.currentTime + .5 || typeof notify !== 'function')
+                            throw Error('Invalid browser music timeline');
+                        const id = ++timelineId;
+                        timelineListener = {id, notify, duration: song.duration, started: false};
+                        try {
+                            node.port.postMessage({lunaMusic: 1, timeline: {id, events: song.events,
+                                duration: song.duration / 1000, loop: !!loop, startAt}});
+                        } catch (error) {
+                            timelineListener = undefined;
+                            throw error;
+                        }
+                        return id;
+                    },
                     send(message, atSeconds) {
                         if (disposed) return;
                         if (!message || message.length < 2 || message.length > 3 || message[0] < 128 || message[0] >= 240

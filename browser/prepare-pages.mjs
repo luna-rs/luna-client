@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { validateBrowserConfiguration } from './configuration.mjs';
 
 const stores = ['main_file_cache.dat', ...Array.from({ length: 5 }, (_, index) => `main_file_cache.idx${index}`)];
-const assets = ['index.html', 'cache.js', 'soundfont.js', 'audio-midi.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
+const assets = ['index.html', 'cache.js', 'soundfont.js', 'audio-midi.js', 'background-clock.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
     'luna-web.css', 'luna-web.js',
     ...['stoneback.gif', 'navbar.gif', 'navbar_mainmenu.gif', 'navbar_manual.gif', 'navbar_rules.gif']
         .map(name => `assets/theme/${name}`),

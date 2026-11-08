@@ -184,7 +184,7 @@ public class JagApplet extends Applet implements Runnable {
                 }
                 ClientPerformance.loopFinished(performanceLoopStarted);
                 BrowserPerformance.poll();
-                if (BrowserFrameClock.enabled()) {
+                if (BrowserFrameClock.enabled() || BrowserDisplay.hidden()) {
                     BrowserFrameClock.awaitWork(scheduler.nanosUntilUpdate(System.nanoTime()) / 1_000_000.0);
                 } else {
                     long waitNanos = scheduler.nanosUntilWork(System.nanoTime());

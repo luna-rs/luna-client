@@ -26,6 +26,11 @@
     let waiting;
     let workTimer = 0;
     let waitTicket = 0;
+    let backgroundClockEnabled = false;
+    let backgroundWorker;
+    let backgroundWorkerFailed = false;
+    let backgroundActive;
+    let backgroundGeneration = 0;
     let displayRatio;
     let displayViewportWidth;
     let displayViewportHeight;
@@ -176,6 +181,54 @@
         if (ticket === waitTicket) wakeWaiting();
     }
 
+    function updateBackgroundClock() {
+        if (!backgroundClockEnabled || backgroundWorkerFailed) return;
+        if (!backgroundWorker) {
+            if (typeof Worker !== 'function') return;
+            try {
+                const url = typeof window.LunaAssetUrl === 'function' ? window.LunaAssetUrl('background-clock.js')
+                    : new URL('background-clock.js', document.baseURI).href;
+                const worker = backgroundWorker = new Worker(url);
+                backgroundActive = undefined;
+                worker.onmessage = event => {
+                    const tick = event.data;
+                    if (backgroundWorker !== worker || tick?.type !== 'tick' || tick.generation !== backgroundGeneration) return;
+                    worker.postMessage({type: 'ack', generation: tick.generation});
+                    if (backgroundActive && document.hidden) wakeWaiting();
+                };
+                worker.onerror = () => {
+                    if (backgroundWorker !== worker) return;
+                    worker.terminate();
+                    backgroundWorker = undefined;
+                    backgroundWorkerFailed = true;
+                    console.warn('Background update clock unavailable; using browser timers.');
+                    wakeWaiting();
+                };
+            } catch (error) {
+                backgroundWorkerFailed = true;
+                console.warn('Background update clock unavailable: ' + error.message);
+                return;
+            }
+        }
+        const hidden = !!document.hidden;
+        if (backgroundActive === hidden) return;
+        backgroundActive = hidden;
+        backgroundWorker.postMessage({type: hidden ? 'start' : 'stop', generation: ++backgroundGeneration});
+    }
+
+    function startBackgroundClock() {
+        backgroundClockEnabled = true;
+        updateBackgroundClock();
+    }
+
+    function stopBackgroundClock() {
+        backgroundClockEnabled = false;
+        if (backgroundWorker) backgroundWorker.terminate();
+        backgroundWorker = undefined;
+        backgroundActive = undefined;
+        backgroundGeneration++;
+    }
+
     function animationFrame(timestamp) {
         if (!pacing) return;
         pacingRequest = requestAnimationFrame(animationFrame);
@@ -205,7 +258,7 @@
     function decodeEffect(effect) {
         const audio = effect.audio;
         audio.decodeAudioData(effect.bytes).then(buffer => {
-            if (document.hidden || audio !== window._lunaAudio || audio.state !== 'running'
+            if (audio !== window._lunaAudio || audio.state !== 'running'
                     || effect.generation !== (window._lunaSoundGeneration || 0)
                     || performance.now() - effect.created > 500) return;
             if (!window._lunaGain) {
@@ -231,7 +284,7 @@
     }
 
     function readyAudio(audio, notifyMidi = true) {
-        if (document.hidden || window._lunaAudio !== audio || audio.state !== 'running') return;
+        if (window._lunaAudio !== audio || audio.state !== 'running') return;
         audioError = '';
         if (notifyMidi) {
             try { window.LunaMidi?.contextReady?.(); } catch (error) { reportAudio(error); }
@@ -245,7 +298,6 @@
     }
 
     function unlockAudioContext() {
-        if (document.hidden) return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         try {
@@ -296,7 +348,7 @@
 
     function playEffect(data) {
         const audio = window._lunaAudio;
-        if (!audio || document.hidden || audio.state === 'closed') return false;
+        if (!audio || audio.state === 'closed') return false;
         try {
             let bytes;
             if (ArrayBuffer.isView(data)) bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -324,8 +376,10 @@
             const selection = new URLSearchParams(location.search).get('framePacing');
             if (selection === 'timer' || selection !== 'raf' && !defaultPacing) {
                 if (pacing) window.LunaBrowser.stopPacing();
+                startBackgroundClock();
                 return false;
             }
+            startBackgroundClock();
             if (pacing) return true;
             pacing = true;
             framePermit = false;
@@ -365,6 +419,7 @@
             workTimer = setTimeout(workDeadline, delay, ++waitTicket);
         },
         stopPacing() {
+            stopBackgroundClock();
             pacing = false;
             framePermit = false;
             if (pacingRequest) cancelAnimationFrame(pacingRequest);
@@ -455,13 +510,12 @@
     document.addEventListener('keydown', unlockAudioFromGesture, {capture: true});
     for (const event of ['pointerup', 'touchend', 'click'])
         document.addEventListener(event, unlockAudioFromGesture, {capture: true, passive: true});
-    const interrupted = () => {
-        audioNeedsRecovery = !!window._lunaAudio;
-        stopEffects();
-    };
-    window.addEventListener('blur', interrupted);
-    window.addEventListener('pagehide', interrupted);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) interrupted(); });
+    document.addEventListener('visibilitychange', () => {
+        updateBackgroundClock();
+        wakeWaiting();
+        const audio = window._lunaAudio;
+        if (audio?.state === 'running') readyAudio(audio);
+    });
     window.addEventListener('resize', requestDisplayLayout);
     document.addEventListener('fullscreenchange', requestDisplayLayout);
     if (typeof ResizeObserver === 'function') {

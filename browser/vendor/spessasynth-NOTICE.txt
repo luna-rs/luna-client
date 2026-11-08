@@ -9,8 +9,10 @@ https://github.com/spessasus/spessasynth_lib
 https://github.com/spessasus/spessasynth_core
 
 Luna bundles only WorkletSynthesizer in the controller, using esbuild 0.28.2,
-and wraps the distributed worklet to clear scheduled notes on cancellation and
-terminate its processor on disposal. The engine and sample bank are not modified.
+and wraps the distributed worklet to sequence bounded MIDI timelines on the audio
+clock, clear scheduled notes on cancellation and terminate its processor on
+disposal. The wrapper handles playback and looping without main-page timers;
+the upstream synthesis engine and sample bank are not modified.
 The SoundFont is Luna desktop data/soundbank.sf2 (Florestan Basic GM GS),
 SHA-256 6cc153f925bc3c0136d431802bd0039587dd3b3ef4a05b2e9d316c48f41a0363.
 

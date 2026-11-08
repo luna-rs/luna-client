@@ -6,7 +6,7 @@
 (() => {
     'use strict';
     const MAX_BYTES = 2 * 1024 * 1024, MAX_EVENTS = 100000, MAX_DURATION = 3600000;
-    let synth, context, gain, fade, limiter, output, loading, pending, playing, timer = 0, volume = 0, closed = false;
+    let synth, context, gain, fade, limiter, output, loading, pending, playing, volume = 0, closed = false;
     let synthGeneration = 0;
 
     function midi(data) {
@@ -113,19 +113,23 @@
     function report(request, duration) {
         const callback = request?.started;
         if (request) request.started = null;
-        if (typeof callback === 'function') callback(duration);
+        if (typeof callback === 'function') {
+            try { callback(duration); }
+            catch (error) { console.warn('Browser music callback: ' + error); }
+        }
     }
     function applyVolume() {
         if (gain) gain.gain.value = Math.pow(10, (volume - 300) / 2000);
     }
     function stopPlaying() {
-        if (timer) clearTimeout(timer);
-        timer = 0; playing = null;
+        const active = playing;
+        playing = null;
         if (fade && context) {
             fade.gain.cancelScheduledValues(context.currentTime);
             fade.gain.setValueAtTime(0, context.currentTime);
         }
         try { synth?.stopMIDI(); } catch (error) { console.warn('Browser music stop: ' + error); }
+        report(active, -1);
     }
     function disposeSynth() {
         synthGeneration++;
@@ -142,7 +146,10 @@
         stopPlaying(); report(waiting, -1);
     }
     function pause() {
-        if (!pending && playing?.loop) pending = {song: playing.song, loop: true, started: null};
+        if (!pending && playing?.loop) {
+            pending = {song: playing.song, loop: true, started: playing.started};
+            playing.started = null;
+        }
         if (pending && !pending.loop) {
             const waiting = pending; pending = null; report(waiting, -1);
         }
@@ -150,7 +157,7 @@
     }
     function ensureSynth() {
         const audio = window._lunaAudio;
-        if (!audio || audio.state !== 'running' || document.hidden || closed) return false;
+        if (!audio || audio.state !== 'running' || closed) return false;
         if (context !== audio || synth?.active === false) {
             stopPlaying(); disposeSynth();
             context = audio; gain = audio.createGain();
@@ -176,7 +183,7 @@
                 }).catch(error => {
                     if (generation !== synthGeneration) return;
                     const waiting = pending;
-                    const interrupted = waiting?.loop && (document.hidden || audio.state !== 'running');
+                    const interrupted = waiting?.loop && audio.state !== 'running';
                     pending = interrupted ? waiting : null;
                     stopPlaying(); disposeSynth();
                     if (!interrupted) { report(waiting, -1); console.warn('Browser SoundFont: ' + error); }
@@ -184,47 +191,29 @@
         }
         return !!synth;
     }
-    function pump() {
-        timer = 0;
-        const current = playing;
-        if (!current) return;
-        if (synth?.active === false) { pause(); disposeSynth(); return; }
-        const now = context.currentTime;
-        if (document.hidden || context.state !== 'running' || now - current.lastPump > .75) { pause(); return; }
-        current.lastPump = now;
-        let budget = 512;
-        while (playing === current && budget-- > 0) {
-            if (current.index >= current.song.events.length) {
-                const end = current.start + current.song.duration / 1000;
-                if (!current.loop) {
-                    if (now >= end) stopPlaying();
-                    break;
-                }
-                if (end > now + .12) break;
-                current.start = end; current.index = 0;
-            }
-            const event = current.song.events[current.index], at = current.start + event.time;
-            if (at > now + .12) break;
-            // Suspended or overloaded pages never replay a backlog of old notes.
-            if (at >= now - .1) synth.send(event.message, Math.max(now, at));
-            current.index++;
-        }
-        if (playing === current) timer = setTimeout(pump, 25);
-    }
     function contextReady() {
-        if (playing && (synth?.active === false || context !== window._lunaAudio || context.state !== 'running'
-                || context.currentTime - playing.lastPump > .75)) pause();
+        if (playing && (synth?.active === false || context !== window._lunaAudio || context.state === 'closed')) pause();
         if (!pending) return;
         const request = pending;
         try {
             if (!ensureSynth()) return;
             pending = null;
             synth.reset();
-            playing = {...request, index: 0, start: context.currentTime + .03, lastPump: context.currentTime};
+            const current = {...request, start: context.currentTime + .03};
+            request.started = null;
+            playing = current;
             fade.gain.cancelScheduledValues(context.currentTime);
-            fade.gain.setValueAtTime(request.loop ? 0 : 1, playing.start);
-            if (request.loop) fade.gain.linearRampToValueAtTime(1, playing.start + 1);
-            pump(); report(request, request.song.duration);
+            fade.gain.setValueAtTime(request.loop ? 0 : 1, current.start);
+            if (request.loop) fade.gain.linearRampToValueAtTime(1, current.start + 1);
+            synth.playTimeline(request.song, request.loop, current.start, event => {
+                if (playing !== current) return;
+                if (event.type === 'started') report(current, event.duration);
+                else if (event.type === 'ended') stopPlaying();
+                else if (event.type === 'error') {
+                    stopPlaying();
+                    console.warn('Browser music: ' + event.error);
+                }
+            });
         } catch (error) {
             pending = null; stopPlaying(); report(request, -1); console.warn('Browser music: ' + error);
         }
@@ -234,7 +223,7 @@
             stop();
             const request = {started};
             try {
-                if (closed || document.hidden && !loop) throw Error('Browser music is not active');
+                if (closed) throw Error('Browser music is not active');
                 request.song = midi(data); request.loop = !!loop; pending = request;
                 contextReady();
             } catch (error) {
@@ -254,7 +243,6 @@
             events: playing?.song.events.length || pending?.song.events.length || 0, voices: synth?.voiceCount || 0,
             engine: 'soundfont', loading: !!loading}; }
     };
-    window.addEventListener('blur', () => { if (document.hidden) pause(); });
     window.addEventListener('pagehide', pause);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+    window.addEventListener('pageshow', contextReady);
 })();
