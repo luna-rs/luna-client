@@ -38,6 +38,23 @@
     });
 
     const fullscreen = document.getElementById('fullscreen-game');
+    const clientMode = document.createElement('button');
+    clientMode.type = 'button';
+    clientMode.id = 'client-mode';
+    clientMode.title = 'Switch between the fixed client and a game viewport that fills this browser page.';
+    const updateClientMode = () => {
+        const resizable = window.LunaBrowser.initialMode() === 1;
+        clientMode.textContent = resizable ? 'Fixed mode' : 'Resizable mode';
+        clientMode.setAttribute('aria-label', resizable ? 'Switch to fixed client mode' : 'Switch to resizable client mode');
+    };
+    clientMode.addEventListener('click', () => {
+        window.LunaBrowser.setClientMode(window.LunaBrowser.initialMode() !== 1);
+        updateClientMode();
+        game.focus({preventScroll: true});
+    });
+    fullscreen.parentNode.insertBefore(clientMode, fullscreen);
+    document.addEventListener('luna-client-mode', updateClientMode);
+    updateClientMode();
     fullscreen.disabled = !document.fullscreenEnabled || typeof stage.requestFullscreen !== 'function';
     if (fullscreen.disabled) fullscreen.title = 'Fullscreen is unavailable in this browser.';
     fullscreen.addEventListener('click', async () => {

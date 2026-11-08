@@ -21,14 +21,12 @@ public final class WavePlayer implements AutoCloseable {
     public boolean play(byte[] data, int length) {
         if (closed || data == null || length <= 0 || length > data.length || length > 2 * 1024 * 1024) return false;
         lastSound = Arrays.copyOf(data, length);
-        playBytes(lastSound);
-        return true;
+        return playBytes(lastSound);
     }
 
     public boolean replay() {
         if (closed || lastSound == null) return false;
-        playBytes(lastSound);
-        return true;
+        return playBytes(lastSound);
     }
 
     public void setVolume(int hundredthsDb) {
@@ -44,32 +42,9 @@ public final class WavePlayer implements AutoCloseable {
     }
 
     @JSBody(params = "data", script = """
-            try {
-                var a = window._lunaAudio;
-                if (!a || a.state !== 'running') return;
-                if (!window._lunaGain) {
-                    window._lunaGain = a.createGain();
-                    window._lunaGain.gain.value=typeof window._lunaVolume === 'number' ? window._lunaVolume : 1;
-                    window._lunaGain.connect(a.destination);
-                }
-                if (!window._lunaSounds) window._lunaSounds = new Set();
-                var generation = window._lunaSoundGeneration || 0;
-                a.decodeAudioData(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength))
-                    .then(function(buffer) {
-                    if ((window._lunaSoundGeneration || 0) !== generation) return;
-                    var s = a.createBufferSource(); s.buffer = buffer; s.connect(window._lunaGain);
-                    if (window._lunaSounds.size >= 16) {
-                        var oldest = window._lunaSounds.values().next().value;
-                        window._lunaSounds.delete(oldest);
-                        oldest.stop(); oldest.disconnect();
-                    }
-                    window._lunaSounds.add(s);
-                    s.onended = function() { window._lunaSounds.delete(s); s.disconnect(); };
-                    s.start();
-                }).catch(function(error) { console.warn('Browser effect playback: ' + error); });
-            } catch (error) { console.warn('Browser effect playback: ' + error); }
+            return !!(window.LunaBrowser && window.LunaBrowser.playEffect && window.LunaBrowser.playEffect(data));
             """)
-    private static native void playBytes(@JSByRef(optional = true) byte[] data);
+    private static native boolean playBytes(@JSByRef(optional = true) byte[] data);
 
     @JSBody(params = "gain", script = """
             window._lunaVolume=Math.max(0,Math.min(1,gain));
@@ -78,11 +53,7 @@ public final class WavePlayer implements AutoCloseable {
     private static native void setGain(double gain);
 
     @JSBody(script = """
-            window._lunaSoundGeneration=(window._lunaSoundGeneration||0)+1;
-            if(window._lunaSounds){
-                window._lunaSounds.forEach(function(sound) {sound.stop();sound.disconnect();});
-                window._lunaSounds.clear();
-            }
+            if (window.LunaBrowser && window.LunaBrowser.stopEffects) window.LunaBrowser.stopEffects();
             """)
     private static native void stopAll();
 }

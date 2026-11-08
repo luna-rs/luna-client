@@ -59,6 +59,15 @@ public final class BrowserDisplay {
     @JSBody(params = {"resizable", "width", "height"}, script = "window.LunaBrowser.layout(resizable,width,height);")
     public static native void layout(boolean resizable, int width, int height);
 
+    @JSBody(script = "return window.LunaBrowser.initialMode();")
+    public static native int initialMode();
+
+    @JSBody(script = "return window.LunaBrowser.availableWidth();")
+    public static native int availableWidth();
+
+    @JSBody(script = "return window.LunaBrowser.availableHeight();")
+    public static native int availableHeight();
+
     @JSBody(script = "return document.hidden;")
     public static native boolean hidden();
 

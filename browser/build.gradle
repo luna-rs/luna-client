@@ -228,11 +228,26 @@ tasks.register('prepareBrowserAssets', Sync) {
     from('../data/title') {
         into 'assets/title'
     }
+    from('../data/soundbank.sf2') {
+        into 'audio'
+    }
+    from('vendor') {
+        include 'spessasynth-controller.js', 'spessasynth-worklet.js'
+        into 'audio'
+    }
+    from('vendor') {
+        include 'spessasynth-NOTICE.txt'
+        into 'legal'
+    }
     from(browserPropertiesFile) {
         rename { 'client.properties' }
     }
     into browserStaticAssets
     doLast {
+        byte[] soundbank = rootProject.file('data/soundbank.sf2').bytes
+        browserStaticAssets.get().file('audio/soundbank.json').asFile.setText(
+                JsonOutput.toJson([sha256: HexFormat.of().formatHex(MessageDigest.getInstance('SHA-256').digest(soundbank)),
+                        size: soundbank.length]) + '\n', 'UTF-8')
         byte[] profileBytes = browserStaticAssets.get().file('client.properties').asFile.bytes
         String contents = new String(profileBytes, StandardCharsets.UTF_8)
         if (contents.startsWith('\uFEFF')) contents = contents.substring(1)

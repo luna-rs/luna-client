@@ -5,12 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { validateBrowserConfiguration } from './configuration.mjs';
 
 const stores = ['main_file_cache.dat', ...Array.from({ length: 5 }, (_, index) => `main_file_cache.idx${index}`)];
-const assets = ['index.html', 'cache.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
+const assets = ['index.html', 'cache.js', 'soundfont.js', 'audio-midi.js', 'platform.js', 'performance.js', 'profiling.js', 'client-loader.js',
     'luna-web.css', 'luna-web.js',
     ...['stoneback.gif', 'navbar.gif', 'navbar_mainmenu.gif', 'navbar_manual.gif', 'navbar_rules.gif']
         .map(name => `assets/theme/${name}`),
-    ...['THIRD_PARTY_NOTICES.txt', 'teavm-LICENSE.txt', 'teavm-NOTICE.txt', 'ws-LICENSE.txt']
+    ...['THIRD_PARTY_NOTICES.txt', 'teavm-LICENSE.txt', 'teavm-NOTICE.txt', 'ws-LICENSE.txt', 'spessasynth-NOTICE.txt']
         .map(name => `legal/${name}`),
+    ...['spessasynth-controller.js', 'spessasynth-worklet.js', 'soundbank.sf2', 'soundbank.json']
+        .map(name => `audio/${name}`),
     'js/client.js', 'wasm/client.wasm', 'wasm/client.wasm-runtime.js', 'client.properties', 'client-config.json',
     'cache/cache.sha256',
     ...stores.map(name => `cache/${name}`),
