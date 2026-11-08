@@ -55,10 +55,15 @@ public final class TitleScene {
         double flameScale = renderedHeight / 503.0;
         int flameWidth = Math.max(1, (int) Math.round(128 * flameScale));
         int flameHeight = Math.max(1, (int) Math.round(265 * flameScale));
-        int flameY = (int) Math.round(backgroundY + renderedHeight * 0.545 - flameHeight);
-        Rect leftFlame = new Rect((int) Math.round(backgroundX + renderedWidth * 0.114 - flameWidth / 2.0),
+        // The native strips place their visible bases off-center and end two rows before their image edges.
+        // Align those bases with the bowl openings in the 1672-by-941 artwork, using the same cover transform.
+        int flameY = (int) Math.round(backgroundY + renderedHeight * (504.0 / 941)
+                - flameHeight * (263.0 / 265));
+        Rect leftFlame = new Rect((int) Math.round(backgroundX + renderedWidth * (188.0 / 1672)
+                - flameWidth * (52.5 / 128)),
                 flameY, flameWidth, flameHeight);
-        Rect rightFlame = new Rect((int) Math.round(backgroundX + renderedWidth * 0.886 - flameWidth / 2.0),
+        Rect rightFlame = new Rect((int) Math.round(backgroundX + renderedWidth * (1484.5 / 1672)
+                - flameWidth * (75.0 / 128)),
                 flameY, flameWidth, flameHeight);
         cached = new Frame(width, height, uiOffsetX, uiOffsetY, pixels, leftFlame, rightFlame);
         return cached;
