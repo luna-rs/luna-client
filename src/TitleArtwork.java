@@ -1,6 +1,7 @@
 import luna.SeasonalTitleTheme;
 import luna.ClientResources;
 import luna.TitleScene;
+import luna.TitleFlameRenderer;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -48,6 +49,10 @@ public final class TitleArtwork {
     private BufferedImage defaultFrameImage;
     private TitleScene.Rect previousLeftFlame;
     private TitleScene.Rect previousRightFlame;
+    private final TitleFlameRenderer leftFlameRenderer = new TitleFlameRenderer();
+    private final TitleFlameRenderer rightFlameRenderer = new TitleFlameRenderer();
+    private BufferedImage smoothLeftFlame;
+    private BufferedImage smoothRightFlame;
 
     public TitleArtwork(Archive archive) {
         this(archive, findTitleDirectory(), true);
@@ -164,14 +169,10 @@ public final class TitleArtwork {
         if (previousRightFlame != defaultFrame.rightFlame) restoreFlame(graphics, previousRightFlame);
         restoreFlame(graphics, defaultFrame.leftFlame);
         restoreFlame(graphics, defaultFrame.rightFlame);
-        Graphics2D overlay = (Graphics2D) graphics.create();
-        try {
-            overlay.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            drawFlame(overlay, left, defaultFrame.leftFlame);
-            drawFlame(overlay, right, defaultFrame.rightFlame);
-        } finally {
-            overlay.dispose();
-        }
+        if (visible(defaultFrame.leftFlame))
+            smoothLeftFlame = drawFlame(graphics, left, defaultFrame.leftFlame, leftFlameRenderer, smoothLeftFlame);
+        if (visible(defaultFrame.rightFlame))
+            smoothRightFlame = drawFlame(graphics, right, defaultFrame.rightFlame, rightFlameRenderer, smoothRightFlame);
         previousLeftFlame = defaultFrame.leftFlame;
         previousRightFlame = defaultFrame.rightFlame;
     }
@@ -215,8 +216,21 @@ public final class TitleArtwork {
             graphics.drawImage(defaultFrameImage, left, top, right, bottom, left, top, right, bottom, null);
     }
 
-    private static void drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds) {
-        if (flame != null) graphics.drawImage(flame, bounds.x, bounds.y, bounds.width, bounds.height, null);
+    private boolean visible(TitleScene.Rect bounds) {
+        return bounds.x < defaultFrame.width && bounds.y < defaultFrame.height
+                && bounds.x + bounds.width > 0 && bounds.y + bounds.height > 0;
+    }
+
+    private static BufferedImage drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds,
+                                            TitleFlameRenderer renderer, BufferedImage output) {
+        if (flame == null) return output;
+        int[] source = ((java.awt.image.DataBufferInt) flame.getRaster().getDataBuffer()).getData();
+        int[] pixels = renderer.render(source, bounds.width, bounds.height);
+        if (output == null || output.getWidth() != bounds.width || output.getHeight() != bounds.height)
+            output = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+        output.setRGB(0, 0, bounds.width, bounds.height, pixels, 0, bounds.width);
+        graphics.drawImage(output, bounds.x, bounds.y, null);
+        return output;
     }
 
     /**

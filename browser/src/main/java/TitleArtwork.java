@@ -2,6 +2,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import luna.SeasonalTitleTheme;
 import luna.TitleScene;
+import luna.TitleFlameRenderer;
 import luna.browser.awt.BrowserDisplay;
 import luna.browser.awt.Canvas;
 import luna.browser.awt.Graphics2D;
@@ -23,6 +24,10 @@ public final class TitleArtwork {
     private BufferedImage defaultFrameImage;
     private TitleScene.Rect previousLeftFlame;
     private TitleScene.Rect previousRightFlame;
+    private final TitleFlameRenderer leftFlameRenderer = new TitleFlameRenderer();
+    private final TitleFlameRenderer rightFlameRenderer = new TitleFlameRenderer();
+    private BufferedImage smoothLeftFlame;
+    private BufferedImage smoothRightFlame;
 
     public TitleArtwork(Archive archive) {
         RgbSprite half = new RgbSprite(archive.get("title.dat"), new Canvas());
@@ -116,8 +121,10 @@ public final class TitleArtwork {
         if (previousRightFlame != defaultFrame.rightFlame) restoreFlame(graphics, previousRightFlame);
         restoreFlame(graphics, defaultFrame.leftFlame);
         restoreFlame(graphics, defaultFrame.rightFlame);
-        drawFlame(graphics, left, defaultFrame.leftFlame);
-        drawFlame(graphics, right, defaultFrame.rightFlame);
+        if (visible(defaultFrame.leftFlame))
+            smoothLeftFlame = drawFlame(graphics, left, defaultFrame.leftFlame, leftFlameRenderer, smoothLeftFlame);
+        if (visible(defaultFrame.rightFlame))
+            smoothRightFlame = drawFlame(graphics, right, defaultFrame.rightFlame, rightFlameRenderer, smoothRightFlame);
         previousLeftFlame = defaultFrame.leftFlame;
         previousRightFlame = defaultFrame.rightFlame;
     }
@@ -161,8 +168,20 @@ public final class TitleArtwork {
             graphics.drawImage(defaultFrameImage, left, top, right, bottom, left, top, right, bottom, null);
     }
 
-    private static void drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds) {
-        if (flame != null) graphics.drawImage(flame, bounds.x, bounds.y, bounds.width, bounds.height, null);
+    private boolean visible(TitleScene.Rect bounds) {
+        return bounds.x < defaultFrame.width && bounds.y < defaultFrame.height
+                && bounds.x + bounds.width > 0 && bounds.y + bounds.height > 0;
+    }
+
+    private static BufferedImage drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds,
+                                            TitleFlameRenderer renderer, BufferedImage output) {
+        if (flame == null) return output;
+        int[] pixels = renderer.render(flame.pixels, bounds.width, bounds.height);
+        if (output == null || output.width != bounds.width || output.height != bounds.height)
+            output = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+        System.arraycopy(pixels, 0, output.pixels, 0, pixels.length);
+        graphics.drawImage(output, bounds.x, bounds.y, null);
+        return output;
     }
 
     private static BufferedImage load(SeasonalTitleTheme theme, String file) {

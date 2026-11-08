@@ -32,7 +32,7 @@ SOURCE_FILES = {
     *[f"assets/theme/{name}" for name in ("stoneback.gif", "navbar.gif", "navbar_mainmenu.gif", "navbar_manual.gif", "navbar_rules.gif")],
     *[f"legal/{name}" for name in ("THIRD_PARTY_NOTICES.txt", "teavm-LICENSE.txt", "teavm-NOTICE.txt", "ws-LICENSE.txt")],
     "cache/main_file_cache.dat", *[f"cache/main_file_cache.idx{index}" for index in range(5)],
-    *[f"assets/title/{season}/{image}.png" for season in ("christmas", "easter", "halloween") for image in ("background", "logo")],
+    *[f"assets/title/{season}/{image}.png" for season in ("default", "christmas", "easter", "halloween") for image in ("background", "logo")],
 }
 FILES = SOURCE_FILES | {"pages-config.js", ".nojekyll", "release-provenance.json", "mobile.html"}
 DIRECTORIES = {str(parent) for name in FILES for parent in PurePosixPath(name).parents if str(parent) != "."}
