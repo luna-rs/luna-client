@@ -53,11 +53,11 @@ public final class TitleScene {
                 drawnLogoWidth, drawnLogoHeight, true);
 
         double flameScale = renderedHeight / 503.0;
-        int flameWidth = Math.max(1, (int) Math.round(128 * flameScale));
+        int flameWidth = Math.max(1, (int) Math.round(105 * flameScale));
         int flameHeight = Math.max(1, (int) Math.round(265 * flameScale));
         // The native strips place their visible bases off-center and end two rows before their image edges.
         // Align those bases with the bowl openings in the 1672-by-941 artwork, using the same cover transform.
-        int flameY = (int) Math.round(backgroundY + renderedHeight * (504.0 / 941)
+        int flameY = (int) Math.round(backgroundY + renderedHeight * (510.0 / 941)
                 - flameHeight * (263.0 / 265));
         Rect leftFlame = new Rect((int) Math.round(backgroundX + renderedWidth * (188.0 / 1672)
                 - flameWidth * (52.5 / 128)),
@@ -65,8 +65,26 @@ public final class TitleScene {
         Rect rightFlame = new Rect((int) Math.round(backgroundX + renderedWidth * (1484.5 / 1672)
                 - flameWidth * (75.0 / 128)),
                 flameY, flameWidth, flameHeight);
-        cached = new Frame(width, height, uiOffsetX, uiOffsetY, pixels, leftFlame, rightFlame);
+        int[] leftRim = flameRim(leftFlame, backgroundX, backgroundY, renderedWidth, renderedHeight, 188);
+        int[] rightRim = flameRim(rightFlame, backgroundX, backgroundY, renderedWidth, renderedHeight, 1484.5);
+        cached = new Frame(width, height, uiOffsetX, uiOffsetY, pixels, leftFlame, rightFlame, leftRim, rightRim);
         return cached;
+    }
+
+    /**
+     * Tracks the inner front lip in the same source-pixel coordinates used to sample the background.
+     */
+    private static int[] flameRim(Rect flame, int backgroundX, int backgroundY,
+                                  int renderedWidth, int renderedHeight, double centerX) {
+        int[] edge = new int[flame.width];
+        for (int x = 0; x < edge.length; x++) {
+            double sourceX = (flame.x + x + 0.5 - backgroundX) * 1672.0 / renderedWidth - 0.5;
+            double distance = (sourceX - centerX) / 81;
+            double sourceY = 503.0 + 3.5 * Math.sqrt(Math.max(0, 1 - distance * distance));
+            double boundary = backgroundY + (sourceY + 0.5) * renderedHeight / 941;
+            edge[x] = (int) Math.round((boundary - flame.y) * 256);
+        }
+        return edge;
     }
 
     private static void validate(int[] pixels, int width, int height) {
@@ -140,9 +158,11 @@ public final class TitleScene {
         public final int[] pixels;
         public final Rect leftFlame;
         public final Rect rightFlame;
+        public final int[] leftFlameRim;
+        public final int[] rightFlameRim;
 
         private Frame(int width, int height, int uiOffsetX, int uiOffsetY,
-                      int[] pixels, Rect leftFlame, Rect rightFlame) {
+                      int[] pixels, Rect leftFlame, Rect rightFlame, int[] leftFlameRim, int[] rightFlameRim) {
             this.width = width;
             this.height = height;
             this.uiOffsetX = uiOffsetX;
@@ -150,6 +170,8 @@ public final class TitleScene {
             this.pixels = pixels;
             this.leftFlame = leftFlame;
             this.rightFlame = rightFlame;
+            this.leftFlameRim = leftFlameRim;
+            this.rightFlameRim = rightFlameRim;
         }
     }
 

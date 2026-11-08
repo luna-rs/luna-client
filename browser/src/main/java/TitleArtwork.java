@@ -122,9 +122,11 @@ public final class TitleArtwork {
         restoreFlame(graphics, defaultFrame.leftFlame);
         restoreFlame(graphics, defaultFrame.rightFlame);
         if (visible(defaultFrame.leftFlame))
-            smoothLeftFlame = drawFlame(graphics, left, defaultFrame.leftFlame, leftFlameRenderer, smoothLeftFlame);
+            smoothLeftFlame = drawFlame(graphics, left, defaultFrame.leftFlame,
+                    defaultFrame.leftFlameRim, leftFlameRenderer, smoothLeftFlame);
         if (visible(defaultFrame.rightFlame))
-            smoothRightFlame = drawFlame(graphics, right, defaultFrame.rightFlame, rightFlameRenderer, smoothRightFlame);
+            smoothRightFlame = drawFlame(graphics, right, defaultFrame.rightFlame,
+                    defaultFrame.rightFlameRim, rightFlameRenderer, smoothRightFlame);
         previousLeftFlame = defaultFrame.leftFlame;
         previousRightFlame = defaultFrame.rightFlame;
     }
@@ -174,9 +176,9 @@ public final class TitleArtwork {
     }
 
     private static BufferedImage drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds,
-                                            TitleFlameRenderer renderer, BufferedImage output) {
+                                            int[] frontRim, TitleFlameRenderer renderer, BufferedImage output) {
         if (flame == null) return output;
-        int[] pixels = renderer.render(flame.pixels, bounds.width, bounds.height);
+        int[] pixels = renderer.render(flame.pixels, bounds.width, bounds.height, frontRim);
         if (output == null || output.width != bounds.width || output.height != bounds.height)
             output = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
         System.arraycopy(pixels, 0, output.pixels, 0, pixels.length);

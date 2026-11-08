@@ -24,10 +24,19 @@ public final class TitleFlameRenderer {
      * Returns a reused straight-alpha framebuffer; callers draw it without another scaling pass.
      */
     public int[] render(int[] source, int targetWidth, int targetHeight) {
+        return render(source, targetWidth, targetHeight, null);
+    }
+
+    /**
+     * Clips fire behind a foreground rim, with each column's boundary expressed in 1/256 pixel units.
+     */
+    public int[] render(int[] source, int targetWidth, int targetHeight, int[] frontRim) {
         if (source == null || source.length != premultiplied.length)
             throw new IllegalArgumentException("Expected the native 128-by-265 flame strip");
         if (targetWidth < 1 || targetHeight < 1 || targetWidth > Integer.MAX_VALUE / targetHeight)
             throw new IllegalArgumentException("Invalid flame viewport");
+        if (frontRim != null && frontRim.length != targetWidth)
+            throw new IllegalArgumentException("The foreground rim must match the flame width");
         prepare(targetWidth, targetHeight);
         for (int i = 0; i < source.length; i++) {
             int color = source[i], alpha = color >>> 24;
@@ -63,11 +72,13 @@ public final class TitleFlameRenderer {
                 int left = columns[x], right = Math.min(SOURCE_WIDTH - 1, left + 1);
                 int upper = interpolate(filtered[top + left], filtered[top + right], columnWeights[x]);
                 int lower = interpolate(filtered[bottom + left], filtered[bottom + right], columnWeights[x]);
-                int color = interpolate(upper, lower, vertical), alpha = color >>> 24;
+                int color = interpolate(upper, lower, vertical), originalAlpha = color >>> 24;
+                int coverage = frontRim == null ? 256 : Math.max(0, Math.min(256, frontRim[x] - (y << 8)));
+                int alpha = (originalAlpha * coverage + 128) >> 8;
                 pixels[target + x] = alpha == 0 ? 0 : alpha << 24
-                        | (color >> 16 & 255) * 255 / alpha << 16
-                        | (color >> 8 & 255) * 255 / alpha << 8
-                        | (color & 255) * 255 / alpha;
+                        | (color >> 16 & 255) * 255 / originalAlpha << 16
+                        | (color >> 8 & 255) * 255 / originalAlpha << 8
+                        | (color & 255) * 255 / originalAlpha;
             }
         }
         return pixels;
