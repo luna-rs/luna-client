@@ -15,7 +15,10 @@ public final class ResizableMinimap {
     public static boolean contains(int x, int y) {
         long compassX = (long) x - 17;
         long compassY = (long) y - 17;
-        return containsMap(x, y) || compassX * compassX + compassY * compassY < 17 * 17;
+        long mapX = (long) x - 97;
+        long mapY = (long) y - 77;
+        return mapX * mapX + mapY * mapY <= 75 * 75
+                || compassX * compassX + compassY * compassY <= 18 * 18;
     }
 
     public static boolean containsMap(int x, int y) {
