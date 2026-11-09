@@ -182,7 +182,9 @@ public final class ResizableUi {
             mask = new BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB);
             Graphics2D graphics = mask.createGraphics();
             try {
-                graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (!cutSidebar) {
+                    graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                }
                 graphics.setColor(java.awt.Color.WHITE);
                 Area outline = circularMinimap
                         ? ResizableMinimap.outline()

@@ -1,47 +1,169 @@
+import java.awt.Rectangle;
 import java.awt.geom.Area;
-import java.awt.geom.Path2D;
 
 /**
- * Trims the stray fixed-frame pixels around the original resizable sidebar artwork.
+ * Cuts the original sidebar at its native rock edges without resampling its pixels.
  *
  * @author lare96
  */
 public final class ResizableSidebar {
-    // Pixel boundaries follow the native rock shoulders in backhmid1, starting below its fixed-mode strip.
-    private static final int[] TOP_LEFT = {
-            44, 42, 40, 38, 36, 34, 32, 30, 28, 26, 25, 24, 23,
-            22, 21, 21, 20, 20, 19, 19, 18, 18, 17, 17, 16, 16
+    /*
+     * Native media contours: backhmid1/backbase2 tab shapes and the backvmid2/backright2 rock seams.
+     * Each run is { firstRow, endRow, firstColumn, endColumn, ... }; all ends are exclusive.
+     */
+    private static final int[][] SPANS = {
+        { 8, 9, 70, 78, 98, 106, 118, 146, 159, 167, 187, 195 },
+        { 9, 10, 59, 82, 87, 110, 114, 150, 155, 178, 183, 206, 218, 221 },
+        { 10, 11, 44, 47, 56, 83, 84, 181, 182, 209, 215, 223 },
+        { 11, 12, 42, 50, 54, 211, 212, 225 },
+        { 12, 13, 40, 53, 54, 211, 212, 227 },
+        { 13, 14, 38, 53, 54, 211, 212, 229 },
+        { 14, 15, 36, 53, 54, 211, 212, 231 },
+        { 15, 16, 34, 53, 54, 211, 212, 234 },
+        { 16, 17, 31, 53, 54, 235 },
+        { 17, 18, 30, 237 },
+        { 18, 19, 28, 239 },
+        { 19, 20, 26, 240 },
+        { 20, 21, 25, 241 },
+        { 21, 22, 24, 242 },
+        { 22, 24, 23, 242 },
+        { 24, 25, 23, 243 },
+        { 25, 26, 22, 243 },
+        { 26, 28, 21, 244 },
+        { 28, 31, 20, 245 },
+        { 31, 35, 19, 246 },
+        { 35, 36, 19, 247 },
+        { 36, 39, 18, 247 },
+        { 39, 44, 18, 248 },
+        { 44, 45, 17, 249 },
+        { 45, 46, 18, 245 },
+        { 46, 48, 17, 246 },
+        { 48, 56, 17, 247 },
+        { 56, 57, 18, 246 },
+        { 57, 59, 18, 245 },
+        { 59, 60, 18, 246 },
+        { 60, 61, 17, 247 },
+        { 61, 62, 18, 247 },
+        { 62, 73, 17, 247 },
+        { 73, 83, 17, 248 },
+        { 83, 85, 17, 247 },
+        { 85, 86, 18, 247 },
+        { 86, 87, 18, 245 },
+        { 87, 88, 18, 246 },
+        { 88, 89, 17, 247 },
+        { 89, 90, 18, 247 },
+        { 90, 101, 17, 247 },
+        { 101, 111, 17, 248 },
+        { 111, 113, 17, 247 },
+        { 113, 114, 18, 247 },
+        { 114, 115, 18, 245 },
+        { 115, 116, 18, 246 },
+        { 116, 117, 17, 247 },
+        { 117, 118, 18, 247 },
+        { 118, 129, 17, 247 },
+        { 129, 139, 17, 248 },
+        { 139, 141, 17, 247 },
+        { 141, 142, 18, 247 },
+        { 142, 143, 18, 245 },
+        { 143, 144, 18, 246 },
+        { 144, 145, 17, 247 },
+        { 145, 146, 18, 247 },
+        { 146, 157, 17, 247 },
+        { 157, 167, 17, 248 },
+        { 167, 174, 17, 247 },
+        { 174, 180, 17, 248 },
+        { 180, 186, 17, 247 },
+        { 186, 196, 17, 248 },
+        { 196, 205, 17, 247 },
+        { 205, 206, 18, 247 },
+        { 206, 207, 17, 247 },
+        { 207, 209, 18, 247 },
+        { 209, 210, 18, 246 },
+        { 210, 211, 17, 245 },
+        { 211, 214, 17, 247 },
+        { 214, 224, 17, 248 },
+        { 224, 233, 17, 247 },
+        { 233, 234, 18, 247 },
+        { 234, 235, 17, 247 },
+        { 235, 237, 18, 247 },
+        { 237, 238, 18, 246 },
+        { 238, 239, 17, 245 },
+        { 239, 242, 17, 247 },
+        { 242, 252, 17, 248 },
+        { 252, 261, 17, 247 },
+        { 261, 262, 18, 247 },
+        { 262, 263, 17, 247 },
+        { 263, 265, 18, 247 },
+        { 265, 266, 18, 246 },
+        { 266, 267, 17, 245 },
+        { 267, 270, 17, 247 },
+        { 270, 280, 17, 248 },
+        { 280, 289, 17, 247 },
+        { 289, 290, 18, 247 },
+        { 290, 291, 17, 247 },
+        { 291, 293, 18, 247 },
+        { 293, 294, 18, 246 },
+        { 294, 295, 18, 245 },
+        { 295, 296, 17, 245 },
+        { 296, 298, 17, 247 },
+        { 298, 300, 17, 248 },
+        { 300, 304, 17, 247 },
+        { 304, 305, 18, 247 },
+        { 305, 306, 18, 246 },
+        { 306, 312, 17, 249 },
+        { 312, 315, 17, 248 },
+        { 315, 319, 18, 247 },
+        { 319, 322, 19, 246 },
+        { 322, 324, 20, 245 },
+        { 324, 326, 21, 244 },
+        { 326, 327, 22, 243 },
+        { 327, 330, 23, 242 },
+        { 330, 331, 24, 241 },
+        { 331, 332, 25, 240 },
+        { 332, 333, 26, 239 },
+        { 333, 334, 28, 237 },
+        { 334, 335, 30, 235 },
+        { 335, 336, 31, 53, 54, 211, 212, 234 },
+        { 336, 337, 34, 53, 54, 211, 212, 231 },
+        { 337, 338, 36, 53, 54, 211, 212, 229 },
+        { 338, 339, 38, 53, 54, 211, 212, 227 },
+        { 339, 340, 40, 53, 54, 211, 212, 225 },
+        { 340, 341, 42, 50, 56, 83, 84, 111, 114, 150, 154, 181, 182, 209, 215, 223 },
+        { 341, 342, 44, 47, 59, 82, 87, 110, 118, 146, 155, 178, 183, 206, 218, 221 },
+        { 342, 343, 70, 78, 98, 106, 159, 167, 187, 195 },
     };
-    private static final int[] TOP_RIGHT = {
-            220, 224, 228, 231, 234, 237, 239, 241, 243, 244, 245, 246, 247,
-            247, 248, 248, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249
-    };
-    private static final Path2D OUTLINE = createOutline();
+    private static final int[][] ROWS = createRows();
+    private static final Area OUTLINE = createOutline();
 
-    private static Path2D createOutline() {
-        Path2D path = new Path2D.Double();
-        path.moveTo(TOP_LEFT[0], 8);
-        path.lineTo(TOP_RIGHT[0], 8);
-        for (int row = 0; row < TOP_RIGHT.length - 1; row++) {
-            path.lineTo(TOP_RIGHT[row], row + 9);
-            path.lineTo(TOP_RIGHT[row + 1], row + 9);
+    private static int[][] createRows() {
+        int[][] rows = new int[343][];
+        for (int[] span : SPANS) {
+            int[] columns = java.util.Arrays.copyOfRange(span, 2, span.length);
+            for (int y = span[0]; y < span[1]; y++) rows[y] = columns;
         }
-        path.lineTo(249, 315);
-        path.curveTo(249, 331, 237, 343, 221, 343);
-        path.lineTo(45, 343);
-        path.curveTo(30, 343, 16, 331, 16, 315);
-        path.lineTo(TOP_LEFT[TOP_LEFT.length - 1], TOP_LEFT.length + 7);
-        for (int row = TOP_LEFT.length - 2; row >= 0; row--) {
-            path.lineTo(TOP_LEFT[row + 1], row + 9);
-            path.lineTo(TOP_LEFT[row], row + 9);
+        return rows;
+    }
+
+    private static Area createOutline() {
+        Area outline = new Area();
+        for (int[] span : SPANS) {
+            for (int i = 2; i < span.length; i += 2) {
+                outline.add(new Area(new Rectangle(span[i], span[0], span[i + 1] - span[i], span[1] - span[0])));
+            }
         }
-        path.closePath();
-        return path;
+        return outline;
     }
 
     public static boolean enabled() { return true; }
 
     public static Area outline() { return new Area(OUTLINE); }
 
-    public static boolean contains(int x, int y) { return OUTLINE.intersects(x, y, 1, 1); }
+    public static boolean contains(int x, int y) {
+        if (x < 0 || x >= 249 || y < 0 || y >= ROWS.length || ROWS[y] == null) return false;
+        int[] columns = ROWS[y];
+        for (int i = 0; i < columns.length; i += 2) {
+            if (x >= columns[i] && x < columns[i + 1]) return true;
+        }
+        return false;
+    }
 }
