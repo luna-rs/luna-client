@@ -106,7 +106,7 @@ tasks.named('jar') {
     from('client.properties')
     manifest {
         attributes('Main-Class': application.mainClass.get(),
-                'Implementation-Title': 'luna-rs #377',
+                'Implementation-Title': 'luna 2006',
                 'Implementation-Version': project.version)
     }
 }
@@ -124,7 +124,7 @@ tasks.register('betaJar', Jar) {
     duplicatesStrategy = DuplicatesStrategy.FAIL
     manifest {
         attributes('Main-Class': application.mainClass.get(),
-                'Implementation-Title': 'luna-rs #377',
+                'Implementation-Title': 'luna 2006',
                 'Implementation-Version': project.version)
     }
 }
