@@ -8,6 +8,8 @@ import luna.browser.awt.geom.Area;
  */
 public final class ResizableMinimap {
     public static boolean enabled() { return false; }
+    public static int[] rowOffsets(int[] fallback) { return fallback; }
+    public static int[] rowLengths(int[] fallback) { return fallback; }
     public static boolean contains(int x, int y) { return true; }
     public static boolean containsMap(int x, int y) { return true; }
     public static Area outline() { throw new UnsupportedOperationException(); }

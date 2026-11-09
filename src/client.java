@@ -7382,6 +7382,8 @@ public class client extends JagApplet {
 
     public void method87(int i) {
         aClass18_1157.pushPixels();
+        boolean circularMinimap = layout.resizable && ResizableMinimap.enabled();
+        if (circularMinimap) Drawable.clearScreen();
         if (minimapState == 2) {
             byte abyte0[] = mapback_1186.pixels_1516;
             int ai[] = Drawable.pixels;
@@ -7400,8 +7402,9 @@ public class client extends JagApplet {
         int k = 48 + ((Actor) (thisPlayer)).unitX / 32;
         i = 58 / i;
         int i3 = 464 - ((Actor) (thisPlayer)).unitY / 32;
-        rbgSprite_1122.method465(5, 567, 151, k, 146, anIntArray920, 25, j, 256 + anInt1233,
-                anIntArray1019, i3);
+        rbgSprite_1122.method465(5, 567, 151, k, 146,
+                circularMinimap ? ResizableMinimap.rowLengths(anIntArray920) : anIntArray920, 25, j, 256 + anInt1233,
+                circularMinimap ? ResizableMinimap.rowOffsets(anIntArray1019) : anIntArray1019, i3);
         rbgSprite_compass_1116.method465(0, 567, 33, 25, 33, anIntArray1286, 0, anInt1252, 256, anIntArray1180,
                 25);
         for (int k5 = 0; k5 < anInt1076; k5++) {
@@ -7500,6 +7503,8 @@ public class client extends JagApplet {
             method130(i5, true, aClass50_Sub1_Sub1_Sub1_1036, k2);
         }
         Drawable.drawFullRect(97, 78, 3, 3, 0xffffff);
+        if (circularMinimap)
+            rbgSprite_compass_1116.method465(0, 567, 33, 25, 33, anIntArray1286, 0, anInt1252, 256, anIntArray1180, 25);
         gameViewportImage.pushPixels();
         ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
     }
@@ -10752,8 +10757,11 @@ public class client extends JagApplet {
         int k1 = i * i1 + j * j1 >> 16;
         int l1 = i * j1 - j * i1 >> 16;
         if (l > 2500) {
-            class50_sub1_sub1_sub1.method467(mapback_1186, 83 - l1 - class50_sub1_sub1_sub1.height_1495
-                    / 2 - 4, -49993, ((94 + k1) - class50_sub1_sub1_sub1.width_1494 / 2) + 4);
+            int y = 83 - l1 - class50_sub1_sub1_sub1.height_1495 / 2 - 4;
+            int x = ((94 + k1) - class50_sub1_sub1_sub1.width_1494 / 2) + 4;
+            if (layout.resizable && ResizableMinimap.enabled())
+                class50_sub1_sub1_sub1.method461(y, x, -488);
+            else class50_sub1_sub1_sub1.method467(mapback_1186, y, -49993, x);
             return;
         } else {
             class50_sub1_sub1_sub1.method461(83 - l1 - class50_sub1_sub1_sub1.height_1495 / 2 - 4,
