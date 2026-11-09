@@ -2455,6 +2455,7 @@ public class client extends JagApplet {
                 publicChatMode = buffer.getByte();
                 privateChatMode = buffer.getByte();
                 tradeMode = buffer.getByte();
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 opcode = -1;
@@ -2603,6 +2604,22 @@ public class client extends JagApplet {
 
                     if (!flag1 && anInt1246 == 0)
                         pushMessage(s3, (byte) -123, "wishes to trade with you.", 4);
+                } else if (message.endsWith(":tradeinfo:")) {
+                    int separator = message.indexOf(':');
+                    int end = message.length() - ":tradeinfo:".length();
+                    if (separator > 0 && separator < end - 1) {
+                        String sender = message.substring(0, separator);
+                        long senderHash = StringUtils.encodeBase37(sender);
+                        boolean ignored = false;
+                        for (int index = 0; index < ignoresCount; index++) {
+                            if (ignores[index] == senderHash) {
+                                ignored = true;
+                                break;
+                            }
+                        }
+                        if (!ignored && anInt1246 == 0)
+                            pushMessage(sender, (byte) -123, message.substring(separator + 1, end), 9);
+                    }
                 } else if (message.endsWith(":duelreq:")) {
                     String s4 = message.substring(0, message.indexOf(":"));
                     long l19 = StringUtils.encodeBase37(s4);
@@ -3796,6 +3813,7 @@ public class client extends JagApplet {
         if (super.anInt28 == 1) {
             if (super.anInt29 >= 6 && super.anInt29 <= 106 && chatClickY >= 467 && chatClickY <= 499) {
                 publicChatMode = (publicChatMode + 1) % 4;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -3805,6 +3823,7 @@ public class client extends JagApplet {
             }
             if (super.anInt29 >= 135 && super.anInt29 <= 235 && chatClickY >= 467 && chatClickY <= 499) {
                 privateChatMode = (privateChatMode + 1) % 3;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -3814,6 +3833,7 @@ public class client extends JagApplet {
             }
             if (super.anInt29 >= 273 && super.anInt29 <= 373 && chatClickY >= 467 && chatClickY <= 499) {
                 tradeMode = (tradeMode + 1) % 3;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -7190,7 +7210,7 @@ public class client extends JagApplet {
                         }
                         k++;
                     }
-                    if (j1 == 4 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s1))) {
+                    if (j1 == 4 && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
                             class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x800080, k1);
                         k++;
@@ -7208,9 +7228,15 @@ public class client extends JagApplet {
                         }
                         k++;
                     }
-                    if (j1 == 8 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s1))) {
+                    if (j1 == 8 && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
                             class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x7e3200, k1);
+                        k++;
+                    }
+                    if (j1 == 9 && isTradeMessageVisible(s1)) {
+                        if (k1 > 0 && k1 < 110)
+                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], 0, 4, k1, false,
+                                    settings.coloredGameMessages);
                         k++;
                     }
                 }
@@ -8832,6 +8858,13 @@ public class client extends JagApplet {
 
     }
 
+    /**
+     * Applies Trade/compete privacy independently of public and private speech.
+     */
+    private boolean isTradeMessageVisible(String sender) {
+        return tradeMode == 0 || tradeMode == 1 && method148(13292, sender);
+    }
+
     public void method113(int i, int j, int k) {
         int l = 0;
         i = 44 / i;
@@ -8884,7 +8917,7 @@ public class client extends JagApplet {
                 }
                 l++;
             }
-            if (j1 == 4 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s))) {
+            if (j1 == 4 && isTradeMessageVisible(s)) {
                 if (k > k1 - 14 && k <= k1) {
                     rightClickOptions[anInt1183] = "Accept trade @whi@" + s;
                     anIntArray981[anInt1183] = 544;
@@ -8894,7 +8927,7 @@ public class client extends JagApplet {
             }
             if ((j1 == 5 || j1 == 6) && splitPrivateChat == 0 && privateChatMode < 2)
                 l++;
-            if (j1 == 8 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s))) {
+            if (j1 == 8 && isTradeMessageVisible(s)) {
                 if (k > k1 - 14 && k <= k1) {
                     rightClickOptions[anInt1183] = "Accept challenge @whi@" + s;
                     anIntArray981[anInt1183] = 695;
@@ -8902,6 +8935,8 @@ public class client extends JagApplet {
                 }
                 l++;
             }
+            if (j1 == 9 && isTradeMessageVisible(s))
+                l++;
         }
 
     }
