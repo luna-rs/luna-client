@@ -173,7 +173,9 @@ public final class ClientLayout {
 
     /** True if the point is over one of the panels drawn on top of the viewport (resizable layout only). */
     public boolean isOverPanel(int x, int y) {
-        return resizable && (minimap.contains(x, y) || inventoryBlock.contains(x, y) || chatboxBlock.contains(x, y));
+        return resizable && ((minimap.contains(x, y) && (!ResizableMinimap.enabled()
+                || ResizableMinimap.contains(x - minimap.x, y - minimap.y)))
+                || inventoryBlock.contains(x, y) || chatboxBlock.contains(x, y));
     }
 
     /** True if the point is over the game view and not hidden by a panel. */

@@ -11856,7 +11856,8 @@ public class client extends JagApplet {
         if (minimapState != 0) {
             return;
         }
-        if (super.anInt28 == 1) {
+        if (super.anInt28 == 1 && (!layout.resizable || !ResizableMinimap.enabled()
+                || ResizableMinimap.containsMap(super.anInt29 - layout.minimap.x, super.anInt30 - layout.minimap.y))) {
             int i = super.anInt29 - 25 - layout.minimap.x;
             int j = super.anInt30 - 5 - layout.minimap.y;
             if (i >= 0 && j >= 0 && i < 146 && j < 151) {
