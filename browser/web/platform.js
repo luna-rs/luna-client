@@ -40,6 +40,7 @@
     let audioResumeStarted = 0;
     let audioPrimed;
     let audioNeedsRecovery = false;
+    let nextAutomaticAudioResume = 0;
     let audioError = '';
     let audioEffects = [];
 
@@ -283,18 +284,48 @@
         }).catch(reportAudio);
     }
 
-    function readyAudio(audio, notifyMidi = true) {
+    function readyAudio(audio) {
         if (window._lunaAudio !== audio || audio.state !== 'running') return;
         audioError = '';
-        if (notifyMidi) {
-            try { window.LunaMidi?.contextReady?.(); } catch (error) { reportAudio(error); }
-        }
+        audioNeedsRecovery = false;
+        audioResume = undefined;
+        audioResumeStarted = 0;
+        try { window.LunaMidi?.contextReady?.(); } catch (error) { reportAudio(error); }
         const waiting = audioEffects;
         audioEffects = [];
         for (const effect of waiting) {
             if (effect.audio === audio && performance.now() - effect.created <= 500
                     && effect.generation === (window._lunaSoundGeneration || 0)) decodeEffect(effect);
         }
+    }
+
+    function resumeAudioContext(audio, trustedGesture) {
+        const pending = Promise.resolve(audio.resume());
+        if (!audioResume) audioResumeStarted = performance.now();
+        audioResume = pending;
+        pending.then(() => {
+            if (window._lunaAudio !== audio || audioResume !== pending) return;
+            if (audio.state !== 'running') {
+                if (trustedGesture) audioNeedsRecovery = true;
+                return;
+            }
+            readyAudio(audio);
+        }).catch(error => {
+            if (window._lunaAudio === audio && audioResume === pending) reportAudio(error);
+        }).finally(() => {
+            if (audioResume === pending) { audioResume = undefined; audioResumeStarted = 0; }
+        });
+    }
+
+    function recoverAudioContext() {
+        const audio = window._lunaAudio;
+        if (document.hidden || !audio || audio !== audioPrimed || audio.state === 'closed') return;
+        if (audio.state === 'running') { readyAudio(audio); return; }
+        const now = performance.now();
+        if (audioResume || now < nextAutomaticAudioResume) return;
+        nextAutomaticAudioResume = now + 1000;
+        // Reuse already-authorized audio; only a trusted gesture may create or replace its context.
+        try { resumeAudioContext(audio, false); } catch (error) { reportAudio(error); }
     }
 
     function unlockAudioContext() {
@@ -307,7 +338,7 @@
             } catch { /* Audio Session is optional; ordinary Web Audio remains available. */ }
             let audio = window._lunaAudio;
             const stalledResume = audioResume && performance.now() - audioResumeStarted > 1500;
-            if (!audio || audio.state === 'closed' || audioNeedsRecovery || stalledResume) {
+            if (!audio || audio.state === 'closed' || audio.state !== 'running' && (audioNeedsRecovery || stalledResume)) {
                 stopEffects();
                 if (window._lunaGain) window._lunaGain.disconnect();
                 window._lunaGain = undefined;
@@ -316,9 +347,10 @@
                 audioPrimed = undefined;
                 audioResume = undefined;
                 audioNeedsRecovery = false;
+                nextAutomaticAudioResume = 0;
                 audio.addEventListener('statechange', () => {
                     if (window._lunaAudio !== audio) return;
-                    if (audio.state === 'running') readyAudio(audio, false);
+                    if (audio.state === 'running') readyAudio(audio);
                     else stopEffects();
                 });
             }
@@ -333,16 +365,7 @@
             }
             if (audio.state === 'running') { readyAudio(audio); return; }
             // Retry on a later trusted gesture even when an earlier Safari resume promise stayed pending.
-            if (!audioResume) audioResumeStarted = performance.now();
-            const pending = Promise.resolve(audio.resume());
-            audioResume = pending;
-            pending.then(() => {
-                if (window._lunaAudio !== audio) return;
-                if (audio.state !== 'running') { audioNeedsRecovery = true; return; }
-                readyAudio(audio);
-            }).catch(reportAudio).finally(() => {
-                if (audioResume === pending) { audioResume = undefined; audioResumeStarted = 0; }
-            });
+            resumeAudioContext(audio, true);
         } catch (error) { reportAudio(error); }
     }
 
@@ -510,11 +533,12 @@
     document.addEventListener('keydown', unlockAudioFromGesture, {capture: true});
     for (const event of ['pointerup', 'touchend', 'click'])
         document.addEventListener(event, unlockAudioFromGesture, {capture: true, passive: true});
+    window.addEventListener('focus', recoverAudioContext);
+    window.addEventListener('pageshow', recoverAudioContext);
     document.addEventListener('visibilitychange', () => {
         updateBackgroundClock();
         wakeWaiting();
-        const audio = window._lunaAudio;
-        if (audio?.state === 'running') readyAudio(audio);
+        recoverAudioContext();
     });
     window.addEventListener('resize', requestDisplayLayout);
     document.addEventListener('fullscreenchange', requestDisplayLayout);
