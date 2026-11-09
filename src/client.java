@@ -6332,14 +6332,12 @@ public class client extends JagApplet {
         ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
     }
 
-    /**
-     * Draws the stone frame around the chatbox block and the inventory block in the resizable layout, below the
-     * panels. In the fixed layout the frame is made of pieces that cross from one block into the other (for example
-     * the strip above the chatbox is also the top of the inventory's left side), so the pieces are cut in two here
-     * to give each block a rectangle of its own.
-     */
     private JagImageProducer desktopSidebarTexture;
 
+    /**
+     * Draws the resizable chatbox and inventory frames below their panels. Shared fixed-mode frame pieces are
+     * separated where the chatbox and inventory meet.
+     */
     private void drawResizableFrame() {
         int cornerWidth = ClientLayout.CHAT_CORNER_WIDTH;
         int inventoryLeft = layout.frameRockLeft.x; // the left side of the inventory block, 516 + dx
