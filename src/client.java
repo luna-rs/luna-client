@@ -10737,7 +10737,7 @@ public class client extends JagApplet {
             loginScreenFont.drawString("Existing User", i1, l1 + 5, true, 0xffffff);
         }
         if (loginScreenState == 2) {
-            int k = c1 / 2 - 40;
+            int k = c1 / 2 - 52;
             if (statusLineOne.length() > 0) {
                 loginScreenFont.drawString(statusLineOne, c / 2, k - 15, true, 0xffff00);
                 loginScreenFont.drawString(statusLineTwo, c / 2, k, true, 0xffff00);
@@ -10809,7 +10809,7 @@ public class client extends JagApplet {
 
     private void drawRememberUsername() {
         int left = rememberUsernameLeft() - 202;
-        int top = 115;
+        int top = 109;
         Drawable.drawFullRect(left, top, 13, 13, 0x27251f);
         Drawable.drawRect(left, top, 13, 13, 0xa69a7d);
         Drawable.drawRect(left + 1, top + 1, 11, 11, 0x514c40);
@@ -10820,8 +10820,8 @@ public class client extends JagApplet {
                 Drawable.drawFullRect(left + 5 + step, top + 8 - step, 2, 2, 0x72bd58);
         }
         boolean hover = super.mouseX >= left + 202 && super.mouseX < left + 202 + rememberUsernameWidth()
-                && super.mouseY >= 286 && super.mouseY < 300;
-        font_p11_full.drawString("Remember username", hover ? 0xffffff : 0xffff00, left + 18, 125, true);
+                && super.mouseY >= 280 && super.mouseY < 294;
+        font_p11_full.drawString("Remember username", hover ? 0xffffff : 0xffff00, left + 18, 119, true);
     }
 
     /**
@@ -10870,7 +10870,7 @@ public class client extends JagApplet {
         }
         if (loginScreenState == 2 && super.anInt29 >= rememberUsernameLeft()
                 && super.anInt29 < rememberUsernameLeft() + rememberUsernameWidth()
-                && super.anInt30 >= 286 && super.anInt30 < 300) {
+                && super.anInt30 >= 280 && super.anInt30 < 294) {
             loginPreferences.rememberUsername(!loginPreferences.rememberUsername(), thisPlayerName);
             super.anInt28 = 0;
             return true;
@@ -11952,7 +11952,7 @@ public class client extends JagApplet {
             }
         } else {
             if (loginScreenState == 2) {
-                int k = super.height / 2 - 40;
+                int k = super.height / 2 - 52;
                 k += 30;
                 k += 25;
                 if (super.anInt28 == 1 && super.anInt30 >= k - 15 && super.anInt30 < k)
