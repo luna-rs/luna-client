@@ -6202,7 +6202,11 @@ public class client extends JagApplet {
             }
             aBoolean950 = false;
             aClass18_1110.pushPixels();
-            aClass50_Sub1_Sub1_Sub3_967.drawSprite(0, 0);
+            if (layout.resizable && ClientSettings.DESKTOP_FULLSCREEN_TRIM) {
+                Drawable.drawFullRect(0, 0, 249, 45, 0x37332c);
+                Drawable.drawRect(0, 0, 249, 45, 0x151310);
+                Drawable.drawRect(1, 1, 247, 44, 0x716652);
+            } else aClass50_Sub1_Sub1_Sub3_967.drawSprite(0, 0);
             if (anInt1089 == -1) {
                 if (anIntArray1081[tabId] != -1) {
                     if (tabId == 0)
@@ -6238,6 +6242,11 @@ public class client extends JagApplet {
             drawPanel(aClass18_1110, layout.tabIconsTop, ClientLayout.INVENTORY_ALPHA);
             aClass18_1109.pushPixels();
             aClass50_Sub1_Sub1_Sub3_966.drawSprite(0, 0);
+            if (layout.resizable && ClientSettings.DESKTOP_FULLSCREEN_TRIM) {
+                Drawable.drawFullRect(20, 0, 249, 37, 0x37332c);
+                Drawable.drawRect(20, 0, 249, 37, 0x151310);
+                Drawable.drawRect(21, 0, 247, 36, 0x716652);
+            }
             if (anInt1089 == -1) {
                 if (anIntArray1081[tabId] != -1) {
                     if (tabId == 7)
@@ -6329,6 +6338,8 @@ public class client extends JagApplet {
      * the strip above the chatbox is also the top of the inventory's left side), so the pieces are cut in two here
      * to give each block a rectangle of its own.
      */
+    private JagImageProducer desktopSidebarTexture;
+
     private void drawResizableFrame() {
         int cornerWidth = ClientLayout.CHAT_CORNER_WIDTH;
         int inventoryLeft = layout.frameRockLeft.x; // the left side of the inventory block, 516 + dx
@@ -6343,12 +6354,31 @@ public class client extends JagApplet {
 
         // inventory block: left side (three pieces, the lower two are cut from the chatbox pieces) and right side
         g = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
-        uiSideRockLeft1.drawImage(layout.frameRockLeft, g);
-        uiSideChatboxTop.drawImageRegion(inventoryLeft, layout.frameChatboxTop.y, chatboxFrameWidth, 0,
-                uiSideChatboxTop.width - chatboxFrameWidth, uiSideChatboxTop.height, g);
-        uiSideChatboxRight.drawImageRegion(inventoryLeft, layout.frameChatboxRight.y, cornerWidth, 0,
-                uiSideChatboxRight.width - cornerWidth, uiSideChatboxRight.height, g);
-        uiSideRockRight1.drawImage(layout.frameRockRight, g);
+        if (ClientSettings.DESKTOP_FULLSCREEN_TRIM) {
+            if (desktopSidebarTexture == null) {
+                desktopSidebarTexture = new JagImageProducer(190, 261, getParentComponent());
+                aClass50_Sub1_Sub1_Sub3_1185.drawSprite(0, 0);
+                gameViewportImage.pushPixels();
+                ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
+            }
+            int leftWidth = layout.inventory.x - inventoryLeft;
+            int rightWidth = layout.inventoryBlock.width - leftWidth - layout.inventory.width;
+            desktopSidebarTexture.drawImageRegion(inventoryLeft, layout.inventory.y, 70, 0,
+                    leftWidth, layout.inventory.height, g);
+            desktopSidebarTexture.drawImageRegion(layout.inventory.x + layout.inventory.width, layout.inventory.y,
+                    70, 0, rightWidth, layout.inventory.height, g);
+            g.setColor(new java.awt.Color(22, 20, 17));
+            g.drawRect(inventoryLeft, layout.inventory.y, layout.inventoryBlock.width - 1, layout.inventory.height - 1);
+            g.setColor(new java.awt.Color(104, 96, 78));
+            g.drawRect(inventoryLeft + 1, layout.inventory.y, layout.inventoryBlock.width - 3, layout.inventory.height - 1);
+        } else {
+            uiSideRockLeft1.drawImage(layout.frameRockLeft, g);
+            uiSideChatboxTop.drawImageRegion(inventoryLeft, layout.frameChatboxTop.y, chatboxFrameWidth, 0,
+                    uiSideChatboxTop.width - chatboxFrameWidth, uiSideChatboxTop.height, g);
+            uiSideChatboxRight.drawImageRegion(inventoryLeft, layout.frameChatboxRight.y, cornerWidth, 0,
+                    uiSideChatboxRight.width - cornerWidth, uiSideChatboxRight.height, g);
+            uiSideRockRight1.drawImage(layout.frameRockRight, g);
+        }
         g.dispose();
     }
 
