@@ -36,6 +36,8 @@ public final class ClientLayout {
 
     /** True for the resizable layout. */
     public final boolean resizable;
+    public final boolean desktopSidebar;
+    public final Rectangle sidebarTabs;
 
     /** The 3D game view. */
     public final Rectangle viewport;
@@ -103,6 +105,8 @@ public final class ClientLayout {
 
     private ClientLayout(boolean resizable, int clientWidth, int clientHeight) {
         this.resizable = resizable;
+        desktopSidebar = resizable && ClientSettings.DESKTOP_SIDEBAR && clientWidth >= 1030;
+        sidebarTabs = desktopSidebar ? new Rectangle(clientWidth - 420, clientHeight - 37, 420, 37) : new Rectangle(0, 0, 0, 0);
         // how far the right (inventory) and bottom (chatbox, inventory) panels move from their classic positions
         int dx = resizable ? Math.max(0, clientWidth - FIXED_WIDTH) : 0;
         int dy = resizable ? Math.max(0, clientHeight - FIXED_HEIGHT) : 0;
@@ -136,14 +140,15 @@ public final class ClientLayout {
         frameRockRight = new Point(743 + dx, 205 + dy);
 
         // everything the two blocks cover, including their frame pieces
-        inventoryBlock = new Rectangle(516 + dx, 160 + dy, 249, 343);
+        inventoryBlock = desktopSidebar ? new Rectangle(sidebarTabs.x, inventory.y - 5, sidebarTabs.width,
+                clientHeight - inventory.y + 5) : new Rectangle(516 + dx, 160 + dy, 249, 343);
         chatboxBlock = new Rectangle(0, 338 + dy, 516, 165);
 
         privateChatY = resizable ? chatbox.y - 28 : 329;
         fullscreenInterfaceX = resizable ? Math.max(0, (clientWidth - FIXED_WIDTH) / 2) : 0;
         fullscreenInterfaceY = resizable ? Math.max(0, (clientHeight - FIXED_HEIGHT) / 2) : 0;
         usableGameArea = new Rectangle(0, 0,
-                resizable ? inventoryBlock.x : viewport.width,
+                resizable ? (desktopSidebar ? inventory.x - 5 : inventoryBlock.x) : viewport.width,
                 resizable ? chatboxBlock.y : viewport.height);
         if (resizable) {
             int privateMessageTop = chatboxBlock.y - 28 - 5 * 13;
@@ -173,9 +178,13 @@ public final class ClientLayout {
 
     /** True if the point is over one of the panels drawn on top of the viewport (resizable layout only). */
     public boolean isOverPanel(int x, int y) {
+        boolean inventoryHit = desktopSidebar
+                ? sidebarTabs.contains(x, y) || (x >= inventory.x - 5 && x < inventory.x + inventory.width + 5
+                        && y >= inventory.y - 5 && y < inventory.y + inventory.height + 5)
+                : inventoryBlock.contains(x, y);
         return resizable && ((minimap.contains(x, y) && (!ResizableMinimap.enabled()
                 || ResizableMinimap.contains(x - minimap.x, y - minimap.y)))
-                || inventoryBlock.contains(x, y) || chatboxBlock.contains(x, y));
+                || inventoryHit || chatboxBlock.contains(x, y));
     }
 
     /** True if the point is over the game view and not hidden by a panel. */
