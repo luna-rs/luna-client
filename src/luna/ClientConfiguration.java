@@ -41,7 +41,6 @@ public final class ClientConfiguration {
         values.putIfAbsent("rememberUsername", "false");
         values.putIfAbsent("lastUsername", "");
         values.putIfAbsent("loginMusicEnabled", "true");
-        values.putIfAbsent("customPacketsEnabled", "false");
         String name = values.getProperty("clientName", "").trim();
         if ("luna-rs #377 (beta)".equalsIgnoreCase(name) || "Luna Beta".equalsIgnoreCase(name)) {
             values.setProperty("clientName", "luna-rs #377");
@@ -294,7 +293,6 @@ public final class ClientConfiguration {
         string("connectHost");
         bool("rememberUsername");
         bool("loginMusicEnabled");
-        bool("customPacketsEnabled");
         if (!LoginPreferences.validUsername(optionalString("lastUsername", "")))
             throw invalid("lastUsername", "must contain at most twelve valid login characters");
         for (String key : List.of("connectPort", "jaggrabPort", "httpPort")) integer(key, 1, 65535);

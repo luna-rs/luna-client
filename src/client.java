@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.zip.CRC32;
 
 import luna.ClientConfiguration;
-import luna.CustomPacketCodec;
 import luna.ClientPaths;
 import luna.CacheBootstrap;
 import luna.LoginPreferences;
@@ -9267,25 +9266,6 @@ public class client extends JagApplet {
         }
     }
 
-    /**
-     * Sends an enabled custom request from the input/game loop, rejecting it before any outgoing writes.
-     */
-    public boolean sendCustomPacket(int id, Object... payload) {
-        if (!ClientConfiguration.get().bool("customPacketsEnabled")) return false;
-        final String message;
-        try {
-            message = CustomPacketCodec.encode(id, payload);
-        } catch (IllegalArgumentException rejected) {
-            return false;
-        }
-        if (outBuffer == null || outBuffer.random == null || outBuffer.position < 0
-                || outBuffer.position > outBuffer.buffer.length - message.length() - 3) return false;
-        outBuffer.putOpcode(56);
-        outBuffer.putByte(message.length() + 1);
-        outBuffer.putString(message);
-        return true;
-    }
-
     public void sendOutgoingPackets(int i, int j) {
         if (i < 0)
             return;
@@ -9827,8 +9807,6 @@ public class client extends JagApplet {
             else
                 s5 = "It's a " + class16.name + ".";
             pushMessage("", (byte) -123, s5, 0);
-            if (ClientConfiguration.get().bool("customPacketsEnabled"))
-                sendCustomPacket(CustomPacketCodec.ITEM_EXAMINE_PRICE, id);
         }
         if (i1 == 352) {
             JagInterface class13_2 = JagInterface.forId(interfaceId);
@@ -10089,8 +10067,6 @@ public class client extends JagApplet {
             else
                 s6 = "It's a " + class16_1.name + ".";
             pushMessage("", (byte) -123, s6, 0);
-            if (ClientConfiguration.get().bool("customPacketsEnabled"))
-                sendCustomPacket(CustomPacketCodec.ITEM_EXAMINE_PRICE, id);
         }
         if (i1 == 408) {
             Player class50_sub1_sub4_sub3_sub2_6 = players[id];
