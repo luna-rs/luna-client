@@ -45,6 +45,7 @@ public class client extends JagApplet {
      * Client-only menu action, handled before legacy server-action normalization.
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
+    private static final int TRADE_MESSAGE_COLOR = 0x800080;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
@@ -6404,7 +6405,7 @@ public class client extends JagApplet {
     }
 
     public void drawPrivateChat() {
-        if (splitPrivateChat == 0) {
+        if (splitPrivateChat == 0 && !layout.resizable) {
             return;
         }
         JagFont class50_sub1_sub1_sub2 = fontChatboxButtons;
@@ -6424,7 +6425,8 @@ public class client extends JagApplet {
                     s = s.substring(5);
                     byte0 = 2;
                 }
-                if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
+                if (splitPrivateChat != 0 && (l == 3 || l == 7)
+                        && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
                     int i1 = privateChatY() - j * 13;
                     int l1 = 4;
                     class50_sub1_sub1_sub2.drawString_474("From", 2245, l1, 0, i1);
@@ -6443,17 +6445,23 @@ public class client extends JagApplet {
                     if (++j >= 5)
                         return;
                 }
-                if (l == 5 && privateChatMode < 2) {
+                if (splitPrivateChat != 0 && l == 5 && privateChatMode < 2) {
                     int j1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 0, j1);
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 65535, j1 - 1);
                     if (++j >= 5)
                         return;
                 }
-                if (l == 6 && privateChatMode < 2) {
+                if (splitPrivateChat != 0 && l == 6 && privateChatMode < 2) {
                     int k1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 0, k1);
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 65535, k1 - 1);
+                    if (++j >= 5)
+                        return;
+                }
+                if (l == 9 && layout.resizable && isTradeMessageVisible(s)) {
+                    class50_sub1_sub1_sub2.drawString(aStringArray1298[k], TRADE_MESSAGE_COLOR, 4,
+                            privateChatY() - j * 13 - 1, true, false);
                     if (++j >= 5)
                         return;
                 }
@@ -7212,7 +7220,7 @@ public class client extends JagApplet {
                     }
                     if (j1 == 4 && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
-                            class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x800080, k1);
+                            class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, TRADE_MESSAGE_COLOR, k1);
                         k++;
                     }
                     if (j1 == 5 && splitPrivateChat == 0 && privateChatMode < 2) {
@@ -7233,10 +7241,10 @@ public class client extends JagApplet {
                             class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x7e3200, k1);
                         k++;
                     }
-                    if (j1 == 9 && isTradeMessageVisible(s1)) {
+                    if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
-                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], 0, 4, k1, false,
-                                    settings.coloredGameMessages);
+                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], TRADE_MESSAGE_COLOR, 4,
+                                    k1, false, false);
                         k++;
                     }
                 }
@@ -8798,7 +8806,7 @@ public class client extends JagApplet {
 
     public void method111(int i) {
         i = 21 / i;
-        if (splitPrivateChat == 0)
+        if (splitPrivateChat == 0 && !layout.resizable)
             return;
         int j = 0;
         if (anInt1057 != 0)
@@ -8813,7 +8821,8 @@ public class client extends JagApplet {
                 if (s != null && s.startsWith("@cr2@")) {
                     s = s.substring(5);
                 }
-                if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
+                if (splitPrivateChat != 0 && (l == 3 || l == 7)
+                        && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
                     int i1 = privateChatY() - j * 13;
                     if (super.mouseX > layout.viewport.x && super.mouseY - layout.viewport.y > i1 - 10 && super.mouseY - layout.viewport.y <= i1 + 3) {
                         int j1 = fontChatboxButtons.method472((byte) 35, "From:  " + s + aStringArray1298[k]) + 25;
@@ -8836,7 +8845,9 @@ public class client extends JagApplet {
                     if (++j >= 5)
                         return;
                 }
-                if ((l == 5 || l == 6) && privateChatMode < 2 && ++j >= 5)
+                if (splitPrivateChat != 0 && (l == 5 || l == 6) && privateChatMode < 2 && ++j >= 5)
+                    return;
+                if (l == 9 && layout.resizable && isTradeMessageVisible(s) && ++j >= 5)
                     return;
             }
 
@@ -8935,7 +8946,7 @@ public class client extends JagApplet {
                 }
                 l++;
             }
-            if (j1 == 9 && isTradeMessageVisible(s))
+            if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s))
                 l++;
         }
 
