@@ -10,6 +10,7 @@ import luna.browser.awt.BrowserDisplay;
  * @author lare96
  */
 public final class ClientSettings {
+    public static final int LOGIN_CONTROLS_OFFSET_Y = 0;
     public static final int DEFAULT_WIDTH = 765;
     public static final int DEFAULT_HEIGHT = 503;
     public int clientSize = BrowserDisplay.initialMode();
