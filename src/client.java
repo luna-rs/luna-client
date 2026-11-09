@@ -1202,17 +1202,6 @@ public class client extends JagApplet {
     }
 
     public void processMouseClickOnTabs21() {
-        if (layout.desktopSidebar) {
-            if (super.anInt28 == 1 && layout.sidebarTabs.contains(super.anInt29, super.anInt30)) {
-                int selected = (super.anInt29 - layout.sidebarTabs.x) / 30;
-                if (selected >= 0 && selected < anIntArray1081.length && anIntArray1081[selected] != -1) {
-                    tabId = selected;
-                    aBoolean1181 = true;
-                    aBoolean950 = true;
-                }
-            }
-            return;
-        }
         int tabClickX = super.anInt29 - layout.inventoryDx; // compared with the classic tab positions
         int tabClickY = super.anInt30 - layout.inventoryDy;
         if (super.anInt28 == 1) {
@@ -4446,10 +4435,9 @@ public class client extends JagApplet {
             return;
         }
         int j = super.anInt28;
-        if (anInt1171 == 1 && (layout.desktopSidebar ? layout.sidebarTabs.contains(super.anInt29, super.anInt30)
-                : super.anInt29 >= layout.tabIconsTop.x && super.anInt30 >= layout.tabIconsTop.y
+        if (anInt1171 == 1 && super.anInt29 >= layout.tabIconsTop.x && super.anInt30 >= layout.tabIconsTop.y
                 && super.anInt29 <= layout.tabIconsTop.x + layout.tabIconsTop.width
-                && super.anInt30 <= layout.tabIconsTop.y + layout.tabIconsTop.height)) {
+                && super.anInt30 <= layout.tabIconsTop.y + layout.tabIconsTop.height) {
             j = 0;
         }
         if (isContextMenuActive) {
@@ -6247,7 +6235,7 @@ public class client extends JagApplet {
                 if (anIntArray1081[6] != -1 && (anInt1213 != 6 || pulseCycle % 20 < 10))
                     aClass50_Sub1_Sub1_Sub3Array976[6].drawSprite(208, 13);
             }
-            if (!layout.desktopSidebar) drawPanel(aClass18_1110, layout.tabIconsTop, ClientLayout.INVENTORY_ALPHA);
+            drawPanel(aClass18_1110, layout.tabIconsTop, ClientLayout.INVENTORY_ALPHA);
             aClass18_1109.pushPixels();
             aClass50_Sub1_Sub1_Sub3_966.drawSprite(0, 0);
             if (anInt1089 == -1) {
@@ -6280,13 +6268,7 @@ public class client extends JagApplet {
                 if (anIntArray1081[13] != -1 && (anInt1213 != 13 || pulseCycle % 20 < 10))
                     aClass50_Sub1_Sub1_Sub3Array976[12].drawSprite(226, 2);
             }
-            if (layout.desktopSidebar) {
-                drawDesktopSidebarTabs();
-                Graphics2D chatGraphics = resizableUi.graphicsFor(ClientLayout.AREA_CHATBOX, ClientLayout.CHATBOX_ALPHA);
-                aClass18_1109.drawImageRegion(layout.frameChatboxRight.x, layout.tabIconsBottom.y, 0, 0,
-                        ClientLayout.CHAT_CORNER_WIDTH, layout.tabIconsBottom.height, chatGraphics);
-                chatGraphics.dispose();
-            } else if (layout.resizable) {
+            if (layout.resizable) {
                 // the left part of the image is the chatbox corner, the rest is the inventory block
                 Graphics2D inventoryGraphics = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
                 aClass18_1109.drawImageRegion(layout.tabIconsBottom.x, layout.tabIconsBottom.y,
@@ -6341,31 +6323,6 @@ public class client extends JagApplet {
         ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
     }
 
-    private JagImageProducer desktopSidebarTabsImage;
-
-    private void drawDesktopSidebarTabs() {
-        if (desktopSidebarTabsImage == null) desktopSidebarTabsImage = new JagImageProducer(420, 37, getParentComponent());
-        desktopSidebarTabsImage.pushPixels();
-        Drawable.drawFullRect(0, 0, 420, 37, 0x211e19);
-        for (int slot = 0; slot < 14; slot++) {
-            int x = slot * 30;
-            Drawable.drawFullRect(x + 1, 2, 28, 33, slot == tabId && anInt1089 == -1 ? 0x65412c : 0x39342c);
-            Drawable.drawRect(x + 1, 2, 28, 33, 0x151310);
-            int icon = slot < 7 ? slot : slot - 1;
-            if (slot == 7 || anInt1089 != -1 || anIntArray1081[slot] == -1
-                    || (anInt1213 == slot && pulseCycle % 20 >= 10)) continue;
-            IndexedSprite sprite = aClass50_Sub1_Sub1_Sub3Array976[icon];
-            if (sprite != null) sprite.drawSprite(x + (30 - sprite.width_1518) / 2 - sprite.offsetX_1520,
-                    (37 - sprite.height_1519) / 2 - sprite.offsetY_1521);
-        }
-        Graphics2D g = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
-        try {
-            desktopSidebarTabsImage.drawImage(layout.sidebarTabs.x, layout.sidebarTabs.y, g);
-        } finally {
-            g.dispose();
-        }
-    }
-
     /**
      * Draws the stone frame around the chatbox block and the inventory block in the resizable layout, below the
      * panels. In the fixed layout the frame is made of pieces that cross from one block into the other (for example
@@ -6386,19 +6343,12 @@ public class client extends JagApplet {
 
         // inventory block: left side (three pieces, the lower two are cut from the chatbox pieces) and right side
         g = resizableUi.graphicsFor(ClientLayout.AREA_INVENTORY, ClientLayout.INVENTORY_ALPHA);
-        if (layout.desktopSidebar) {
-            g.setColor(new java.awt.Color(37, 34, 29));
-            g.fillRect(layout.inventory.x - 5, layout.inventory.y - 5, layout.inventory.width + 10, layout.inventory.height + 10);
-            g.setColor(new java.awt.Color(112, 101, 79));
-            g.drawRect(layout.inventory.x - 4, layout.inventory.y - 4, layout.inventory.width + 7, layout.inventory.height + 7);
-        } else {
-            uiSideRockLeft1.drawImage(layout.frameRockLeft, g);
-            uiSideChatboxTop.drawImageRegion(inventoryLeft, layout.frameChatboxTop.y, chatboxFrameWidth, 0,
-                    uiSideChatboxTop.width - chatboxFrameWidth, uiSideChatboxTop.height, g);
-            uiSideChatboxRight.drawImageRegion(inventoryLeft, layout.frameChatboxRight.y, cornerWidth, 0,
-                    uiSideChatboxRight.width - cornerWidth, uiSideChatboxRight.height, g);
-            uiSideRockRight1.drawImage(layout.frameRockRight, g);
-        }
+        uiSideRockLeft1.drawImage(layout.frameRockLeft, g);
+        uiSideChatboxTop.drawImageRegion(inventoryLeft, layout.frameChatboxTop.y, chatboxFrameWidth, 0,
+                uiSideChatboxTop.width - chatboxFrameWidth, uiSideChatboxTop.height, g);
+        uiSideChatboxRight.drawImageRegion(inventoryLeft, layout.frameChatboxRight.y, cornerWidth, 0,
+                uiSideChatboxRight.width - cornerWidth, uiSideChatboxRight.height, g);
+        uiSideRockRight1.drawImage(layout.frameRockRight, g);
         g.dispose();
     }
 

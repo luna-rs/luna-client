@@ -29,9 +29,6 @@ public final class ResizableUi {
     private final Panel inventory;
     private final Panel chatbox;
     private final Panel minimap;
-    private final Rectangle inventoryContent;
-    private final Rectangle sidebarTabs;
-    private final boolean desktopSidebar;
     private final Map<Long, BufferedImage> pixelImages = new HashMap<>();
 
     public ResizableUi(ClientLayout layout, int width, int height) {
@@ -39,13 +36,9 @@ public final class ResizableUi {
             throw new IllegalArgumentException("Expected positive window dimensions");
         }
         inventoryBounds = new Rectangle(layout.inventoryBlock);
-        desktopSidebar = layout.desktopSidebar;
-        inventoryContent = new Rectangle(layout.inventory.x - 5, layout.inventory.y - 5,
-                layout.inventory.width + 10, layout.inventory.height + 10);
-        sidebarTabs = new Rectangle(layout.sidebarTabs);
         chatboxBounds = new Rectangle(layout.chatboxBlock);
         minimapBounds = new Rectangle(layout.minimap);
-        inventory = new Panel(layout.inventoryBlock, inventoryBounds, desktopSidebar ? 0 : CORNER_RADIUS);
+        inventory = new Panel(layout.inventoryBlock, inventoryBounds, CORNER_RADIUS);
         chatbox = new Panel(layout.chatboxBlock, chatboxBounds, CORNER_RADIUS);
         minimap = new Panel(layout.minimap, minimapBounds, 12, ResizableMinimap.enabled());
     }
@@ -119,8 +112,7 @@ public final class ResizableUi {
      * Identifies the displayed panel beneath a screen coordinate, keeping its full control rectangle reserved.
      */
     public int panelAt(int screenX, int screenY) {
-        if (desktopSidebar ? inventoryContent.contains(screenX, screenY) || sidebarTabs.contains(screenX, screenY)
-                : inventoryBounds.contains(screenX, screenY)) return ClientLayout.AREA_INVENTORY;
+        if (inventoryBounds.contains(screenX, screenY)) return ClientLayout.AREA_INVENTORY;
         if (chatboxBounds.contains(screenX, screenY)) return ClientLayout.AREA_CHATBOX;
         if (minimapBounds.contains(screenX, screenY)
                 && (!ResizableMinimap.enabled() || ResizableMinimap.contains(screenX - minimapBounds.x, screenY - minimapBounds.y))) return MINIMAP;
@@ -189,10 +181,11 @@ public final class ResizableUi {
                 graphics.setColor(java.awt.Color.WHITE);
                 Area outline = circularMinimap
                         ? ResizableMinimap.outline()
-                        : topLeftRadius == 0 ? new Area(new Rectangle(0, 0, source.width, source.height))
                         : new Area(new RoundRectangle2D.Double(0, 0, source.width, source.height,
                                 CORNER_RADIUS * 2, CORNER_RADIUS * 2));
-                if (!circularMinimap && topLeftRadius != 0 && topLeftRadius != CORNER_RADIUS) {
+                if (circularMinimap) {
+                    // The desktop outline includes the compass.
+                } else if (topLeftRadius != CORNER_RADIUS) {
                     // The minimap's 33x33 compass needs a tighter top-left curve.
                     Area cornerBounds = new Area(new Rectangle(0, 0, CORNER_RADIUS, CORNER_RADIUS));
                     outline.subtract(cornerBounds);

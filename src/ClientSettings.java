@@ -12,7 +12,6 @@ import luna.ClientConfiguration;
  * @author lare96
  */
 public final class ClientSettings {
-    public static final boolean DESKTOP_SIDEBAR = true;
     public static final int LOGIN_CONTROLS_OFFSET_Y = -4;
     public static final int DEFAULT_WIDTH = ClientConfiguration.get().integer("defaultWidth", 765, 32768);
     public static final int DEFAULT_HEIGHT = ClientConfiguration.get().integer("defaultHeight", 503, 32768);
