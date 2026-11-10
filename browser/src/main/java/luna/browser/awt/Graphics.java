@@ -63,6 +63,46 @@ public class Graphics {
         fillRect(x, y, 1, height); fillRect(x + width, y, 1, height);
     }
 
+    /**
+     * Draws a one-pixel antialiased ellipse while retaining translation, clipping and compositing.
+     */
+    public void drawOval(int x, int y, int width, int height) {
+        if (width < 0 || height < 0) return;
+        if (width == 0 || height == 0) {
+            fillRect(x, y, width + 1, height + 1);
+            return;
+        }
+        double centerX = x + translateX + width / 2.0, centerY = y + translateY + height / 2.0;
+        double outerX = width / 2.0 + .5, outerY = height / 2.0 + .5;
+        double innerX = Math.max(0, width / 2.0 - .5), innerY = Math.max(0, height / 2.0 - .5);
+        int left = Math.max(clipX, x + translateX - 1), top = Math.max(clipY, y + translateY - 1);
+        int right = Math.min(clipRight, x + translateX + width + 1);
+        int bottom = Math.min(clipBottom, y + translateY + height + 1);
+        int argb = color.getRGB();
+        for (int row = top; row < bottom; row++) {
+            double nearY = Math.max(0, Math.abs(row + .5 - centerY) - .5) / outerY;
+            if (nearY > 1) continue;
+            double extent = outerX * Math.sqrt(1 - nearY * nearY);
+            int rowLeft = Math.max(left, (int) Math.floor(centerX - extent));
+            int rowRight = Math.min(right, (int) Math.ceil(centerX + extent));
+            for (int column = rowLeft; column < rowRight; column++) {
+                double farX = Math.abs(column + .5 - centerX) + .5;
+                double farY = Math.abs(row + .5 - centerY) + .5;
+                if (innerX > 0 && innerY > 0
+                        && farX * farX / (innerX * innerX) + farY * farY / (innerY * innerY) < 1) continue;
+                int coverage = 0;
+                for (int sy = 0; sy < 4; sy++) for (int sx = 0; sx < 4; sx++) {
+                    double dx = column + (sx + .5) / 4 - centerX;
+                    double dy = row + (sy + .5) / 4 - centerY;
+                    if (dx * dx / (outerX * outerX) + dy * dy / (outerY * outerY) <= 1
+                            && (innerX == 0 || innerY == 0
+                            || dx * dx / (innerX * innerX) + dy * dy / (innerY * innerY) >= 1)) coverage++;
+                }
+                if (coverage > 0) pixel(column, row, argb & 0xffffff | ((argb >>> 24) * coverage + 8) / 16 << 24);
+            }
+        }
+    }
+
     public void drawString(String text, int x, int y) {
         int originX = x + translateX, originY = y + translateY;
         BrowserDisplay.rasterText(text, font.css(), font.size, color.getRGB(),
