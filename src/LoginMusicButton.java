@@ -57,6 +57,33 @@ public final class LoginMusicButton {
         "MLBvthllnpnnnpllhedbbbbeggjmkklst56A",
         "QMBBBtttvvtzz__--_tztvvt_r_tz_t76667"
     };
+    private static final String[] MUTE_SYMBOL = {
+        ".........#######.........",
+        ".......###########.......",
+        ".....###############.....",
+        "....######.....######....",
+        "...#####.........#####...",
+        "..####...........######..",
+        "..###...........#######..",
+        ".####..........#########.",
+        ".###..........#####..###.",
+        "####.........#####...####",
+        "###.........#####.....###",
+        "###........#####......###",
+        "###.......#####.......###",
+        "###......#####........###",
+        "###.....#####.........###",
+        "####...#####.........####",
+        ".###..#####..........###.",
+        ".#########..........####.",
+        "..#######...........###..",
+        "..######...........####..",
+        "...#####.........#####...",
+        "....######.....######....",
+        ".....###############.....",
+        ".......###########.......",
+        ".........#######........."
+    };
     private final BufferedImage[][] images = new BufferedImage[2][2];
 
     public LoginMusicButton() {
@@ -77,13 +104,26 @@ public final class LoginMusicButton {
                         image.setRGB(x, y, 0xff000000 | color);
                     }
                 }
-                if (enabled == 0) {
-                    for (int step = 0; step < 24; step++) {
-                        image.setRGB(6 + step, 29 - step, 0xffb52e28);
-                        image.setRGB(6 + step, 30 - step, 0xffb52e28);
+                if (enabled == 0) drawMuteSymbol(image);
+                images[enabled][hover] = image;
+            }
+        }
+    }
+
+    private static void drawMuteSymbol(BufferedImage image) {
+        for (int y = 0; y < MUTE_SYMBOL.length; y++) {
+            for (int x = 0; x < MUTE_SYMBOL[y].length(); x++) {
+                if (MUTE_SYMBOL[y].charAt(x) != '#') continue;
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        image.setRGB(x + 7 + dx, y + 5 + dy, 0xff000000);
                     }
                 }
-                images[enabled][hover] = image;
+            }
+        }
+        for (int y = 0; y < MUTE_SYMBOL.length; y++) {
+            for (int x = 0; x < MUTE_SYMBOL[y].length(); x++) {
+                if (MUTE_SYMBOL[y].charAt(x) == '#') image.setRGB(x + 7, y + 5, 0xff861414);
             }
         }
     }
