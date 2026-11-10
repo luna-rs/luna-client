@@ -46,7 +46,7 @@ public class client extends JagApplet {
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
     private static final int TRADE_MESSAGE_COLOR = 0x800080;
-    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0x00ff00;
+    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0xffffff;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
@@ -7245,7 +7245,7 @@ public class client extends JagApplet {
                     if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
                             class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], SPECIAL_TRADE_MESSAGE_COLOR, 4,
-                                    k1, false, false);
+                                    k1, true, false);
                         k++;
                     }
                 }
