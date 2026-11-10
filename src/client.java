@@ -45,7 +45,8 @@ public class client extends JagApplet {
      * Client-only menu action, handled before legacy server-action normalization.
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
-    private static final int TRADE_MESSAGE_COLOR = 0xff80ff;
+    private static final int TRADE_MESSAGE_COLOR = 0x800080;
+    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0xb060c0;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
@@ -6460,7 +6461,7 @@ public class client extends JagApplet {
                         return;
                 }
                 if (l == 9 && layout.resizable && isTradeMessageVisible(s)) {
-                    class50_sub1_sub1_sub2.drawString(aStringArray1298[k], TRADE_MESSAGE_COLOR, 4,
+                    class50_sub1_sub1_sub2.drawString(aStringArray1298[k], SPECIAL_TRADE_MESSAGE_COLOR, 4,
                             privateChatY() - j * 13 - 1, true, false);
                     if (++j >= 5)
                         return;
@@ -7243,7 +7244,7 @@ public class client extends JagApplet {
                     }
                     if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
-                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], TRADE_MESSAGE_COLOR, 4,
+                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], SPECIAL_TRADE_MESSAGE_COLOR, 4,
                                     k1, false, false);
                         k++;
                     }
