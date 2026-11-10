@@ -2,18 +2,20 @@ import java.io.IOException;
 import java.util.Map;
 
 import luna.ClientConfiguration;
+import luna.browser.awt.BrowserDisplay;
 
 /**
- * Keeps the browser at the classic fixed dimensions without changing desktop preferences.
+ * Starts the browser in the selected page layout without changing desktop preferences.
  *
  * @author lare96
  */
 public final class ClientSettings {
+    public static final int LOGIN_CONTROLS_OFFSET_Y = 0;
     public static final int DEFAULT_WIDTH = 765;
     public static final int DEFAULT_HEIGHT = 503;
-    public int clientSize;
-    public int width = DEFAULT_WIDTH;
-    public int height = DEFAULT_HEIGHT;
+    public int clientSize = BrowserDisplay.initialMode();
+    public int width = clampWidth(BrowserDisplay.availableWidth());
+    public int height = clampHeight(BrowserDisplay.availableHeight());
     public boolean coloredGameMessages = ClientConfiguration.get().bool("coloredGameMessages");
 
     public static ClientSettings load() {
@@ -21,11 +23,9 @@ public final class ClientSettings {
     }
 
     public void save() {
-        clientSize = 0;
-        width = DEFAULT_WIDTH;
-        height = DEFAULT_HEIGHT;
         try {
-            ClientConfiguration.get().savePreferences(Map.of("clientSize", "0", "width", "765", "height", "503",
+            ClientConfiguration.get().savePreferences(Map.of("clientSize", String.valueOf(clientSize),
+                    "width", String.valueOf(width), "height", String.valueOf(height),
                     "coloredGameMessages", Boolean.toString(coloredGameMessages)));
         } catch (IOException exception) {
             System.err.println("Unable to save browser client preferences.");
@@ -33,15 +33,15 @@ public final class ClientSettings {
     }
 
     public void resetResizableSize() {
-        width = DEFAULT_WIDTH;
-        height = DEFAULT_HEIGHT;
+        width = clampWidth(BrowserDisplay.availableWidth());
+        height = clampHeight(BrowserDisplay.availableHeight());
     }
 
     public static int clampWidth(int width) {
-        return DEFAULT_WIDTH;
+        return Math.max(DEFAULT_WIDTH, Math.min(32768, width));
     }
 
     public static int clampHeight(int height) {
-        return DEFAULT_HEIGHT;
+        return Math.max(DEFAULT_HEIGHT, Math.min(32768, height));
     }
 }

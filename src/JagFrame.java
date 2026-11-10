@@ -20,8 +20,11 @@ public class JagFrame extends Frame {
 		// create the native peer first so the real window insets are known
 		addNotify();
 		setContentSize(width, height);
-		setVisible(true);
-		toFront();
+		luna.ClientStartup.showWhenReady(() -> {
+			setVisible(true);
+			toFront();
+			applet.startupRevealed();
+		});
 	}
 
 	/**

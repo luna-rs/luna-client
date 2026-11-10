@@ -148,7 +148,7 @@ tasks.register('generateSharedSources', Sync) {
                 new ClientConfiguration(path, updated, "");
                 StringBuilder output = new StringBuilder();
                 for (String key : PREFERENCES)
-                    output.append(key).append('=').append(updated.getProperty(key).trim()).append('\\n');
+                    output.append(preferenceLine(key, updated.getProperty(key))).append('\\n');
                 luna.browser.BrowserConfiguration.savePreferences(output.toString());
                 values.putAll(preferences);
         ''')
@@ -220,23 +220,41 @@ tasks.named('copyWasmGCRuntime') {
 tasks.register('prepareBrowserAssets', Sync) {
     inputs.property('clientProperties', browserPropertiesName)
     inputs.file(browserPropertiesFile).withPropertyName('browserPropertiesFile')
-    from(zipTree(file('../data/bootstrap/cache.zip'))) {
-        include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
-                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4'
-        into 'cache'
+    doFirst {
+        ['background.png', 'logo.png'].each { image ->
+            if (!rootProject.file("data/title/default/${image}").isFile()) {
+                throw new GradleException("Missing default title artwork: data/title/default/${image}")
+            }
+        }
     }
-    from('../data/bootstrap') {
-        include 'cache.sha256'
+    from(rootProject.tasks.named('prepareReleaseCache').flatMap { it.outputDirectory }) {
+        include 'main_file_cache.dat', 'main_file_cache.idx0', 'main_file_cache.idx1',
+                'main_file_cache.idx2', 'main_file_cache.idx3', 'main_file_cache.idx4', 'cache.sha256'
         into 'cache'
     }
     from('../data/title') {
         into 'assets/title'
+    }
+    from('../data/soundbank.sf2') {
+        into 'audio'
+    }
+    from('vendor') {
+        include 'spessasynth-controller.js', 'spessasynth-worklet.js'
+        into 'audio'
+    }
+    from('vendor') {
+        include 'spessasynth-NOTICE.txt'
+        into 'legal'
     }
     from(browserPropertiesFile) {
         rename { 'client.properties' }
     }
     into browserStaticAssets
     doLast {
+        byte[] soundbank = rootProject.file('data/soundbank.sf2').bytes
+        browserStaticAssets.get().file('audio/soundbank.json').asFile.setText(
+                JsonOutput.toJson([sha256: HexFormat.of().formatHex(MessageDigest.getInstance('SHA-256').digest(soundbank)),
+                        size: soundbank.length]) + '\n', 'UTF-8')
         byte[] profileBytes = browserStaticAssets.get().file('client.properties').asFile.bytes
         String contents = new String(profileBytes, StandardCharsets.UTF_8)
         if (contents.startsWith('\uFEFF')) contents = contents.substring(1)

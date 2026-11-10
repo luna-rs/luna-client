@@ -32,13 +32,29 @@
             if (started) game.focus({preventScroll: true});
         });
     });
-    document.getElementById('start').addEventListener('click', () => { started = true; });
     document.getElementById('focus-game').addEventListener('click', () => {
         help.close();
-        (started ? game : document.getElementById('start')).focus({preventScroll: true});
+        game.focus({preventScroll: true});
     });
 
     const fullscreen = document.getElementById('fullscreen-game');
+    const clientMode = document.createElement('button');
+    clientMode.type = 'button';
+    clientMode.id = 'client-mode';
+    clientMode.title = 'Switch between the fixed client and a game viewport that fills this browser page.';
+    const updateClientMode = () => {
+        const resizable = window.LunaBrowser.initialMode() === 1;
+        clientMode.textContent = resizable ? 'Fixed mode' : 'Resizable mode';
+        clientMode.setAttribute('aria-label', resizable ? 'Switch to fixed client mode' : 'Switch to resizable client mode');
+    };
+    clientMode.addEventListener('click', () => {
+        window.LunaBrowser.setClientMode(window.LunaBrowser.initialMode() !== 1);
+        updateClientMode();
+        game.focus({preventScroll: true});
+    });
+    fullscreen.parentNode.insertBefore(clientMode, fullscreen);
+    document.addEventListener('luna-client-mode', updateClientMode);
+    updateClientMode();
     fullscreen.disabled = !document.fullscreenEnabled || typeof stage.requestFullscreen !== 'function';
     if (fullscreen.disabled) fullscreen.title = 'Fullscreen is unavailable in this browser.';
     fullscreen.addEventListener('click', async () => {
@@ -83,11 +99,10 @@
             started = true;
             launch.hidden = true;
             reload.hidden = true;
-            game.focus({preventScroll: true});
+            if (!document.querySelector('dialog[open]')) game.focus({preventScroll: true});
             document.getElementById('performance-status').textContent = 'Ready to capture.';
         } else if (/unable|could not|wrong|error|exception/i.test(statusLabel.textContent)) {
             launch.hidden = false;
-            document.getElementById('start').hidden = true;
             reload.hidden = false;
         }
     }

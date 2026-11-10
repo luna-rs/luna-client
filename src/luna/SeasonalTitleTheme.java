@@ -9,7 +9,7 @@ import java.time.Month;
  * @author lare96
  */
 public enum SeasonalTitleTheme {
-    DEFAULT(null, 0),
+    DEFAULT("default", 0),
     EASTER("easter", 603),
     HALLOWEEN("halloween", 321),
     CHRISTMAS("christmas", 547);

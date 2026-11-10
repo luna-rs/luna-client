@@ -26,7 +26,7 @@ import java.util.Set;
  */
 public final class ClientConfiguration {
     private static final Set<String> PREFERENCES = Set.of("clientSize", "width", "height", "coloredGameMessages",
-            "targetFps", "renderThreads", "drawDistance", "showFps");
+            "targetFps", "renderThreads", "drawDistance", "showFps", "rememberUsername", "lastUsername", "loginMusicEnabled");
     private static String selectedFile;
     private static ClientConfiguration current;
 
@@ -38,6 +38,9 @@ public final class ClientConfiguration {
         this.path = path;
         this.values = values;
         this.template = contents.lines().toList();
+        values.putIfAbsent("rememberUsername", "false");
+        values.putIfAbsent("lastUsername", "");
+        values.putIfAbsent("loginMusicEnabled", "true");
         validate();
     }
 
@@ -150,6 +153,13 @@ public final class ClientConfiguration {
         return value.trim();
     }
 
+    /**
+     * Reads optional text without discarding spaces or rejecting an empty saved preference.
+     */
+    public String optionalString(String key, String fallback) {
+        return values.getProperty(key, fallback);
+    }
+
     public boolean bool(String key) {
         String value = string(key);
         if (value.equalsIgnoreCase("true")) return true;
@@ -210,12 +220,12 @@ public final class ClientConfiguration {
             Properties property = parse(String.join("\n", block));
             String key = property.size() == 1 ? property.stringPropertyNames().iterator().next() : null;
             if (key != null && preferences.containsKey(key)) {
-                if (remaining.remove(key)) updated.add(key + "=" + preferences.get(key));
+                if (remaining.remove(key)) updated.add(preferenceLine(key, preferences.get(key)));
             } else {
                 updated.addAll(block);
             }
         }
-        remaining.stream().sorted().forEach(key -> updated.add(key + "=" + preferences.get(key)));
+        remaining.stream().sorted().forEach(key -> updated.add(preferenceLine(key, preferences.get(key))));
         Path temporary = Files.createTempFile(path.getParent(), ".client-settings-", ".properties");
         try {
             Files.write(temporary, updated, StandardCharsets.UTF_8);
@@ -229,6 +239,24 @@ public final class ClientConfiguration {
         } finally {
             Files.deleteIfExists(temporary);
         }
+    }
+
+    private static String preferenceLine(String key, String value) {
+        StringBuilder output = new StringBuilder(key).append('=');
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            switch (character) {
+                case '\\' -> output.append("\\\\");
+                case '\n' -> output.append("\\n");
+                case '\r' -> output.append("\\r");
+                case '\t' -> output.append("\\t");
+                case '\f' -> output.append("\\f");
+                case '=', ':', '#', '!' -> output.append('\\').append(character);
+                case ' ' -> output.append(index == 0 ? "\\ " : " ");
+                default -> output.append(character);
+            }
+        }
+        return output.toString();
     }
 
     private static boolean continued(String line) {
@@ -259,6 +287,10 @@ public final class ClientConfiguration {
         }
         string("clientName");
         string("connectHost");
+        bool("rememberUsername");
+        bool("loginMusicEnabled");
+        if (!LoginPreferences.validUsername(optionalString("lastUsername", "")))
+            throw invalid("lastUsername", "must contain at most twelve valid login characters");
         for (String key : List.of("connectPort", "jaggrabPort", "httpPort")) integer(key, 1, 65535);
         int offset = integer("portOffset", 0, 65534);
         if ((long) integer("connectPort", 1, 65535) + offset > 65535

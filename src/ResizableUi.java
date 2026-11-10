@@ -38,9 +38,9 @@ public final class ResizableUi {
         inventoryBounds = new Rectangle(layout.inventoryBlock);
         chatboxBounds = new Rectangle(layout.chatboxBlock);
         minimapBounds = new Rectangle(layout.minimap);
-        inventory = new Panel(layout.inventoryBlock, inventoryBounds, CORNER_RADIUS);
+        inventory = new Panel(layout.inventoryBlock, inventoryBounds, CORNER_RADIUS, false, ResizableSidebar.enabled());
         chatbox = new Panel(layout.chatboxBlock, chatboxBounds, CORNER_RADIUS);
-        minimap = new Panel(layout.minimap, minimapBounds, 12);
+        minimap = new Panel(layout.minimap, minimapBounds, 12, ResizableMinimap.enabled());
     }
 
     /**
@@ -112,9 +112,11 @@ public final class ResizableUi {
      * Identifies the displayed panel beneath a screen coordinate, keeping its full control rectangle reserved.
      */
     public int panelAt(int screenX, int screenY) {
-        if (inventoryBounds.contains(screenX, screenY)) return ClientLayout.AREA_INVENTORY;
+        if (inventoryBounds.contains(screenX, screenY) && (!ResizableSidebar.enabled()
+                || ResizableSidebar.contains(screenX - inventoryBounds.x, screenY - inventoryBounds.y))) return ClientLayout.AREA_INVENTORY;
         if (chatboxBounds.contains(screenX, screenY)) return ClientLayout.AREA_CHATBOX;
-        if (minimapBounds.contains(screenX, screenY)) return MINIMAP;
+        if (minimapBounds.contains(screenX, screenY)
+                && (!ResizableMinimap.enabled() || ResizableMinimap.contains(screenX - minimapBounds.x, screenY - minimapBounds.y))) return MINIMAP;
         return NONE;
     }
 
@@ -161,20 +163,37 @@ public final class ResizableUi {
         private final BufferedImage image;
         private final BufferedImage mask;
         private final BufferedImage rounded;
+        private final boolean circularMinimap;
 
         private Panel(Rectangle source, Rectangle destination, int topLeftRadius) {
+            this(source, destination, topLeftRadius, false);
+        }
+
+        private Panel(Rectangle source, Rectangle destination, int topLeftRadius, boolean circularMinimap) {
+            this(source, destination, topLeftRadius, circularMinimap, false);
+        }
+
+        private Panel(Rectangle source, Rectangle destination, int topLeftRadius, boolean circularMinimap, boolean cutSidebar) {
             this.source = new Rectangle(source);
             this.destination = destination;
+            this.circularMinimap = circularMinimap;
             image = new BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB);
             rounded = new BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB);
             mask = new BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_ARGB);
             Graphics2D graphics = mask.createGraphics();
             try {
-                graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (!cutSidebar) {
+                    graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                }
                 graphics.setColor(java.awt.Color.WHITE);
-                Area outline = new Area(new RoundRectangle2D.Double(0, 0, source.width, source.height,
-                        CORNER_RADIUS * 2, CORNER_RADIUS * 2));
-                if (topLeftRadius != CORNER_RADIUS) {
+                Area outline = circularMinimap
+                        ? ResizableMinimap.outline()
+                        : cutSidebar ? ResizableSidebar.outline()
+                        : new Area(new RoundRectangle2D.Double(0, 0, source.width, source.height,
+                                CORNER_RADIUS * 2, CORNER_RADIUS * 2));
+                if (circularMinimap) {
+                    // The desktop outline includes the compass.
+                } else if (!cutSidebar && topLeftRadius != CORNER_RADIUS) {
                     // The minimap's 33x33 compass needs a tighter top-left curve.
                     Area cornerBounds = new Area(new Rectangle(0, 0, CORNER_RADIUS, CORNER_RADIUS));
                     outline.subtract(cornerBounds);
@@ -206,6 +225,10 @@ public final class ResizableUi {
                 graphics.drawImage(image, 0, 0, null);
                 graphics.setComposite(AlphaComposite.DstIn);
                 graphics.drawImage(mask, 0, 0, null);
+                if (circularMinimap) {
+                    graphics.setComposite(AlphaComposite.SrcOver);
+                    ResizableMinimap.drawBorder(graphics);
+                }
             } finally {
                 graphics.dispose();
             }

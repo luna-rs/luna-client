@@ -44,8 +44,20 @@ ICOP field. Its embedded comment names these original project addresses:
 The asset entered Luna client history in commit:
   bc622680122f8ab3d09aaf0ee8428b191055dca2
 
-This records the asset's own metadata and provenance. The browser build currently
-does not package the desktop SoundFont; its MIDI support is separate work.
+This records the asset's own metadata and provenance. Browser music uses the same
+SoundFont as the desktop client; its packaged bytes are verified before playback.
+
+SpessaSynth lib 4.4.7 and core 4.4.9
+----------------------------------
+Browser SoundFont music reuses Luna's mobile audio engine and its pinned
+SpessaSynth AudioWorklet implementation, distributed under Apache-2.0.
+The complete upstream license, dependency notices and wrapper modification notes
+are included in spessasynth-NOTICE.txt. The controller and worklet are unchanged
+from the already deployed mobile runtime.
+
+Source:
+  https://github.com/spessasus/spessasynth_lib
+  https://github.com/spessasus/spessasynth_core
 
 Archived RuneScape website artwork
 ---------------------------------

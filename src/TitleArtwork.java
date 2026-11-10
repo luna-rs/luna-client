@@ -1,5 +1,7 @@
 import luna.SeasonalTitleTheme;
 import luna.ClientResources;
+import luna.TitleScene;
+import luna.TitleFlameRenderer;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -21,7 +23,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Composes optional seasonal art over the original 377 title without changing its login controls.
+ * Composes viewport-resolution default art and optional seasonal replacements for the 377 title.
  *
  * @author lare96
  */
@@ -41,6 +43,16 @@ public final class TitleArtwork {
     private final BufferedImage cachedBackground;
     private final RgbSprite cachedLogo;
     private final Map<SeasonalTitleTheme, BufferedImage> images = new EnumMap<>(SeasonalTitleTheme.class);
+    private boolean defaultSceneLoaded;
+    private TitleScene defaultScene;
+    private TitleScene.Frame defaultFrame;
+    private BufferedImage defaultFrameImage;
+    private TitleScene.Rect previousLeftFlame;
+    private TitleScene.Rect previousRightFlame;
+    private final TitleFlameRenderer leftFlameRenderer = new TitleFlameRenderer();
+    private final TitleFlameRenderer rightFlameRenderer = new TitleFlameRenderer();
+    private BufferedImage smoothLeftFlame;
+    private BufferedImage smoothRightFlame;
 
     public TitleArtwork(Archive archive) {
         this(archive, findTitleDirectory(), true);
@@ -70,9 +82,14 @@ public final class TitleArtwork {
     /**
      * Returns a complete title image, caching successful loads and fallback results for this session.
      */
-    public BufferedImage imageFor(SeasonalTitleTheme theme) {
+    public synchronized BufferedImage imageFor(SeasonalTitleTheme theme) {
         BufferedImage existing = images.get(theme);
         if (existing != null) return existing;
+        if (theme == SeasonalTitleTheme.DEFAULT && hasDefaultScene()) {
+            BufferedImage result = defaultFrameFor(WIDTH, HEIGHT, 0, 0);
+            images.put(theme, result);
+            return result;
+        }
 
         BufferedImage result = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = result.createGraphics();
@@ -111,6 +128,114 @@ public final class TitleArtwork {
     }
 
     /**
+     * Enables the full-resolution scene only when both independently validated default assets load.
+     */
+    public synchronized boolean hasDefaultScene() {
+        if (!defaultSceneLoaded) {
+            defaultSceneLoaded = true;
+            BufferedImage background = load(SeasonalTitleTheme.DEFAULT, "background.png");
+            BufferedImage logo = load(SeasonalTitleTheme.DEFAULT, "logo.png");
+            if (logo != null) logo = cropTransparentPadding(logo);
+            if (background != null && logo != null) {
+                defaultScene = new TitleScene(background.getRGB(0, 0, background.getWidth(),
+                        background.getHeight(), null, 0, background.getWidth()),
+                        background.getWidth(), background.getHeight(),
+                        logo.getRGB(0, 0, logo.getWidth(), logo.getHeight(), null, 0, logo.getWidth()),
+                        logo.getWidth(), logo.getHeight());
+            }
+        }
+        return defaultScene != null;
+    }
+
+    /**
+     * Draws an opaque scene using physical framebuffer coordinates, leaving login controls to the caller.
+     */
+    public synchronized void drawDefaultScene(Graphics2D graphics, int width, int height,
+                                               int uiOffsetX, int uiOffsetY) {
+        BufferedImage frame = defaultFrameFor(width, height, uiOffsetX, uiOffsetY);
+        if (frame == null) return;
+        graphics.drawImage(frame, 0, 0, null);
+        previousLeftFlame = null;
+        previousRightFlame = null;
+    }
+
+    /**
+     * Restores the torch areas from the HD scene before blending the current transparent flame strips.
+     */
+    public synchronized void drawDefaultFlames(Graphics2D graphics, BufferedImage left, BufferedImage right,
+                                                int width, int height, int uiOffsetX, int uiOffsetY) {
+        if (defaultFrameFor(width, height, uiOffsetX, uiOffsetY) == null) return;
+        if (previousLeftFlame != defaultFrame.leftFlame) restoreFlame(graphics, previousLeftFlame);
+        if (previousRightFlame != defaultFrame.rightFlame) restoreFlame(graphics, previousRightFlame);
+        restoreFlame(graphics, defaultFrame.leftFlame);
+        restoreFlame(graphics, defaultFrame.rightFlame);
+        if (visible(defaultFrame.leftFlame))
+            smoothLeftFlame = drawFlame(graphics, left, defaultFrame.leftFlame,
+                    defaultFrame.leftFlameRim, leftFlameRenderer, smoothLeftFlame);
+        if (visible(defaultFrame.rightFlame))
+            smoothRightFlame = drawFlame(graphics, right, defaultFrame.rightFlame,
+                    defaultFrame.rightFlameRim, rightFlameRenderer, smoothRightFlame);
+        previousLeftFlame = defaultFrame.leftFlame;
+        previousRightFlame = defaultFrame.rightFlame;
+    }
+
+    /**
+     * Copies the matching viewport pixels behind a login panel, preserving the HD scene at its edges.
+     */
+    public synchronized boolean copyDefaultRegion(int[] target, int targetWidth, int targetHeight,
+                                                   int x, int y, int viewportWidth, int viewportHeight,
+                                                   int uiOffsetX, int uiOffsetY) {
+        if (target == null || targetWidth < 1 || targetHeight < 1
+                || targetWidth > Integer.MAX_VALUE / targetHeight
+                || target.length < targetWidth * targetHeight || x < 0 || y < 0
+                || targetWidth > viewportWidth || targetHeight > viewportHeight
+                || x > viewportWidth - targetWidth || y > viewportHeight - targetHeight
+                || defaultFrameFor(viewportWidth, viewportHeight, uiOffsetX, uiOffsetY) == null) return false;
+        for (int row = 0; row < targetHeight; row++) {
+            System.arraycopy(defaultFrame.pixels, (y + row) * viewportWidth + x,
+                    target, row * targetWidth, targetWidth);
+        }
+        return true;
+    }
+
+    private BufferedImage defaultFrameFor(int width, int height, int uiOffsetX, int uiOffsetY) {
+        if (width < 1 || height < 1 || !hasDefaultScene()) return null;
+        TitleScene.Frame frame = defaultScene.frameFor(width, height, uiOffsetX, uiOffsetY);
+        if (frame != defaultFrame) {
+            defaultFrame = frame;
+            defaultFrameImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            defaultFrameImage.setRGB(0, 0, width, height, frame.pixels, 0, width);
+        }
+        return defaultFrameImage;
+    }
+
+    private void restoreFlame(Graphics2D graphics, TitleScene.Rect bounds) {
+        if (bounds == null) return;
+        int left = Math.max(0, bounds.x), top = Math.max(0, bounds.y);
+        int right = Math.min(defaultFrame.width, bounds.x + bounds.width);
+        int bottom = Math.min(defaultFrame.height, bounds.y + bounds.height);
+        if (left < right && top < bottom)
+            graphics.drawImage(defaultFrameImage, left, top, right, bottom, left, top, right, bottom, null);
+    }
+
+    private boolean visible(TitleScene.Rect bounds) {
+        return bounds.x < defaultFrame.width && bounds.y < defaultFrame.height
+                && bounds.x + bounds.width > 0 && bounds.y + bounds.height > 0;
+    }
+
+    private static BufferedImage drawFlame(Graphics2D graphics, BufferedImage flame, TitleScene.Rect bounds,
+                                            int[] frontRim, TitleFlameRenderer renderer, BufferedImage output) {
+        if (flame == null) return output;
+        int[] source = ((java.awt.image.DataBufferInt) flame.getRaster().getDataBuffer()).getData();
+        int[] pixels = renderer.render(source, bounds.width, bounds.height, frontRim);
+        if (output == null || output.getWidth() != bounds.width || output.getHeight() != bounds.height)
+            output = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+        output.setRGB(0, 0, bounds.width, bounds.height, pixels, 0, bounds.width);
+        graphics.drawImage(output, bounds.x, bounds.y, null);
+        return output;
+    }
+
+    /**
      * Uses exactly the runtime composition for headless previews and asset verification.
      */
     public static BufferedImage compose(Archive archive, Path titleDirectory, SeasonalTitleTheme theme) {
@@ -140,7 +265,6 @@ public final class TitleArtwork {
     }
 
     private BufferedImage load(SeasonalTitleTheme theme, String file) {
-        if (theme == SeasonalTitleTheme.DEFAULT) return null;
         Path path = directory.resolve(theme.directory()).resolve(file);
         try {
             InputStream source;

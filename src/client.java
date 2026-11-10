@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.Calendar;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Objects;
 import java.util.zip.CRC32;
@@ -30,6 +31,8 @@ import java.util.zip.CRC32;
 import luna.ClientConfiguration;
 import luna.ClientPaths;
 import luna.CacheBootstrap;
+import luna.LoginPreferences;
+import luna.TitleFlamePalette;
 import luna.SeasonalTitleMusic;
 import luna.SeasonalTitleTheme;
 import sign.signlink;
@@ -42,6 +45,8 @@ public class client extends JagApplet {
      * Client-only menu action, handled before legacy server-action normalization.
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
+    private static final int TRADE_MESSAGE_COLOR = 0x800080;
+    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0xffffff;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
@@ -53,9 +58,19 @@ public class client extends JagApplet {
             () -> signlink.musicPlayer.stop(), () -> signlink.musicPlayer.prepareTransition());
 
     private final SeasonalTitleMusic titleMusic = new SeasonalTitleMusic(music);
+    private final LoginPreferences loginPreferences = new LoginPreferences();
+    private LoginMusicButton loginMusicButton;
     private final Object titleArtworkLock = new Object();
     private TitleArtwork titleArtwork;
     private SeasonalTitleTheme appliedTitleTheme;
+    private java.awt.image.BufferedImage loginFlameOverlayLeft;
+    private java.awt.image.BufferedImage loginFlameOverlayRight;
+    private int[] loginFlameOverlayPixelsLeft;
+    private int[] loginFlameOverlayPixelsRight;
+    private boolean startupLoaded;
+    private boolean startupLoginFrameDrawn;
+    private static boolean startupReadyReported;
+    private static boolean startupFailureReported;
     private int cameraShakeCycle = Integer.MIN_VALUE;
     private final int[] cameraShakeOffsets = new int[5];
 
@@ -645,6 +660,7 @@ public class client extends JagApplet {
     }
 
     public static void main(String args[]) {
+        luna.ClientStartup.initialize();
         ClientLauncher.validateArguments(args);
         ClientLauncher.configureGraphics();
         try {
@@ -660,6 +676,7 @@ public class client extends JagApplet {
             Runtime.getRuntime().addShutdownHook(new Thread(() -> settings.save()));
             cl.start(765, 503);
         } catch (Exception exception) {
+            reportStartupFailure();
             System.err.println(ClientConfiguration.get().string("clientName") + " could not start: " + exception.getMessage());
             exception.printStackTrace();
             System.exit(1);
@@ -1025,6 +1042,7 @@ public class client extends JagApplet {
     }
 
     public void printError_19(String s) {
+        reportStartupFailure();
         System.out.println(s);
         try {
             getAppletContext().showDocument(new URL(getCodeBase(), "loaderror_" + s + ".html"));
@@ -2439,6 +2457,7 @@ public class client extends JagApplet {
                 publicChatMode = buffer.getByte();
                 privateChatMode = buffer.getByte();
                 tradeMode = buffer.getByte();
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 opcode = -1;
@@ -2587,6 +2606,22 @@ public class client extends JagApplet {
 
                     if (!flag1 && anInt1246 == 0)
                         pushMessage(s3, (byte) -123, "wishes to trade with you.", 4);
+                } else if (message.endsWith(":tradeinfo:")) {
+                    int separator = message.indexOf(':');
+                    int end = message.length() - ":tradeinfo:".length();
+                    if (separator > 0 && separator < end - 1) {
+                        String sender = message.substring(0, separator);
+                        long senderHash = StringUtils.encodeBase37(sender);
+                        boolean ignored = false;
+                        for (int index = 0; index < ignoresCount; index++) {
+                            if (ignores[index] == senderHash) {
+                                ignored = true;
+                                break;
+                            }
+                        }
+                        if (!ignored && anInt1246 == 0)
+                            pushMessage(sender, (byte) -123, message.substring(separator + 1, end), 9);
+                    }
                 } else if (message.endsWith(":duelreq:")) {
                     String s4 = message.substring(0, message.indexOf(":"));
                     long l19 = StringUtils.encodeBase37(s4);
@@ -3780,6 +3815,7 @@ public class client extends JagApplet {
         if (super.anInt28 == 1) {
             if (super.anInt29 >= 6 && super.anInt29 <= 106 && chatClickY >= 467 && chatClickY <= 499) {
                 publicChatMode = (publicChatMode + 1) % 4;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -3789,6 +3825,7 @@ public class client extends JagApplet {
             }
             if (super.anInt29 >= 135 && super.anInt29 <= 235 && chatClickY >= 467 && chatClickY <= 499) {
                 privateChatMode = (privateChatMode + 1) % 3;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -3798,6 +3835,7 @@ public class client extends JagApplet {
             }
             if (super.anInt29 >= 273 && super.anInt29 <= 373 && chatClickY >= 467 && chatClickY <= 499) {
                 tradeMode = (tradeMode + 1) % 3;
+                anInt851 = 0;
                 aBoolean1212 = true;
                 aBoolean1240 = true;
                 outBuffer.putOpcode(176);
@@ -4371,52 +4409,10 @@ public class client extends JagApplet {
         }
 
         anIntArray1311 = new int[256];
-        for (int l = 0; l < 64; l++) {
-            anIntArray1311[l] = l * 0x40000;
-        }
-
-        for (int i1 = 0; i1 < 64; i1++) {
-            anIntArray1311[i1 + 64] = 0xff0000 + 1024 * i1;
-        }
-
-        for (int j1 = 0; j1 < 64; j1++) {
-            anIntArray1311[j1 + 128] = 0xffff00 + 4 * j1;
-        }
-
-        for (int k1 = 0; k1 < 64; k1++) {
-            anIntArray1311[k1 + 192] = 0xffffff;
-        }
-
         anIntArray1312 = new int[256];
-        for (int l1 = 0; l1 < 64; l1++) {
-            anIntArray1312[l1] = l1 * 1024;
-        }
-
-        for (int i2 = 0; i2 < 64; i2++)
-            anIntArray1312[i2 + 64] = 65280 + 4 * i2;
-
-        for (int j2 = 0; j2 < 64; j2++)
-            anIntArray1312[j2 + 128] = 65535 + 0x40000 * j2;
-
-        for (int k2 = 0; k2 < 64; k2++)
-            anIntArray1312[k2 + 192] = 0xffffff;
-
         anIntArray1313 = new int[256];
-        for (int l2 = 0; l2 < 64; l2++) {
-            anIntArray1313[l2] = l2 * 4;
-        }
-
-        for (int i3 = 0; i3 < 64; i3++) {
-            anIntArray1313[i3 + 64] = 255 + 0x40000 * i3;
-        }
-
-        for (int j3 = 0; j3 < 64; j3++) {
-            anIntArray1313[j3 + 128] = 0xff00ff + 1024 * j3;
-        }
-
-        for (int k3 = 0; k3 < 64; k3++) {
-            anIntArray1313[k3 + 192] = 0xffffff;
-        }
+        TitleFlamePalette.fill(appliedTitleTheme == SeasonalTitleTheme.DEFAULT,
+                anIntArray1311, anIntArray1312, anIntArray1313);
 
         anIntArray1310 = new int[256];
         anIntArray1176 = new int[32768];
@@ -5159,11 +5155,13 @@ public class client extends JagApplet {
         }
         if (started) {
             aBoolean1016 = true;
+            reportStartupFailure();
             return;
         }
         started = true;
         if (!ClientConfiguration.get().string("connectHost").equalsIgnoreCase(method37(-42588))) {
             aBoolean1097 = true;
+            reportStartupFailure();
             return;
         }
         if (signlink.cache_dat != null) {
@@ -5200,6 +5198,7 @@ public class client extends JagApplet {
             AnimationFrame.initFrames(fileFetcher.method343(553));
             Model.init(fileFetcher.method340(0), fileFetcher);
             if (!lowMemory) {
+                music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled());
                 titleMusic.update();
                 while (fileFetcher.method333() > 0) {
                     method77(false);
@@ -5509,11 +5508,13 @@ public class client extends JagApplet {
             GameObject.aClient1723 = this;
             ObjectDefinition.aClient770 = this;
             NpcDefinition.aClient629 = this;
+            startupLoaded = true;
             return;
         } catch (Exception exception) {
+            aBoolean1283 = true;
+            reportStartupFailure();
             signlink.reporterror("loaderror " + aString1027 + " " + anInt1322);
         }
-        aBoolean1283 = true;
     }
 
     public void animateTexture_65(int i) {
@@ -6405,7 +6406,7 @@ public class client extends JagApplet {
     }
 
     public void drawPrivateChat() {
-        if (splitPrivateChat == 0) {
+        if (splitPrivateChat == 0 && !layout.resizable) {
             return;
         }
         JagFont class50_sub1_sub1_sub2 = fontChatboxButtons;
@@ -6425,7 +6426,8 @@ public class client extends JagApplet {
                     s = s.substring(5);
                     byte0 = 2;
                 }
-                if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
+                if (splitPrivateChat != 0 && (l == 3 || l == 7)
+                        && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
                     int i1 = privateChatY() - j * 13;
                     int l1 = 4;
                     class50_sub1_sub1_sub2.drawString_474("From", 2245, l1, 0, i1);
@@ -6444,17 +6446,23 @@ public class client extends JagApplet {
                     if (++j >= 5)
                         return;
                 }
-                if (l == 5 && privateChatMode < 2) {
+                if (splitPrivateChat != 0 && l == 5 && privateChatMode < 2) {
                     int j1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 0, j1);
                     class50_sub1_sub1_sub2.drawString_474(aStringArray1298[k], 2245, 4, 65535, j1 - 1);
                     if (++j >= 5)
                         return;
                 }
-                if (l == 6 && privateChatMode < 2) {
+                if (splitPrivateChat != 0 && l == 6 && privateChatMode < 2) {
                     int k1 = privateChatY() - j * 13;
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 0, k1);
                     class50_sub1_sub1_sub2.drawString_474("To " + s + ": " + aStringArray1298[k], 2245, 4, 65535, k1 - 1);
+                    if (++j >= 5)
+                        return;
+                }
+                if (l == 9 && layout.resizable && isTradeMessageVisible(s)) {
+                    class50_sub1_sub1_sub2.drawString(aStringArray1298[k], SPECIAL_TRADE_MESSAGE_COLOR, 4,
+                            privateChatY() - j * 13 - 1, true, false);
                     if (++j >= 5)
                         return;
                 }
@@ -6535,6 +6543,7 @@ public class client extends JagApplet {
     }
 
     public void login(String username, String password, boolean reconnecting) {
+        loginPreferences.username(username);
         signlink.errorname = username;
         try {
             if (!reconnecting) {
@@ -7210,9 +7219,9 @@ public class client extends JagApplet {
                         }
                         k++;
                     }
-                    if (j1 == 4 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s1))) {
+                    if (j1 == 4 && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
-                            class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x800080, k1);
+                            class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, TRADE_MESSAGE_COLOR, k1);
                         k++;
                     }
                     if (j1 == 5 && splitPrivateChat == 0 && privateChatMode < 2) {
@@ -7228,9 +7237,15 @@ public class client extends JagApplet {
                         }
                         k++;
                     }
-                    if (j1 == 8 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s1))) {
+                    if (j1 == 8 && isTradeMessageVisible(s1)) {
                         if (k1 > 0 && k1 < 110)
                             class50_sub1_sub1_sub2_1.drawString_474(s1 + " " + aStringArray1298[i1], 2245, 4, 0x7e3200, k1);
+                        k++;
+                    }
+                    if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s1)) {
+                        if (k1 > 0 && k1 < 110)
+                            class50_sub1_sub1_sub2_1.drawString(aStringArray1298[i1], SPECIAL_TRADE_MESSAGE_COLOR, 4,
+                                    k1, true, false);
                         k++;
                     }
                 }
@@ -7352,6 +7367,8 @@ public class client extends JagApplet {
 
     public void method87(int i) {
         aClass18_1157.pushPixels();
+        boolean circularMinimap = layout.resizable && ResizableMinimap.enabled();
+        if (circularMinimap) Drawable.clearScreen();
         if (minimapState == 2) {
             byte abyte0[] = mapback_1186.pixels_1516;
             int ai[] = Drawable.pixels;
@@ -7370,8 +7387,9 @@ public class client extends JagApplet {
         int k = 48 + ((Actor) (thisPlayer)).unitX / 32;
         i = 58 / i;
         int i3 = 464 - ((Actor) (thisPlayer)).unitY / 32;
-        rbgSprite_1122.method465(5, 567, 151, k, 146, anIntArray920, 25, j, 256 + anInt1233,
-                anIntArray1019, i3);
+        rbgSprite_1122.method465(5, 567, 151, k, 146,
+                circularMinimap ? ResizableMinimap.rowLengths(anIntArray920) : anIntArray920, 25, j, 256 + anInt1233,
+                circularMinimap ? ResizableMinimap.rowOffsets(anIntArray1019) : anIntArray1019, i3);
         rbgSprite_compass_1116.method465(0, 567, 33, 25, 33, anIntArray1286, 0, anInt1252, 256, anIntArray1180,
                 25);
         for (int k5 = 0; k5 < anInt1076; k5++) {
@@ -7470,6 +7488,8 @@ public class client extends JagApplet {
             method130(i5, true, aClass50_Sub1_Sub1_Sub1_1036, k2);
         }
         Drawable.drawFullRect(97, 78, 3, 3, 0xffffff);
+        if (circularMinimap)
+            rbgSprite_compass_1116.method465(0, 567, 33, 25, 33, anIntArray1286, 0, anInt1252, 256, anIntArray1180, 25);
         gameViewportImage.pushPixels();
         ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
     }
@@ -7587,7 +7607,7 @@ public class client extends JagApplet {
         }
         checkSize();
         if (!isLoggedIn) {
-            music.setEnabled(musicEnabled && !lowMemory);
+            music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled() && !lowMemory);
             titleMusic.update();
             music.tick(20);
             method149(-724);
@@ -8040,6 +8060,16 @@ public class client extends JagApplet {
     }
 
     private void renderLoginFlamesLocked() {
+        boolean highDefinition = hasHighResolutionTitle();
+        int[] leftPixels = loginFlameLeft.pixels;
+        int[] rightPixels = loginFlameRight.pixels;
+        if (highDefinition) {
+            prepareLoginFlameOverlays();
+            leftPixels = loginFlameOverlayPixelsLeft;
+            rightPixels = loginFlameOverlayPixelsRight;
+            Arrays.fill(leftPixels, 0);
+            Arrays.fill(rightPixels, 0);
+        }
         char c = '\u0100';
         if (anInt1047 > 0) {
             for (int j = 0; j < 256; j++) {
@@ -8068,8 +8098,8 @@ public class client extends JagApplet {
             }
 
         }
-        for (int i1 = 0; i1 < 33920; i1++) {
-            loginFlameLeft.pixels[i1] = sprite_1017.pixels_1489[i1];
+        if (!highDefinition) for (int i1 = 0; i1 < 33920; i1++) {
+            leftPixels[i1] = sprite_1017.pixels_1489[i1];
         }
 
         int j1 = 0;
@@ -8086,8 +8116,10 @@ public class client extends JagApplet {
                     int i4 = k3;
                     int k4 = 256 - k3;
                     k3 = anIntArray1310[k3];
-                    int i5 = loginFlameLeft.pixels[k1];
-                    loginFlameLeft.pixels[k1++] = ((k3 & 0xff00ff) * i4 + (i5 & 0xff00ff) * k4 & 0xff00ff00)
+                    int i5 = leftPixels[k1];
+                    int leftIndex = k1++;
+                    leftPixels[leftIndex] = highDefinition ? titleFlameAlpha(i4, leftIndex) << 24 | k3
+                            : ((k3 & 0xff00ff) * i4 + (i5 & 0xff00ff) * k4 & 0xff00ff00)
                             + ((k3 & 0xff00) * i4 + (i5 & 0xff00) * k4 & 0xff0000) >> 8;
                 } else {
                     k1++;
@@ -8097,9 +8129,9 @@ public class client extends JagApplet {
             k1 += k2;
         }
 
-        loginFlameLeft.drawImage(0, 0, super.graphics);
-        for (int j2 = 0; j2 < 33920; j2++)
-            loginFlameRight.pixels[j2] = sprite_1018.pixels_1489[j2];
+        if (!highDefinition) loginFlameLeft.drawImage(0, 0, super.graphics);
+        if (!highDefinition) for (int j2 = 0; j2 < 33920; j2++)
+            rightPixels[j2] = sprite_1018.pixels_1489[j2];
 
         j1 = 0;
         k1 = 1176;
@@ -8113,8 +8145,10 @@ public class client extends JagApplet {
                     int j5 = l4;
                     int k5 = 256 - l4;
                     l4 = anIntArray1310[l4];
-                    int l5 = loginFlameRight.pixels[k1];
-                    loginFlameRight.pixels[k1++] = ((l4 & 0xff00ff) * j5 + (l5 & 0xff00ff) * k5 & 0xff00ff00)
+                    int l5 = rightPixels[k1];
+                    int rightIndex = k1++;
+                    rightPixels[rightIndex] = highDefinition ? titleFlameAlpha(j5, rightIndex) << 24 | l4
+                            : ((l4 & 0xff00ff) * j5 + (l5 & 0xff00ff) * k5 & 0xff00ff00)
                             + ((l4 & 0xff00) * j5 + (l5 & 0xff00) * k5 & 0xff0000) >> 8;
                 } else {
                     k1++;
@@ -8125,7 +8159,40 @@ public class client extends JagApplet {
             k1 += 128 - l3 - j3;
         }
 
-        loginFlameRight.drawImage(637, 0, super.graphics);
+        if (highDefinition) {
+            Graphics2D canvas = (Graphics2D) super.graphics.create();
+            try {
+                canvas.setTransform(new AffineTransform());
+                titleArtwork.drawDefaultFlames(canvas, loginFlameOverlayLeft, loginFlameOverlayRight,
+                        clientWidth, clientHeight, loginScreenOffsetX(), loginScreenOffsetY());
+            } finally {
+                canvas.dispose();
+            }
+        } else {
+            loginFlameRight.drawImage(637, 0, super.graphics);
+        }
+    }
+
+    /**
+     * Reuses transparent fire buffers so high-resolution artwork remains sharp beneath the animated flames.
+     */
+    private void prepareLoginFlameOverlays() {
+        if (loginFlameOverlayLeft != null) return;
+        loginFlameOverlayLeft = new java.awt.image.BufferedImage(128, 265, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        loginFlameOverlayRight = new java.awt.image.BufferedImage(128, 265, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        loginFlameOverlayPixelsLeft = ((java.awt.image.DataBufferInt) loginFlameOverlayLeft.getRaster().getDataBuffer()).getData();
+        loginFlameOverlayPixelsRight = ((java.awt.image.DataBufferInt) loginFlameOverlayRight.getRaster().getDataBuffer()).getData();
+    }
+
+    /**
+     * Feathers the original heat-map edges so scaled torch fire never exposes the rectangular simulation boundary.
+     */
+    private static int titleFlameAlpha(int intensity, int index) {
+        int x = index % 128, y = index / 128;
+        int sides = Math.min(255, Math.min(x, 127 - x) * 255 / 16);
+        int top = Math.min(255, Math.max(0, y - 7) * 255 / 16);
+        int base = Math.min(255, Math.max(0, 264 - y) * 255 / 3);
+        return ((intensity * sides / 255) * top / 255) * base / 255;
     }
 
     public void adjustVolume(boolean flag, byte byte0, int i) {
@@ -8740,7 +8807,7 @@ public class client extends JagApplet {
 
     public void method111(int i) {
         i = 21 / i;
-        if (splitPrivateChat == 0)
+        if (splitPrivateChat == 0 && !layout.resizable)
             return;
         int j = 0;
         if (anInt1057 != 0)
@@ -8755,7 +8822,8 @@ public class client extends JagApplet {
                 if (s != null && s.startsWith("@cr2@")) {
                     s = s.substring(5);
                 }
-                if ((l == 3 || l == 7) && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
+                if (splitPrivateChat != 0 && (l == 3 || l == 7)
+                        && (l == 7 || privateChatMode == 0 || privateChatMode == 1 && method148(13292, s))) {
                     int i1 = privateChatY() - j * 13;
                     if (super.mouseX > layout.viewport.x && super.mouseY - layout.viewport.y > i1 - 10 && super.mouseY - layout.viewport.y <= i1 + 3) {
                         int j1 = fontChatboxButtons.method472((byte) 35, "From:  " + s + aStringArray1298[k]) + 25;
@@ -8778,7 +8846,9 @@ public class client extends JagApplet {
                     if (++j >= 5)
                         return;
                 }
-                if ((l == 5 || l == 6) && privateChatMode < 2 && ++j >= 5)
+                if (splitPrivateChat != 0 && (l == 5 || l == 6) && privateChatMode < 2 && ++j >= 5)
+                    return;
+                if (l == 9 && layout.resizable && isTradeMessageVisible(s) && ++j >= 5)
                     return;
             }
 
@@ -8798,6 +8868,13 @@ public class client extends JagApplet {
             class13_1.anInt227 = 0;
         }
 
+    }
+
+    /**
+     * Applies Trade/compete privacy independently of public and private speech.
+     */
+    private boolean isTradeMessageVisible(String sender) {
+        return tradeMode == 0 || tradeMode == 1 && method148(13292, sender);
     }
 
     public void method113(int i, int j, int k) {
@@ -8852,7 +8929,7 @@ public class client extends JagApplet {
                 }
                 l++;
             }
-            if (j1 == 4 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s))) {
+            if (j1 == 4 && isTradeMessageVisible(s)) {
                 if (k > k1 - 14 && k <= k1) {
                     rightClickOptions[anInt1183] = "Accept trade @whi@" + s;
                     anIntArray981[anInt1183] = 544;
@@ -8862,7 +8939,7 @@ public class client extends JagApplet {
             }
             if ((j1 == 5 || j1 == 6) && splitPrivateChat == 0 && privateChatMode < 2)
                 l++;
-            if (j1 == 8 && (tradeMode == 0 || tradeMode == 1 && method148(13292, s))) {
+            if (j1 == 8 && isTradeMessageVisible(s)) {
                 if (k > k1 - 14 && k <= k1) {
                     rightClickOptions[anInt1183] = "Accept challenge @whi@" + s;
                     anIntArray981[anInt1183] = 695;
@@ -8870,6 +8947,8 @@ public class client extends JagApplet {
                 }
                 l++;
             }
+            if (j1 == 9 && !layout.resizable && isTradeMessageVisible(s))
+                l++;
         }
 
     }
@@ -10264,6 +10343,7 @@ public class client extends JagApplet {
     }
 
     public void drawErrorScreen() {
+        reportStartupFailure();
         Graphics g = super.graphics;
         g.setColor(Color.black);
         g.fillRect(0, 0, 765, 503);
@@ -10420,18 +10500,72 @@ public class client extends JagApplet {
                 updateLoginFlames((byte) 1);
                 renderLoginFlames();
             }
+            startupLoginFrameDrawn = true;
         } else {
             drawGame();
         }
         anInt1094 = 0;
     }
 
+    @Override
+    protected void frameRendered() {
+        if (startupLoaded && startupLoginFrameDrawn && !isLoggedIn
+                && !aBoolean1016 && !aBoolean1283 && !aBoolean1097) {
+            luna.ClientStartup.prepared();
+        }
+    }
+
+    @Override
+    protected void framePresented() {
+        if (startupLoaded && startupLoginFrameDrawn && !isLoggedIn
+                && !aBoolean1016 && !aBoolean1283 && !aBoolean1097) {
+            reportStartupReady();
+            luna.ClientStartup.frameShown();
+        } else if (startupFailureReported) {
+            luna.ClientStartup.frameShown();
+        }
+    }
+
     /**
-     * In the resizable mode the 765x503 login screen is drawn in the centre of the window, with black around it.
-     * The back buffer Graphics is moved to the centre for the login screen and back to the corner for the game.
+     * Announces the first successfully presented login screen to an observing launcher.
+     */
+    private static synchronized void reportStartupReady() {
+        if (startupReadyReported || startupFailureReported) return;
+        startupReadyReported = true;
+        System.out.println("LUNA_CLIENT_READY");
+        System.out.flush();
+    }
+
+    /**
+     * Releases a managed splash when startup fails even if the client remains on an error screen.
+     */
+    private static synchronized void reportStartupFailure() {
+        if (startupReadyReported || startupFailureReported) return;
+        startupFailureReported = true;
+        luna.ClientStartup.failed();
+        System.out.println("LUNA_CLIENT_STARTUP_FAILED");
+        System.out.flush();
+    }
+
+    /**
+     * Paints default artwork at window resolution while keeping the original login controls centered and unscaled.
+     * Seasonal and missing-artwork fallbacks retain the classic title layout.
      */
     private void prepareLoginScreenGraphics() {
         Graphics2D g = (Graphics2D) super.graphics;
+        if (hasHighResolutionTitle()) {
+            if (shouldRenderUI || !loginScreenCleared) {
+                synchronized (titleArtworkLock) {
+                    g.setTransform(new AffineTransform());
+                    titleArtwork.drawDefaultScene(g, clientWidth, clientHeight,
+                            loginScreenOffsetX(), loginScreenOffsetY());
+                    loginScreenCleared = true;
+                    shouldRenderUI = true;
+                }
+            }
+            g.setTransform(AffineTransform.getTranslateInstance(loginScreenOffsetX(), loginScreenOffsetY()));
+            return;
+        }
         // also clear when coming from the game (logging out), which leaves its last frame in the back buffer
         if (clientSize == 1 && (shouldRenderUI || !loginScreenCleared)) {
             g.setTransform(new AffineTransform());
@@ -10442,6 +10576,26 @@ public class client extends JagApplet {
             shouldRenderUI = true;
         }
         g.setTransform(AffineTransform.getTranslateInstance(loginScreenOffsetX(), loginScreenOffsetY()));
+    }
+
+    /**
+     * Reports when the bundled full-resolution default scene can replace the legacy opaque title panels.
+     */
+    private boolean hasHighResolutionTitle() {
+        return !isLoggedIn && appliedTitleTheme == SeasonalTitleTheme.DEFAULT
+                && titleArtwork != null && titleArtwork.hasDefaultScene();
+    }
+
+    /**
+     * Samples the physical HD scene beneath the native login panel, including its rounded transparent corners.
+     */
+    private void prepareLoginBoxBackground() {
+        if (!hasHighResolutionTitle()) return;
+        synchronized (titleArtworkLock) {
+            titleArtwork.copyDefaultRegion(loginboxElement.pixels, loginboxElement.width, loginboxElement.height,
+                    loginScreenOffsetX() + 202, loginScreenOffsetY() + 171,
+                    clientWidth, clientHeight, loginScreenOffsetX(), loginScreenOffsetY());
+        }
     }
 
     /**
@@ -10600,8 +10754,11 @@ public class client extends JagApplet {
         int k1 = i * i1 + j * j1 >> 16;
         int l1 = i * j1 - j * i1 >> 16;
         if (l > 2500) {
-            class50_sub1_sub1_sub1.method467(mapback_1186, 83 - l1 - class50_sub1_sub1_sub1.height_1495
-                    / 2 - 4, -49993, ((94 + k1) - class50_sub1_sub1_sub1.width_1494 / 2) + 4);
+            int y = 83 - l1 - class50_sub1_sub1_sub1.height_1495 / 2 - 4;
+            int x = ((94 + k1) - class50_sub1_sub1_sub1.width_1494 / 2) + 4;
+            if (layout.resizable && ResizableMinimap.enabled())
+                class50_sub1_sub1_sub1.method461(y, x, -488);
+            else class50_sub1_sub1_sub1.method467(mapback_1186, y, -49993, x);
             return;
         } else {
             class50_sub1_sub1_sub1.method461(83 - l1 - class50_sub1_sub1_sub1.height_1495 / 2 - 4,
@@ -10613,6 +10770,7 @@ public class client extends JagApplet {
     public void drawLoginScreen(boolean flag) {
         prepareLoginUI();
         updateTitleArtwork();
+        prepareLoginBoxBackground();
         loginboxElement.pushPixels();
         titlebox_1292.drawSprite(0, 0);
         //char c = '\u0168';
@@ -10623,7 +10781,7 @@ public class client extends JagApplet {
             int j = c1 / 2 + 80;
             font_p11_full.drawString(fileFetcher.aString1347, c / 2, j, true, 0x75a9a9);
             j = c1 / 2 - 20;
-            loginScreenFont.drawString("Welcome to RuneScape", c / 2, j, true, 0xffff00);
+            loginScreenFont.drawString("Welcome to Luna", c / 2, j, true, 0xffff00);
             j += 30;
             int i1 = c / 2 - 80;
             int l1 = c1 / 2 + 20;
@@ -10634,7 +10792,7 @@ public class client extends JagApplet {
             loginScreenFont.drawString("Existing User", i1, l1 + 5, true, 0xffffff);
         }
         if (loginScreenState == 2) {
-            int k = c1 / 2 - 40;
+            int k = c1 / 2 - 52 + ClientSettings.LOGIN_CONTROLS_OFFSET_Y;
             if (statusLineOne.length() > 0) {
                 loginScreenFont.drawString(statusLineOne, c / 2, k - 15, true, 0xffff00);
                 loginScreenFont.drawString(statusLineTwo, c / 2, k, true, 0xffff00);
@@ -10649,6 +10807,7 @@ public class client extends JagApplet {
             loginScreenFont.drawString("Password: "
                             + StringUtils.asterisks(thisPlayerPassword) + ((anInt977 == 1) & (pulseCycle % 40 < 20) ? "@yel@|" : ""), 0xffffff, c / 2 - 88, k, true);
             k += 15;
+            drawRememberUsername();
             if (!flag) {
                 int j1 = c / 2 - 80;
                 int i2 = c1 / 2 + 50;
@@ -10678,14 +10837,85 @@ public class client extends JagApplet {
         loginboxElement.drawImage(202, 171, super.graphics);
         if (shouldRenderUI) {
             shouldRenderUI = false;
-            loginBackground_1.drawImage(128, 0, super.graphics);
-            loginBackground_2.drawImage(202, 371, super.graphics);
-            loginBackground_3.drawImage(0, 265, super.graphics);
-            loginBackground_4.drawImage(562, 265, super.graphics);
-            loginBackground_5.drawImage(128, 171, super.graphics);
-            loginBackground_6.drawImage(562, 171, super.graphics);
+            if (!hasHighResolutionTitle()) {
+                loginBackground_1.drawImage(128, 0, super.graphics);
+                loginBackground_2.drawImage(202, 371, super.graphics);
+                loginBackground_3.drawImage(0, 265, super.graphics);
+                loginBackground_4.drawImage(562, 265, super.graphics);
+                loginBackground_5.drawImage(128, 171, super.graphics);
+                loginBackground_6.drawImage(562, 171, super.graphics);
+            }
         }
+        drawLoginMusicButton();
         presentBackBuffer();
+    }
+
+    /**
+     * Keeps the remembered-name control clear of the original credential fields and buttons.
+     */
+    private int rememberUsernameLeft() {
+        int width = font_p11_full == null ? 100 : font_p11_full.method472((byte) 35, "Remember username");
+        return 202 + (360 - width - 18) / 2;
+    }
+
+    private int rememberUsernameWidth() {
+        return 18 + (font_p11_full == null ? 100 : font_p11_full.method472((byte) 35, "Remember username"));
+    }
+
+    private void drawRememberUsername() {
+        int left = rememberUsernameLeft() - 202;
+        int top = 109 + ClientSettings.LOGIN_CONTROLS_OFFSET_Y;
+        Drawable.drawFullRect(left, top, 13, 13, 0x27251f);
+        Drawable.drawRect(left, top, 13, 13, 0xa69a7d);
+        Drawable.drawRect(left + 1, top + 1, 11, 11, 0x514c40);
+        if (loginPreferences.rememberUsername()) {
+            for (int step = 0; step < 3; step++)
+                Drawable.drawFullRect(left + 3 + step, top + 6 + step, 2, 2, 0x72bd58);
+            for (int step = 0; step < 6; step++)
+                Drawable.drawFullRect(left + 5 + step, top + 8 - step, 2, 2, 0x72bd58);
+        }
+        boolean hover = super.mouseX >= left + 202 && super.mouseX < left + 202 + rememberUsernameWidth()
+                && super.mouseY >= top + 171 && super.mouseY < top + 185;
+        font_p11_full.drawString("Remember username", hover ? 0xffffff : 0xffff00, left + 18, top + 10, true);
+    }
+
+    /**
+     * Anchors the title-only music control to the window while using the title's translated coordinates.
+     */
+    private int loginMusicButtonX() {
+        return clientWidth - loginScreenOffsetX() - LoginMusicButton.SIZE - 4;
+    }
+
+    private int loginMusicButtonY() {
+        return clientHeight - loginScreenOffsetY() - LoginMusicButton.SIZE - 4;
+    }
+
+    private void drawLoginMusicButton() {
+        if (loginMusicButton == null) loginMusicButton = new LoginMusicButton();
+        boolean hover = super.mouseX >= loginMusicButtonX() && super.mouseX < loginMusicButtonX() + LoginMusicButton.SIZE
+                && super.mouseY >= loginMusicButtonY() && super.mouseY < loginMusicButtonY() + LoginMusicButton.SIZE;
+        loginMusicButton.draw(super.graphics, loginMusicButtonX(), loginMusicButtonY(),
+                loginPreferences.loginMusicEnabled(), hover);
+    }
+
+    private boolean clickLoginPreference() {
+        if (super.anInt28 != 1) return false;
+        if (super.anInt29 >= loginMusicButtonX() && super.anInt29 < loginMusicButtonX() + LoginMusicButton.SIZE
+                && super.anInt30 >= loginMusicButtonY() && super.anInt30 < loginMusicButtonY() + LoginMusicButton.SIZE) {
+            loginPreferences.loginMusicEnabled(!loginPreferences.loginMusicEnabled());
+            music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled() && !lowMemory);
+            super.anInt28 = 0;
+            return true;
+        }
+        if (loginScreenState == 2 && super.anInt29 >= rememberUsernameLeft()
+                && super.anInt29 < rememberUsernameLeft() + rememberUsernameWidth()
+                && super.anInt30 >= 280 + ClientSettings.LOGIN_CONTROLS_OFFSET_Y
+                && super.anInt30 < 294 + ClientSettings.LOGIN_CONTROLS_OFFSET_Y) {
+            loginPreferences.rememberUsername(!loginPreferences.rememberUsername(), thisPlayerName);
+            super.anInt28 = 0;
+            return true;
+        }
+        return false;
     }
 
     public void addNewNpcs(JagBuffer buf, int i, boolean flag) {
@@ -11101,12 +11331,14 @@ public class client extends JagApplet {
             super.drawLoadingText(i, text);
             return;
         }
+        if (!isLoggedIn) prepareLoginScreenGraphics();
+        prepareLoginBoxBackground();
         loginboxElement.pushPixels();
         char c = '\u0168';
         char c1 = '\310';
         byte byte0 = 20;
         loginScreenFont.drawHorizontallyCenteredString(c / 2, c1 / 2 - 26 - byte0, 0xffffff,
-                "RuneScape is loading - please wait...");
+                "Luna is loading - please wait...");
         int j = c1 / 2 - 18 - byte0;
         Drawable.drawRect(c / 2 - 152, j, 304, 34, 0x8c1111);
         Drawable.drawRect(c / 2 - 151, j + 1, 302, 32, 0);
@@ -11116,14 +11348,16 @@ public class client extends JagApplet {
         loginboxElement.drawImage(202, 171, super.graphics);
         if (shouldRenderUI) {
             shouldRenderUI = false;
-            loginFlameLeft.drawImage(0, 0, super.graphics);
-            loginFlameRight.drawImage(637, 0, super.graphics);
-            loginBackground_1.drawImage(128, 0, super.graphics);
-            loginBackground_2.drawImage(202, 371, super.graphics);
-            loginBackground_3.drawImage(0, 265, super.graphics);
-            loginBackground_4.drawImage(562, 265, super.graphics);
-            loginBackground_5.drawImage(128, 171, super.graphics);
-            loginBackground_6.drawImage(562, 171, super.graphics);
+            if (!hasHighResolutionTitle()) {
+                loginFlameLeft.drawImage(0, 0, super.graphics);
+                loginFlameRight.drawImage(637, 0, super.graphics);
+                loginBackground_1.drawImage(128, 0, super.graphics);
+                loginBackground_2.drawImage(202, 371, super.graphics);
+                loginBackground_3.drawImage(0, 265, super.graphics);
+                loginBackground_4.drawImage(562, 265, super.graphics);
+                loginBackground_5.drawImage(128, 171, super.graphics);
+                loginBackground_6.drawImage(562, 171, super.graphics);
+            }
         }
         presentBackBuffer();
     }
@@ -11156,6 +11390,12 @@ public class client extends JagApplet {
                 System.arraycopy(loginFlameRight.pixels, 0, sprite_1018.pixels_1489, 0, loginFlameRight.pixels.length);
             }
             appliedTitleTheme = theme;
+            if (anIntArray1311 != null && anIntArray1312 != null && anIntArray1313 != null) {
+                TitleFlamePalette.fill(theme == SeasonalTitleTheme.DEFAULT,
+                        anIntArray1311, anIntArray1312, anIntArray1313);
+                anInt1047 = anInt1048 = 0;
+            }
+            loginScreenCleared = false;
             shouldRenderUI = true;
         }
     }
@@ -11193,6 +11433,10 @@ public class client extends JagApplet {
 
     public void resetWhenBoolTrue() {
         loginFlamesReady = false;
+        loginFlameOverlayLeft = null;
+        loginFlameOverlayRight = null;
+        loginFlameOverlayPixelsLeft = null;
+        loginFlameOverlayPixelsRight = null;
         titlebox_1292 = null;
         titlebutton_1293 = null;
         runes_array1117 = null;
@@ -11651,7 +11895,8 @@ public class client extends JagApplet {
         if (minimapState != 0) {
             return;
         }
-        if (super.anInt28 == 1) {
+        if (super.anInt28 == 1 && (!layout.resizable || !ResizableMinimap.enabled()
+                || ResizableMinimap.containsMap(super.anInt29 - layout.minimap.x, super.anInt30 - layout.minimap.y))) {
             int i = super.anInt29 - 25 - layout.minimap.x;
             int j = super.anInt30 - 5 - layout.minimap.y;
             if (i >= 0 && j >= 0 && i < 146 && j < 151) {
@@ -11726,6 +11971,8 @@ public class client extends JagApplet {
         while (i >= 0) {
             opcode = buffer.getByte();
         }
+        loginPreferences.username(thisPlayerName);
+        if (clickLoginPreference()) return;
         if (loginScreenState == 0) {
             int j = super.width / 2 - 80;
             int i1 = super.height / 2 + 20;
@@ -11741,12 +11988,12 @@ public class client extends JagApplet {
                 statusLineOne = "";
                 statusLineTwo = "Enter your username & password.";
                 loginScreenState = 2;
-                anInt977 = 0;
+                anInt977 = thisPlayerName.isEmpty() ? 0 : 1;
                 return;
             }
         } else {
             if (loginScreenState == 2) {
-                int k = super.height / 2 - 40;
+                int k = super.height / 2 - 52 + ClientSettings.LOGIN_CONTROLS_OFFSET_Y;
                 k += 30;
                 k += 25;
                 if (super.anInt28 == 1 && super.anInt30 >= k - 15 && super.anInt30 < k)
@@ -11769,8 +12016,6 @@ public class client extends JagApplet {
                 if (super.anInt28 == 1 && super.anInt29 >= j1 - 75 && super.anInt29 <= j1 + 75
                         && super.anInt30 >= l1 - 20 && super.anInt30 <= l1 + 20) {
                     loginScreenState = 0;
-                    //thisPlayerName = "";
-                    //aString1093 = "";
                 }
                 do {
                     int i2 = readCharFromChatbox();
@@ -11804,6 +12049,7 @@ public class client extends JagApplet {
                             thisPlayerPassword = thisPlayerPassword.substring(0, 20);
                     }
                 } while (true);
+                loginPreferences.username(thisPlayerName);
                 return;
             }
             if (loginScreenState == 3) {
@@ -12221,8 +12467,8 @@ public class client extends JagApplet {
         aCRC32_1088 = new CRC32();
         anInt1089 = -1;
         anIntArray1090 = new int[50];
-        thisPlayerName = "luna";
-        thisPlayerPassword = "luna";
+        thisPlayerName = loginPreferences.username();
+        thisPlayerPassword = "";
         aBoolean1097 = false;
         aBoolean1098 = false;
         anIntArray1099 = new int[5];

@@ -5,3 +5,8 @@ cache/
 cacheModded/
 .gradle/
 build/
+!buildSrc/src/main/java/io/luna/build/
+!buildSrc/src/main/java/io/luna/build/*.java
+data/bootstrap/
+data/.cache-prepare-*/
+data/.cache-previous-*/

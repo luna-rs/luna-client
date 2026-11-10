@@ -41,6 +41,8 @@ public class JagApplet extends Applet implements Runnable {
     private long stopDeadline;
     private int wheelX, wheelY, wheelDelta;
     private boolean rendering;
+    private int contentWidth = MIN_CONTENT_WIDTH, contentHeight = MIN_CONTENT_HEIGHT;
+    private int pendingWidth = -1, pendingHeight = -1, pendingMode = -1;
 
     public void start(int width, int height) {
         this.width = MIN_CONTENT_WIDTH;
@@ -51,21 +53,23 @@ public class JagApplet extends Applet implements Runnable {
     }
 
     public void rebuildFrame(int width, int height, boolean resizable) {
-        width = MIN_CONTENT_WIDTH;
-        height = MIN_CONTENT_HEIGHT;
+        width = resizable ? ClientSettings.clampWidth(width) : MIN_CONTENT_WIDTH;
+        height = resizable ? ClientSettings.clampHeight(height) : MIN_CONTENT_HEIGHT;
+        contentWidth = width;
+        contentHeight = height;
         if (this instanceof client game) {
-            game.clientSize = 0;
+            game.clientSize = resizable ? 1 : 0;
             game.clientWidth = width;
             game.clientHeight = height;
         }
-        if (frame == null) frame = new JagFrame(width, height, this, false);
+        if (frame == null) frame = new JagFrame(width, height, this, resizable);
         else {
             frame.setContentSize(width, height);
-            frame.setResizable(false);
+            frame.setResizable(resizable);
         }
         resizedWidth = resizedHeight = -1;
         BrowserDisplay.bind(width, height, this::input);
-        BrowserDisplay.layout(false, width, height);
+        BrowserDisplay.layout(resizable, width, height);
         ensureBackBuffer();
     }
 
@@ -83,12 +87,25 @@ public class JagApplet extends Applet implements Runnable {
             long started = ClientPerformance.begin(ClientPerformance.PRESENT);
             BrowserDisplay.present(buffer.pixels, buffer.width, buffer.height);
             ClientPerformance.end(ClientPerformance.PRESENT, started);
+            framePresented();
         }
     }
 
+    /**
+     * Runs after a completed frame has been handed to the browser canvas.
+     */
+    protected void framePresented() {
+    }
+
+    /**
+     * Runs after drawing a complete back buffer, before its presentation.
+     */
+    protected void frameRendered() {
+    }
+
     protected final void invalidateFramePresentation() { }
-    public int getContentWidth() { return MIN_CONTENT_WIDTH; }
-    public int getContentHeight() { return MIN_CONTENT_HEIGHT; }
+    public int getContentWidth() { return contentWidth; }
+    public int getContentHeight() { return contentHeight; }
     public int inputOffsetX() { return 0; }
     public int inputOffsetY() { return 0; }
 
@@ -98,10 +115,12 @@ public class JagApplet extends Applet implements Runnable {
             load();
             if (this instanceof client game && (game.aBoolean1283 || game.aBoolean1097 || game.aBoolean1016)) {
                 repaintGame();
+                frameRendered();
                 presentBackBuffer();
                 BrowserClientMain.clientFailed();
                 return;
             }
+            applyBrowserChanges();
             BrowserClientMain.clientReady();
             BrowserPerformance.install(this);
             BrowserFrameClock.start();
@@ -140,7 +159,10 @@ public class JagApplet extends Applet implements Runnable {
                     scheduler.frameStarted(frameStart);
                     ensureBackBuffer(); updateMouseInput();
                     rendering = true;
-                    try { repaintGame(); }
+                    try {
+                        repaintGame();
+                        frameRendered();
+                    }
                     finally { rendering = false; }
                     ClientPerformance.frameRendered(performanceFrameStarted);
                     presentBackBuffer();
@@ -162,7 +184,7 @@ public class JagApplet extends Applet implements Runnable {
                 }
                 ClientPerformance.loopFinished(performanceLoopStarted);
                 BrowserPerformance.poll();
-                if (BrowserFrameClock.enabled()) {
+                if (BrowserFrameClock.enabled() || BrowserDisplay.hidden()) {
                     BrowserFrameClock.awaitWork(scheduler.nanosUntilUpdate(System.nanoTime()) / 1_000_000.0);
                 } else {
                     long waitNanos = scheduler.nanosUntilWork(System.nanoTime());
@@ -191,6 +213,30 @@ public class JagApplet extends Applet implements Runnable {
 
     private void applyBrowserChanges() {
         if (!(this instanceof client game)) return;
+        if (pendingMode != -1) {
+            int mode = pendingMode;
+            pendingMode = -1;
+            if (mode == 1) {
+                client.settings.width = ClientSettings.clampWidth(BrowserDisplay.availableWidth());
+                client.settings.height = ClientSettings.clampHeight(BrowserDisplay.availableHeight());
+            }
+            game.toggleSize(mode);
+        }
+        int nextWidth = pendingWidth, nextHeight = pendingHeight;
+        pendingWidth = pendingHeight = -1;
+        if (game.clientSize == 1 && nextWidth > 0 && nextHeight > 0) {
+            nextWidth = ClientSettings.clampWidth(nextWidth);
+            nextHeight = ClientSettings.clampHeight(nextHeight);
+            if (nextWidth != contentWidth || nextHeight != contentHeight) {
+                contentWidth = nextWidth;
+                contentHeight = nextHeight;
+                if (frame != null) frame.setContentSize(nextWidth, nextHeight);
+                resizedWidth = nextWidth;
+                resizedHeight = nextHeight;
+                game.checkSize();
+                ensureBackBuffer();
+            }
+        }
         if (wheelDelta != 0) {
             int delta = wheelDelta;
             wheelDelta = 0;
@@ -277,8 +323,12 @@ public class JagApplet extends Applet implements Runnable {
     }
 
     private void input(int type, int x, int y, int keyCode, int character) {
-        if (type == 7 || type == 8) return;
-        if (type == 9) {
+        if (type == 7) {
+            pendingWidth = x;
+            pendingHeight = y;
+        } else if (type == 8) {
+            pendingMode = x == 1 ? 1 : 0;
+        } else if (type == 9) {
             wheelX = x; wheelY = y; wheelDelta += character;
         } else if (type == 10) {
             awtFocus = true;

@@ -39,7 +39,6 @@ public final class BrowserFrameClock {
     }
 
     public static void stop() {
-        if (!enabled) return;
         enabled = false;
         stopPacing();
     }

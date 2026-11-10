@@ -2,8 +2,7 @@
 
 [Luna's client repository](https://github.com/luna-rs/luna-client) maintains both
 build targets. The game server remains a separate project in
-[luna-rs/luna](https://github.com/luna-rs/luna). The canonical browser website is
-https://luna-rs.github.io/luna-client/.
+[luna-rs/luna](https://github.com/luna-rs/luna). Each downstream deployment owns its own hosting, cache and connection profile.
 
 ## Make a shared client change
 
@@ -14,8 +13,8 @@ https://luna-rs.github.io/luna-client/.
    `browser/web/`.
 3. Build the desktop and browser targets, then verify the affected actions against
    a development server.
-4. Review and merge the change into this repository's `master`. Its configured
-   **Build and publish webclient** workflow rebuilds and publishes the browser site.
+4. Review and merge the change into this repository's `master`. Its
+   **Compile development clients** workflow checks desktop and browser compilation.
 
 Desktop and browser fixes no longer need to be copied between repositories. There
 is no separate **Sync upstream client** action. A source fix still needs to compile
@@ -39,7 +38,7 @@ complete root profile with `-PclientProperties=<filename>`. For example, in Wind
 PowerShell:
 
 ```powershell
-.\gradlew.bat :browser:browserSite "-PclientProperties=client (2).properties"
+.\gradlew.bat :browser:browserSite "-PclientProperties=custom.properties" "-PcacheZip=C:/path/to/cache.zip"
 ```
 
 Connection, public RSA, branding and browser settings come from the selected file.
@@ -48,10 +47,8 @@ and a generated `client-config.json`. The build and browser startup check that
 these files match. Do not edit generated descriptors or use them as another
 configuration source.
 
-Repository Actions variable `CLIENT_PROPERTIES` selects only a root profile
-filename. The shared build defaults to `client.properties`; Luna's Pages deployment
-selects its beta profile explicitly. The deployment guide describes the current
-[properties and publication flow](DEPLOYMENT.md).
+Public CI only compiles source. Downstream packaging supplies a profile and
+explicit local `-PcacheZip` archive; see [deployment](DEPLOYMENT.md).
 
 The cache seed is shared build input under `data/bootstrap/`. Its ZIP and hash
 manifest must describe the same compatible cache. Build outputs extract and verify
@@ -60,10 +57,10 @@ game client implementation.
 
 ## Verification
 
-With Java 21, build both desktop executables and the browser targets:
+With Java 21, build the desktop and browser targets using your own cache:
 
 ```sh
-./gradlew allClientBuilds verifyBetaJar
+./gradlew allClientBuilds verifyClientJar -PcacheZip=/path/to/cache.zip
 ```
 
 On Windows PowerShell, use `.\gradlew.bat` with the same tasks. To verify a selected
