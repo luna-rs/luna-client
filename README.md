@@ -1,13 +1,18 @@
 # Luna | Modified #377 Client
 
-The Java desktop client and browser client share one maintained source tree in
-[luna-rs/luna-client](https://github.com/luna-rs/luna-client). Both connect to the
-[Luna game server](https://github.com/luna-rs/luna).
+The official client that connects locally to the [Luna game server](https://github.com/luna-rs/luna). 
 
-**[Play in your browser](https://luna-rs.github.io/luna-client/)**
+<p align="center">
+<a href="https://luna2006.rs/"><img src="data/resources/play-luna-2006.png" alt="Play Luna 2006" width="320" height="88" border="0"></a>
+</p>
 
-The browser page uses the compact 2005 game-page layout. Desktop builds and
-browser builds remain separate targets; fixes to shared game code reach both.
+**Luna 2006** is an actively hosted 2006-era experience based on this project. Come see the
+gameplay for yourself!
+
+- 5x experience for players, 1x experience for bots
+- No character/economy wipes or resets
+
+![](data/resources/luna-2006-fullscreen.png)
 
 ## Build and run locally
 
@@ -97,3 +102,21 @@ for component licenses and asset provenance. They do not assign a blanket licens
 to the inherited client or game assets. The inherited regression-fixture limitation
 is explained in [verification notes](docs/UPSTREAM.md#verification). The original
 desktop README is retained in [DESKTOP-UPSTREAM.md](docs/DESKTOP-UPSTREAM.md).
+
+# Luna | Modified #377 Client
+
+
+![](./data/media.png)
+
+# Setup
+
+Please see the [wiki](https://github.com/luna-rs/luna/wiki) for a full setup guide if you're looking to create your own world.
+
+If you wish to help with alpha/beta testing, please download the launcher or run the source code directly
+using the beta `client.properties` [here]().
+
+# Compatibility
+Care was made not to make any changes to the #377 protocol.
+
+You can still use a non-luna based #377 server with this client, and any faithful #377 client can connect
+to Luna.
