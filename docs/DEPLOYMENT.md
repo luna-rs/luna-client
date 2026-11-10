@@ -1,14 +1,7 @@
-# Publishing the Luna browser client
+# Hosting your own development browser client
 
-Desktop and browser builds share the public
-[luna-rs/luna-client](https://github.com/luna-rs/luna-client) repository.
-The canonical GitHub Pages website is:
-
-**https://luna-rs.github.io/luna-client/**
-
-GitHub Pages serves the compiled client, game page and cache assets. The Luna
-game server runs separately. Browser connections use WebSockets; Pages cannot
-accept game TCP connections or proxy `/game` to a game server.
+This public repository provides source and local build tools. Supply your own
+server, connection profile, compatible cache ZIP and HTTPS host.
 
 ## Configure your own deployment
 
@@ -40,7 +33,7 @@ Gradle reads the selected file with Java's properties parser. It generates
 `client-config.json` beside the copied `client.properties`; build and startup
 integrity checks keep those outputs together. Rebuild after changing properties.
 There is no manually maintained browser endpoint JSON or workflow endpoint override.
-`browser/pages-config.json` records release/source provenance only.
+The local packaging command records development provenance from the current Git commit.
 
 Cache assets come from the shared `data/bootstrap/cache.zip` and its `cache.sha256`
 manifest. The build extracts the six core stores, verifies their hashes and
@@ -57,7 +50,7 @@ Use Java 21 and Node.js 24. From the repository root in Windows PowerShell:
 
 ```powershell
 npm --prefix browser ci
-.\gradlew.bat :browser:browserSite
+.\gradlew.bat :browser:browserSite "-PcacheZip=C:/path/to/cache.zip"
 node browser/serve.mjs
 ```
 
@@ -71,15 +64,8 @@ Alternatively, set `websocketUrl` to a local native listener such as
 A public endpoint used from a local preview also needs to accept the local origin;
 client settings do not silently change its server policy.
 
-On Linux/macOS, use `./gradlew` instead of `.\gradlew.bat`. Select Luna's beta profile
-explicitly for a beta build:
-
-```powershell
-.\gradlew.bat :browser:browserSite "-PclientProperties=client (2).properties"
-```
-
-Each build copies one selected profile. Hosting the page locally does not turn a
-beta profile into a localhost game connection.
+On Linux/macOS use `./gradlew` instead of `.\gradlew.bat`. Supply your own
+compatible cache with `-PcacheZip=/path/to/cache.zip` for packaging builds.
 
 ## Build the deployable website
 
@@ -111,48 +97,6 @@ The website contains JS/Wasm, title and page assets, the cache and integrity
 manifest, public properties, generated descriptor, legal notices and
 `release-provenance.json`. Use provenance to identify the build, selected
 connection and cache fingerprint.
-
-## Publish with GitHub Actions
-
-1. In this repository's **Settings → Pages**, select **GitHub Actions** as the
-   publishing source and configure the `github-pages` environment as needed.
-2. Under **Settings → Secrets and variables → Actions → Variables**, set
-   `PUBLISH_GITHUB_PAGES` to the exact value `true`.
-3. Set `CLIENT_PROPERTIES` only when selecting an alternative root properties
-   filename. If it is unset, the workflow uses `client.properties`. Luna's public
-   beta deployment selects `client (2).properties`.
-4. Push or merge reviewed client changes into `master`, or run **Actions → Build
-   and publish webclient → Run workflow** on `master`.
-5. Wait for both the build and Pages deployment jobs to pass, then verify the
-   published client.
-
-Addresses and URLs come from the selected properties file. The Actions variable
-chooses a filename; it is not another server configuration source. Desktop and
-browser code now live together, so there is no separate upstream-sync workflow.
-
-The build always uploads the **Luna-Webclient** artifact as a downloadable ZIP.
-It validates the selected endpoint for Pages after saving that ZIP and before
-uploading the Pages artifact. With Pages disabled, the build still supplies the
-ZIP for review or alternative hosting. A Pages validation failure does not make
-a local profile unsuitable for local development.
-
-GitHub's [Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
-explains public repository eligibility and static hosting. The standard project
-URL needs no custom hostname or paid private-repository plan. Website publication
-does not deploy or restart the Luna game server.
-
-## Current beta connection
-
-The selected beta profile currently uses a temporary Cloudflare endpoint backed
-by the existing PC Node relay. The PC relay/tunnel processes must remain running
-until a replacement is deployed and verified. If the tunnel hostname changes,
-update `websocketUrl` in that properties profile and rebuild/deploy.
-
-Native WebSocket support is available in the Luna Java server source. This client
-integration does not install that server release on the beta VPS, restart it or
-retire its relay. A reachable health page and a loaded client are not proof of
-working game login. A public website can use native Luna WebSockets once its
-external WSS endpoint and allowed origin are deployed and verified.
 
 ## Public source and delivered files
 
@@ -194,8 +138,7 @@ HTTPS and WebSocket TLS termination, while Luna's internal listener stays local.
 
 The server needs native WebSocket support from [luna-rs/luna](https://github.com/luna-rs/luna),
 introduced by commit `c9b10f537ebcc2224cabc466cbfe51539ce14a8b`, or a later revision
-containing it. It is published upstream but was not installed on the beta VPS by
-this website setup. Deploy it through the normal game-server release procedure,
+containing it. Deploy through your normal game-server release procedure,
 preserving player saves, cache, runtime configuration and RSA keys.
 
 Keep the existing desktop `game.port` at 43594. In the server's existing
@@ -267,8 +210,8 @@ Download `Luna-Webclient.zip` to the local machine. From PowerShell, change the
 local file path if necessary and upload it to the existing VPS account:
 
 ```powershell
-scp .\Luna-Webclient.zip luna@85.155.184.204:~/Luna-Webclient.zip
-ssh luna@85.155.184.204
+scp .\Luna-Webclient.zip deploy@your-game-host:~/Luna-Webclient.zip
+ssh deploy@your-game-host
 ```
 
 An administrator creates these specific website directories once, assigning them

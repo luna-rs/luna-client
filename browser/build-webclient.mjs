@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { preparePages } from './prepare-pages.mjs';
@@ -10,7 +10,8 @@ import { preparePages } from './prepare-pages.mjs';
  */
 export async function buildWebclient({ source, output } = {}) {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    const config = JSON.parse(await readFile(path.join(root, 'browser/pages-config.json'), 'utf8'));
+    const config = { release: 'development', sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'],
+        { cwd: root, encoding: 'utf8', timeout: 10000 }).trim() };
     return preparePages({ siteDirectory: source || path.join(root, 'browser/build/site'),
         outputDirectory: output || path.join(root, 'build/webclient-site'), config });
 }

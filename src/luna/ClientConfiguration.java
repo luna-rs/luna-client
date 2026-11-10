@@ -41,10 +41,6 @@ public final class ClientConfiguration {
         values.putIfAbsent("rememberUsername", "false");
         values.putIfAbsent("lastUsername", "");
         values.putIfAbsent("loginMusicEnabled", "true");
-        String name = values.getProperty("clientName", "").trim();
-        if ("luna-rs #377 (beta)".equalsIgnoreCase(name) || "Luna Beta".equalsIgnoreCase(name)) {
-            values.setProperty("clientName", "luna-rs #377");
-        }
         validate();
     }
 

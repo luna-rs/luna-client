@@ -23,25 +23,11 @@ application {
     applicationName = 'luna-dev'
 }
 
-def clientProperties = ['client.properties', 'beta.properties']
-
-def cacheProfile = providers.gradleProperty('clientProperties').orElse('client.properties').map { String name ->
-    if (!(name ==~ /[A-Za-z0-9][A-Za-z0-9 ._()-]*\.properties/)) {
-        throw new GradleException('clientProperties must name a .properties file in the client root.')
-    }
-    def profile = new Properties()
-    String contents = file(name).getText('UTF-8')
-    if (contents.startsWith('\uFEFF')) contents = contents.substring(1)
-    profile.load(new StringReader(contents))
-    profile
-}
+def clientProperties = ['client.properties']
 
 def preparedCache = tasks.register('prepareReleaseCache', PrepareReleaseCache) {
     group = 'build setup'
-    description = 'Downloads and verifies the released cache, then prepares shared browser and desktop assets.'
-    repository.set(cacheProfile.map { it.getProperty('cacheReleaseRepository', 'luna-rs/luna-client') })
-    releaseTag.set(cacheProfile.map { it.getProperty('cacheReleaseTag', 'latest') })
-    assetName.set(cacheProfile.map { it.getProperty('cacheReleaseAsset', 'cache.zip') })
+    description = 'Validates an explicitly supplied local cache ZIP for shared browser and desktop builds.'
     localCacheZip.set(layout.file(providers.gradleProperty('cacheZip').map { file(it) }))
     outputDirectory.set(layout.projectDirectory.dir('data/bootstrap'))
 }
@@ -106,37 +92,9 @@ tasks.named('jar') {
     from('client.properties')
     manifest {
         attributes('Main-Class': application.mainClass.get(),
-                'Implementation-Title': 'luna 2006',
+                'Implementation-Title': 'Luna',
                 'Implementation-Version': project.version)
     }
-}
-
-tasks.register('betaJar', Jar) {
-    group = 'build'
-    description = 'Builds the same executable with the second root settings file bundled as client.properties.'
-    dependsOn tasks.named('classes'), tasks.named('validateClientProperties')
-    from sourceSets.main.output
-    from('beta.properties') {
-        rename { 'client.properties' }
-    }
-    destinationDirectory = layout.buildDirectory.dir('libs')
-    archiveFileName = 'luna-beta.jar'
-    duplicatesStrategy = DuplicatesStrategy.FAIL
-    manifest {
-        attributes('Main-Class': application.mainClass.get(),
-                'Implementation-Title': 'luna 2006',
-                'Implementation-Version': project.version)
-    }
-}
-
-distributions.main.contents {
-    from(tasks.named('betaJar')) {
-        into 'lib'
-    }
-}
-
-tasks.named('assemble') {
-    dependsOn tasks.named('betaJar')
 }
 
 tasks.register('browserSite') {
@@ -147,8 +105,8 @@ tasks.register('browserSite') {
 
 tasks.register('allClientBuilds') {
     group = 'build'
-    description = 'Builds both desktop releases and the browser client from this checkout.'
-    dependsOn tasks.named('jar'), tasks.named('betaJar'), tasks.named('browserSite')
+    description = 'Builds the development desktop and browser clients using the explicit cache ZIP.'
+    dependsOn tasks.named('jar'), tasks.named('browserSite')
 }
 
 // These regression fixtures are plain Java entry points rather than JUnit tests.
@@ -188,20 +146,19 @@ tasks.register('clientTest') {
     dependsOn clientTestTasks
 }
 
-tasks.register('verifyBetaJar') {
+tasks.register('verifyClientJar') {
     group = 'verification'
-    description = 'Checks both executable manifests and their packaged runtime assets.'
-    dependsOn tasks.named('jar'), tasks.named('betaJar')
+    description = 'Checks the development executable manifest and packaged runtime assets.'
+    dependsOn tasks.named('jar')
     def artifacts = [
-            [archive: tasks.named('jar').flatMap { it.archiveFile }, settings: 'client.properties'],
-            [archive: tasks.named('betaJar').flatMap { it.archiveFile }, settings: 'beta.properties']
+            [archive: tasks.named('jar').flatMap { it.archiveFile }, settings: 'client.properties']
     ]
     inputs.files(artifacts.collect { it.archive })
     doLast {
         artifacts.each { artifact ->
             new JarFile(artifact.archive.get().asFile).withCloseable { jar ->
                 if (jar.manifest.mainAttributes.getValue('Main-Class') != application.mainClass.get()) {
-                    throw new GradleException('Both executable JARs must use the same client launcher.')
+                    throw new GradleException('The executable JAR must use the shared client launcher.')
                 }
                 def required = ['client.class', 'ClientLauncher.class', 'luna/ClientConfiguration.class', 'luna/CacheBootstrap.class',
                         'luna/ClientStartup.class', 'client.properties',
@@ -282,46 +239,9 @@ tasks.register('verifyBetaJar') {
                 }
             }
         }
-        new JarFile(artifacts[0].archive.get().asFile).withCloseable { first ->
-            new JarFile(artifacts[1].archive.get().asFile).withCloseable { second ->
-                def firstClasses = first.entries().findAll { it.name.endsWith('.class') }.collect { it.name }.toSet()
-                def secondClasses = second.entries().findAll { it.name.endsWith('.class') }.collect { it.name }.toSet()
-                if (firstClasses != secondClasses) {
-                    throw new GradleException('Both executable JARs must contain the same client classes.')
-                }
-                firstClasses.each { name ->
-                    first.getInputStream(first.getJarEntry(name)).withCloseable { firstBytes ->
-                        second.getInputStream(second.getJarEntry(name)).withCloseable { secondBytes ->
-                            if (!java.util.Arrays.equals(firstBytes.readAllBytes(), secondBytes.readAllBytes())) {
-                                throw new GradleException("The executables must share identical client code: ${name}")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-tasks.register('verifyClientLaunchers', JavaExec) {
-    group = 'verification'
-    description = 'Checks packaged defaults, root settings and graphics before client initialization.'
-    dependsOn tasks.named('testClasses'), tasks.named('jar'), tasks.named('betaJar')
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'ClientLauncherTest'
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-    maxHeapSize = '256m'
-    jvmArgs '-Djava.awt.headless=true'
-    workingDir = layout.buildDirectory.dir('client-test-work').get().asFile
-    doFirst {
-        workingDir.mkdirs()
-        setArgs([tasks.named('jar').get().archiveFile.get().asFile.absolutePath,
-                 tasks.named('betaJar').get().archiveFile.get().asFile.absolutePath])
     }
 }
 
 tasks.named('check') {
-    dependsOn tasks.named('clientTest'), tasks.named('verifyBetaJar'), tasks.named('verifyClientLaunchers')
+    dependsOn tasks.named('clientTest'), tasks.named('verifyClientJar')
 }
