@@ -24,7 +24,7 @@ inherited game client or game assets.
 
 ws 8.22.0: optional development tooling
 --------------------------------------
-The optional Node preview/legacy gateway uses the ws package under the MIT
+The Node development preview and optional standalone gateway use ws under the MIT
 license. The complete package license is provided in ws-LICENSE.txt, including
 its original copyright notices. ws is not part of the static browser client and
 is not needed when the browser connects to Luna's native WebSocket listener.
@@ -76,9 +76,14 @@ artwork belong to their respective owners.
 
 Inherited client and game cache
 -------------------------------
-This repository retains the Luna revision 377 client and bundled cache from its
-upstream project:
+This repository retains the Luna revision 377 client source from its upstream
+project:
   https://github.com/luna-rs/luna-client
+
+Packaging requires a separately supplied compatible cache ZIP. The build
+generates the cache seed and manifest locally; this source repository does not
+distribute a game cache. The provenance and licensing limits below also apply
+to inherited game assets and any cache used with a deployment.
 
 The imported source includes legacy decompiled client headers and game assets.
 The imported tree did not contain a project-wide LICENSE or NOTICE establishing

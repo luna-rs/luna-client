@@ -2,7 +2,9 @@
 
 [Luna's client repository](https://github.com/luna-rs/luna-client) maintains both
 build targets. The game server remains a separate project in
-[luna-rs/luna](https://github.com/luna-rs/luna). Each downstream deployment owns its own hosting, cache and connection profile.
+[luna-rs/luna](https://github.com/luna-rs/luna). Each downstream deployment owns
+its own hosting, cache and connection profile. The default client connects to
+`127.0.0.1:43594`; run a compatible local server separately.
 
 ## Make a shared client change
 
@@ -16,9 +18,9 @@ build targets. The game server remains a separate project in
 4. Review and merge the change into this repository's `master`. Its
    **Compile development clients** workflow checks desktop and browser compilation.
 
-Desktop and browser fixes no longer need to be copied between repositories. There
-is no separate **Sync upstream client** action. A source fix still needs to compile
-and work on both platforms; a desktop-only API can require an adapter change.
+Shared desktop and browser fixes belong in this repository. A source fix needs
+to compile and work on both platforms; a desktop-only API can require an adapter
+change. Downstream forks manage their own updates and deployment workflows.
 
 ## Preserve the shared source boundary
 
@@ -33,7 +35,8 @@ independent of the browser startup and process lifecycle.
 
 ## Configuration profiles
 
-The default browser build selects root `client.properties`. Choose a different
+The desktop JAR packages root `client.properties`. The default browser build
+selects the same file. Choose a different
 complete root profile with `-PclientProperties=<filename>`. For example, in Windows
 PowerShell:
 
@@ -50,26 +53,40 @@ configuration source.
 Public CI only compiles source. Downstream packaging supplies a profile and
 explicit local `-PcacheZip` archive; see [deployment](DEPLOYMENT.md).
 
-The cache seed is shared build input under `data/bootstrap/`. Its ZIP and hash
-manifest must describe the same compatible cache. Build outputs extract and verify
-that seed; changing an endpoint does not require another cache copy or a different
-game client implementation.
+The build requires your explicit local `-PcacheZip` archive, validates its six
+core stores and generates the ignored shared cache seed and SHA-256 manifest
+under `data/bootstrap/`. To update assets, supply a new compatible cache ZIP and
+rebuild instead of editing the generated seed or manifest. No game cache is
+downloaded automatically. Changing an endpoint does not require a different cache
+or game client implementation.
 
 ## Verification
 
-With Java 21, build the desktop and browser targets using your own cache:
+With Java 21, compile both source targets without a cache:
+
+```sh
+./gradlew compileJava :browser:compileJava
+```
+
+Build the desktop and browser packages using your own cache:
 
 ```sh
 ./gradlew allClientBuilds verifyClientJar -PcacheZip=/path/to/cache.zip
 ```
 
-On Windows PowerShell, use `.\gradlew.bat` with the same tasks. To verify a selected
-browser profile for Pages after packaging:
+On Windows PowerShell, use `.\gradlew.bat` with the same tasks. Browser preview and
+packaging tools also require Node.js 24. To package a selected browser profile
+for your own static host and check its configuration for GitHub Pages:
 
 ```sh
 node browser/build-webclient.mjs
 node browser/configuration.mjs --pages build/webclient-site
 ```
+
+The packaging destination must be new or empty. Pages requires a separately
+hosted secure WebSocket endpoint; `same-origin` is for the local preview or your
+own same-host `/game` proxy. Public CI runs compilation only and does not publish
+the resulting website, client packages or cache. See [deployment](DEPLOYMENT.md).
 
 The imported `check` task currently needs unpublished local fixtures
 `ClientConfigurationFixture` and `GameMessageFormattingTest`. A clean clone cannot

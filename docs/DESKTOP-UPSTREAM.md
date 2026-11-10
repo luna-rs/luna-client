@@ -1,19 +1,26 @@
 # Luna | Modified #377 Client
 
-This is the official #377 client that connects to the [Luna game server](https://github.com/luna-rs/luna).
+This desktop overview is retained from the earlier client README. For current
+desktop and browser instructions, use the [main README](../README.md).
 
-![](./data/media.png)
+The client targets revision 377 and defaults to your own local
+[Luna game server](https://github.com/luna-rs/luna) at `127.0.0.1:43594`.
 
 # Setup
 
-Please see the [wiki](https://github.com/luna-rs/luna/wiki) for a full setup guide if you're looking to create your own world.
+Use Java 21 and run a compatible server separately. Configure its address and
+matching public RSA values in the root `client.properties`, then build with your
+own compatible cache ZIP:
 
-Build your development client with Java 21 and an explicit compatible cache:
-`./gradlew jar verifyClientJar -PcacheZip=/path/to/cache.zip`.
-Configure your server in `client.properties`; the default is localhost.
+```sh
+./gradlew jar verifyClientJar -PcacheZip=/path/to/cache.zip
+java -jar build/libs/luna-dev.jar
+```
+
+On Windows PowerShell, use `.\gradlew.bat` instead of `./gradlew`. The build
+requires the six core cache stores described in the [main README](../README.md#supply-a-cache);
+it does not download a cache or connect to a hosted game automatically.
 
 # Compatibility
-Care was made not to make any changes to the #377 protocol.
-
-You can still use a non-luna based #377 server with this client, and any faithful #377 client can connect
-to Luna.
+Other revision 377 servers need compatible login encryption, packet handling and
+cache data. Verify login and gameplay against your chosen server.
