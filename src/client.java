@@ -46,7 +46,7 @@ public class client extends JagApplet {
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
     private static final int TRADE_MESSAGE_COLOR = 0x800080;
-    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0xb060c0;
+    private static final int SPECIAL_TRADE_MESSAGE_COLOR = 0x00ff00;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
