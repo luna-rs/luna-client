@@ -45,7 +45,7 @@ public class client extends JagApplet {
      * Client-only menu action, handled before legacy server-action normalization.
      */
     private static final int GAME_MESSAGE_COLORS_ACTION = 10000;
-    private static final int TRADE_MESSAGE_COLOR = 0x800080;
+    private static final int TRADE_MESSAGE_COLOR = 0xff80ff;
 
     private final MusicController music = new MusicController(id -> {
         if (this.fileFetcher == null || id < 0 || id >= this.fileFetcher.method340(2)) {
