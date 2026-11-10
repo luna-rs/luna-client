@@ -59,7 +59,7 @@ public class client extends JagApplet {
 
     private final SeasonalTitleMusic titleMusic = new SeasonalTitleMusic(music);
     private final LoginPreferences loginPreferences = new LoginPreferences();
-    private JagImageProducer loginMusicButton;
+    private LoginMusicButton loginMusicButton;
     private final Object titleArtworkLock = new Object();
     private TitleArtwork titleArtwork;
     private SeasonalTitleTheme appliedTitleTheme;
@@ -10883,41 +10883,25 @@ public class client extends JagApplet {
      * Anchors the title-only music control to the window while using the title's translated coordinates.
      */
     private int loginMusicButtonX() {
-        return clientWidth - loginScreenOffsetX() - 42;
+        return clientWidth - loginScreenOffsetX() - LoginMusicButton.SIZE - 4;
     }
 
     private int loginMusicButtonY() {
-        return clientHeight - loginScreenOffsetY() - 42;
+        return clientHeight - loginScreenOffsetY() - LoginMusicButton.SIZE - 4;
     }
 
     private void drawLoginMusicButton() {
-        if (loginMusicButton == null) loginMusicButton = new JagImageProducer(32, 32, getParentComponent());
-        loginMusicButton.pushPixels();
-        boolean hover = super.mouseX >= loginMusicButtonX() && super.mouseX < loginMusicButtonX() + 32
-                && super.mouseY >= loginMusicButtonY() && super.mouseY < loginMusicButtonY() + 32;
-        Drawable.drawFullRect(0, 0, 32, 32, 0x33322e);
-        Drawable.drawRect(0, 0, 32, 32, 0x101010);
-        Drawable.drawRect(1, 1, 30, 30, hover ? 0xc7af75 : 0x8b8170);
-        Drawable.drawRect(3, 3, 26, 26, 0x555148);
-        int color = loginPreferences.loginMusicEnabled() ? 0xd4c49c : 0x9c9687;
-        Drawable.drawFullRect(7, 13, 5, 7, color);
-        for (int step = 0; step < 6; step++)
-            Drawable.drawVerticalLine(color, 11 + step, 12 - step, 9 + step * 2);
-        Drawable.drawVerticalLine(color, 20, 12, 9);
-        Drawable.drawVerticalLine(color, 24, 9, 15);
-        Drawable.drawHorizontalLine(color, 21, 10, 2);
-        Drawable.drawHorizontalLine(color, 21, 22, 2);
-        if (!loginPreferences.loginMusicEnabled()) {
-            for (int step = 0; step < 22; step++)
-                Drawable.drawFullRect(5 + step, 25 - step, 2, 2, 0xc6382c);
-        }
-        loginMusicButton.drawImage(loginMusicButtonX(), loginMusicButtonY(), super.graphics);
+        if (loginMusicButton == null) loginMusicButton = new LoginMusicButton();
+        boolean hover = super.mouseX >= loginMusicButtonX() && super.mouseX < loginMusicButtonX() + LoginMusicButton.SIZE
+                && super.mouseY >= loginMusicButtonY() && super.mouseY < loginMusicButtonY() + LoginMusicButton.SIZE;
+        loginMusicButton.draw(super.graphics, loginMusicButtonX(), loginMusicButtonY(),
+                loginPreferences.loginMusicEnabled(), hover);
     }
 
     private boolean clickLoginPreference() {
         if (super.anInt28 != 1) return false;
-        if (super.anInt29 >= loginMusicButtonX() && super.anInt29 < loginMusicButtonX() + 32
-                && super.anInt30 >= loginMusicButtonY() && super.anInt30 < loginMusicButtonY() + 32) {
+        if (super.anInt29 >= loginMusicButtonX() && super.anInt29 < loginMusicButtonX() + LoginMusicButton.SIZE
+                && super.anInt30 >= loginMusicButtonY() && super.anInt30 < loginMusicButtonY() + LoginMusicButton.SIZE) {
             loginPreferences.loginMusicEnabled(!loginPreferences.loginMusicEnabled());
             music.setEnabled(musicEnabled && loginPreferences.loginMusicEnabled() && !lowMemory);
             super.anInt28 = 0;
