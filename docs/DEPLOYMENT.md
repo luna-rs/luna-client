@@ -3,11 +3,20 @@
 This public repository provides source and local build tools. Supply your own
 server, connection profile, compatible cache ZIP and HTTPS host.
 
+The default client connects to your local server at `127.0.0.1:43594`. This
+repository does not configure a connection to the hosted Luna 2006 game. Its
+GitHub Actions workflow compiles development source only; it does not publish
+game packages, cache downloads or a GitHub Pages site.
+
+For the hosted game and its player downloads, visit [Luna 2006](https://luna2006.rs/).
+The instructions below are for building and hosting your own client and server.
+
 ## Configure your own deployment
 
 Edit the selected root properties profile. The normal build uses `client.properties`.
-Use a complete alternative such as `client (2).properties` only when selecting it
-explicitly for that build.
+Use a complete alternative such as `custom.properties` only when selecting it
+explicitly for a browser build with `-PclientProperties=custom.properties`.
+The desktop JAR packages the root `client.properties`.
 
 | Properties | What to configure |
 | --- | --- |
@@ -35,14 +44,19 @@ integrity checks keep those outputs together. Rebuild after changing properties.
 There is no manually maintained browser endpoint JSON or workflow endpoint override.
 The local packaging command records development provenance from the current Git commit.
 
-Cache assets come from the shared `data/bootstrap/cache.zip` and its `cache.sha256`
-manifest. The build extracts the six core stores, verifies their hashes and
-includes them with the website. Browser asset URLs work relative to the deployed
+Every packaging build requires an explicit local `-PcacheZip=<path>` archive.
+It must contain one copy each of `main_file_cache.dat` and
+`main_file_cache.idx0` through `main_file_cache.idx4`. These stores may be nested
+inside folders; unrelated files are ignored. No cache is downloaded automatically.
+
+The build validates this input and generates the ignored `data/bootstrap/cache.zip`
+and `cache.sha256` manifest. It extracts the six core stores, verifies their hashes
+and includes them with the website. Browser asset URLs work relative to the deployed
 site, including a GitHub Pages repository subpath. Players download the cache and
 retain it in browser storage. Desktop clients use their configured `~/luna/cache`.
-To change game assets, update the compatible cache build input and its manifest;
-connection settings remain in properties. Do not modify generated cache files or
-descriptors to customize a deployment.
+To change game assets, supply the new compatible cache ZIP and rebuild; the build
+regenerates the manifest. Connection settings remain in properties. Do not modify
+generated cache files or descriptors to customize a deployment.
 
 ## Local browser development
 
@@ -66,6 +80,12 @@ client settings do not silently change its server policy.
 
 On Linux/macOS use `./gradlew` instead of `.\gradlew.bat`. Supply your own
 compatible cache with `-PcacheZip=/path/to/cache.zip` for packaging builds.
+
+To select another complete browser profile, build with:
+
+```powershell
+.\gradlew.bat :browser:browserSite "-PclientProperties=custom.properties" "-PcacheZip=C:/path/to/cache.zip"
+```
 
 ## Build the deployable website
 
@@ -102,22 +122,21 @@ connection and cache fingerprint.
 
 This client repository, its shared rendering/in-game interfaces, browser adapters
 and basic website are public. Players also receive inspectable JavaScript,
-WebAssembly, artwork, public settings and cache files. HiveScape can maintain a
-future branded website separately; making source private would not hide the
-files delivered to its players' browsers. Retain the included
-[third-party notices](../browser/web/legal/THIRD_PARTY_NOTICES.txt).
+WebAssembly, artwork, public settings and cache files. Keep private keys,
+credentials, deployment profiles and cache inputs outside public source control.
+Retain the included [third-party notices](../browser/web/legal/THIRD_PARTY_NOTICES.txt).
 
 ## Optional VPS deployment with native Luna WebSockets
 
-This is an alternative to the current Pages/relay deployment, not an already
-completed migration. It needs a real domain, a Luna server release containing the
-native listener, and HTTPS configuration. `play.example.com` below is a placeholder;
-no real hostname or website gate has been configured by this example.
+This example hosts your own static build and proxies `/game` to your own Luna
+server's native WebSocket listener. Supply a domain, a server build containing
+the listener, and HTTPS configuration. `play.example.com` is a placeholder;
+replace it with your hostname throughout the configuration.
 
-For this alternative, set `websocketUrl=same-origin` in a selected properties
-profile before building the VPS artifact. On HTTPS, that artifact connects to the
-website host's `/game` using `wss:`. Do not select this same-origin profile for the
-active GitHub Pages deployment.
+Set `websocketUrl=same-origin` in a selected properties profile before building
+the VPS artifact. On HTTPS, that artifact connects to the
+website host's `/game` using `wss:`. Static-only hosts such as GitHub Pages need
+an absolute secure WebSocket URL hosted separately instead.
 
 ### What runs where
 
@@ -131,14 +150,14 @@ Desktop client ---------------------- TCP --> Luna on port 43594
 
 Both transports use the same Luna world and login/game protocol. The native
 WebSocket listener does not open another game TCP connection. Node.js is used
-while building the website; this VPS layout needs no Node relay. Caddy supplies
-HTTPS and WebSocket TLS termination, while Luna's internal listener stays local.
+for the local preview and packaging tools. Caddy supplies HTTPS and WebSocket
+TLS termination, while Luna's internal listener stays local.
 
 ### One-time Luna server setup
 
-The server needs native WebSocket support from [luna-rs/luna](https://github.com/luna-rs/luna),
-introduced by commit `c9b10f537ebcc2224cabc466cbfe51539ce14a8b`, or a later revision
-containing it. Deploy through your normal game-server release procedure,
+Use a server build with native WebSocket support from
+[luna-rs/luna](https://github.com/luna-rs/luna).
+Deploy through your normal game-server release procedure,
 preserving player saves, cache, runtime configuration and RSA keys.
 
 Keep the existing desktop `game.port` at 43594. In the server's existing
@@ -206,13 +225,20 @@ a live production hostname.
 
 ### Upload and activate a release
 
-Download `Luna-Webclient.zip` to the local machine. From PowerShell, change the
-local file path if necessary and upload it to the existing VPS account:
+Create an archive from your locally packaged website. The ZIP must have
+`index.html` at its root, rather than a surrounding `webclient-site` folder.
+From PowerShell, use a fresh archive filename and upload it to your VPS account:
 
 ```powershell
+Compress-Archive -Path .\build\webclient-site\* -DestinationPath .\Luna-Webclient.zip
 scp .\Luna-Webclient.zip deploy@your-game-host:~/Luna-Webclient.zip
 ssh deploy@your-game-host
 ```
+
+`deploy@your-game-host` is a placeholder for your SSH account and hostname. The
+commands below use `luna` as the deployment account; replace it with the account
+that will own and activate your website releases. No prebuilt website ZIP is
+supplied by this repository's compile-only workflow.
 
 An administrator creates these specific website directories once, assigning them
 to the existing `luna` deployment account. Caddy needs read/traverse access. This
@@ -271,23 +297,33 @@ code or listener configuration are a separate server release.
 - Log in with the desktop client on TCP 43594 as well.
 - Verify that server records show real browser client addresses through Caddy.
 
-Retire an older relay only after these checks pass and its existing sessions have
-drained. A successful build or loaded webpage is not proof of working gameplay.
+A successful build or loaded webpage is not proof of working gameplay.
 
 ### Optional website access gate
 
-The selected deployment is public: no extra website password is configured.
-Private source access and website access are separate decisions. Players can
-inspect downloaded JavaScript, WebAssembly, artwork, settings and cache files.
+The supplied Caddy example serves the website publicly. Source access and website
+access are separate decisions. Players can inspect downloaded JavaScript,
+WebAssembly, artwork, settings and cache files.
 
-If tester-only access is wanted later, Caddy supports
+For a restricted website, Caddy supports
 [`basic_auth`](https://caddyserver.com/docs/caddyfile/directives/basic_auth) using
 hashed passwords. Protect both assets and `/game`, then test first connection,
 login, logout and reconnect through that gate. End-to-end WebSocket authentication
-through such a gate has not been verified by this setup. Keep gate credentials
-and password hashes in server configuration, not in static files or Git. Luna
+through such a gate needs separate verification for your deployment. Keep gate
+credentials and password hashes in server configuration, not in static files or Git. Luna
 account login remains a separate requirement.
 
 
 Use the [shared maintenance guide](UPSTREAM.md) to develop and verify changes,
-then publish through the selected hosting workflow.
+then deploy the packaged website through your own hosting process.
+
+## GitHub Releases
+
+This public source repository does not currently publish client binaries, player
+launchers, game caches or browser ZIPs through GitHub Releases. Build your own
+packages using the commands above and the [desktop setup](../README.md#desktop-client).
+The **Compile development clients** workflow performs source compilation only,
+including when run manually; it does not create a release or download artifact.
+
+Hosted Luna 2006 player downloads are available from [luna2006.rs](https://luna2006.rs/).
+They are separate from this repository's local development setup.
