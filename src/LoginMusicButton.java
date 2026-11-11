@@ -95,12 +95,15 @@ public final class LoginMusicButton {
                             : y == 2 || y == 33 ? 2 : y <= 4 || y >= 31 ? 1 : 0;
                     for (int x = inset; x < SIZE - inset; x++) {
                         int color = PALETTE[SYMBOLS.indexOf(ROWS[y].charAt(x))];
+                        int red = (color >> 16 & 255) * 3 / 4;
+                        int green = (color >> 8 & 255) * 3 / 4;
+                        int blue = (color & 255) * 3 / 4;
                         if (hover == 1) {
-                            int red = Math.min(255, (color >> 16 & 255) + 12);
-                            int green = Math.min(255, (color >> 8 & 255) + 12);
-                            int blue = Math.min(255, (color & 255) + 12);
-                            color = red << 16 | green << 8 | blue;
+                            red = Math.min(255, red + 12);
+                            green = Math.min(255, green + 12);
+                            blue = Math.min(255, blue + 12);
                         }
+                        color = red << 16 | green << 8 | blue;
                         image.setRGB(x, y, 0xff000000 | color);
                     }
                 }
