@@ -163,7 +163,7 @@ tasks.register('verifyClientJar') {
                 def required = ['client.class', 'ClientLauncher.class', 'luna/ClientConfiguration.class', 'luna/CacheBootstrap.class',
                         'luna/ClientStartup.class', 'client.properties',
                         'data/soundbank.sf2', 'bootstrap/cache.zip', 'bootstrap/cache.sha256']
-                ['default', 'christmas', 'easter', 'halloween'].each { season ->
+                ['christmas', 'easter', 'halloween'].each { season ->
                     ['background.png', 'logo.png'].each { image ->
                         required.add("data/title/${season}/${image}")
                     }

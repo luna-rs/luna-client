@@ -16,7 +16,7 @@ const assets = ['index.html', 'cache.js', 'soundfont.js', 'audio-midi.js', 'back
     'js/client.js', 'wasm/client.wasm', 'wasm/client.wasm-runtime.js', 'client.properties', 'client-config.json',
     'cache/cache.sha256',
     ...stores.map(name => `cache/${name}`),
-    ...['default', 'christmas', 'easter', 'halloween'].flatMap(season =>
+    ...['christmas', 'easter', 'halloween'].flatMap(season =>
         ['background.png', 'logo.png'].map(image => `assets/title/${season}/${image}`))];
 
 function hash(bytes) {

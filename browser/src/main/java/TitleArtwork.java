@@ -187,6 +187,7 @@ public final class TitleArtwork {
     }
 
     private static BufferedImage load(SeasonalTitleTheme theme, String file) {
+        if (theme == SeasonalTitleTheme.DEFAULT) return null;
         try {
             BufferedImage image = BrowserDisplay.decodeUrl("assets/title/" + theme.directory() + "/" + file);
             return image != null && image.width > 0 && image.height > 0

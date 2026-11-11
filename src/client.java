@@ -4411,7 +4411,7 @@ public class client extends JagApplet {
         anIntArray1311 = new int[256];
         anIntArray1312 = new int[256];
         anIntArray1313 = new int[256];
-        TitleFlamePalette.fill(appliedTitleTheme == SeasonalTitleTheme.DEFAULT,
+        TitleFlamePalette.fill(false,
                 anIntArray1311, anIntArray1312, anIntArray1313);
 
         anIntArray1310 = new int[256];
@@ -11391,7 +11391,7 @@ public class client extends JagApplet {
             }
             appliedTitleTheme = theme;
             if (anIntArray1311 != null && anIntArray1312 != null && anIntArray1313 != null) {
-                TitleFlamePalette.fill(theme == SeasonalTitleTheme.DEFAULT,
+                TitleFlamePalette.fill(false,
                         anIntArray1311, anIntArray1312, anIntArray1313);
                 anInt1047 = anInt1048 = 0;
             }

@@ -265,6 +265,7 @@ public final class TitleArtwork {
     }
 
     private BufferedImage load(SeasonalTitleTheme theme, String file) {
+        if (theme == SeasonalTitleTheme.DEFAULT) return null;
         Path path = directory.resolve(theme.directory()).resolve(file);
         try {
             InputStream source;
