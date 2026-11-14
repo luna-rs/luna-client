@@ -11500,14 +11500,16 @@ public class client extends JagApplet {
     }
 
     private int interfaceWidth(JagInterface widget) {
-        if (layout.resizable && widget.id == walkableInterfaceId && ViewportHudLayout.supports(widget.id)) {
+        if (layout.resizable && widget.id == walkableInterfaceId
+                && (ViewportHudLayout.supports(widget.id) || widget.id == 11124)) {
             return layout.viewport.width;
         }
         return hasFullscreenBounds(widget) ? REGULAR_WIDTH : widget.width;
     }
 
     private int interfaceHeight(JagInterface widget) {
-        if (layout.resizable && widget.id == walkableInterfaceId && ViewportHudLayout.supports(widget.id)) {
+        if (layout.resizable && widget.id == walkableInterfaceId
+                && (ViewportHudLayout.supports(widget.id) || widget.id == 11124)) {
             return layout.viewport.height;
         }
         return hasFullscreenBounds(widget) ? REGULAR_HEIGHT : widget.height;
@@ -11761,8 +11763,20 @@ public class client extends JagApplet {
                         class50_sub1_sub4_sub4 = class13_1.method203(class14.anIntArray295[class13_1.anInt235],
                                 class14.anIntArray296[class13_1.anInt235], flag2);
                     }
-                    if (class50_sub1_sub4_sub4 != null)
-                        class50_sub1_sub4_sub4.viewportTransform(0, class13_1.anInt253, 0, class13_1.anInt252, 0, k5, j6);
+                    if (class50_sub1_sub4_sub4 != null) {
+                        if (layout.resizable && jagInterface.id == walkableInterfaceId && jagInterface.id == 11124
+                                && class13_1.id == 11125 && !flag2
+                                && class13_1.anInt283 == 4 && class13_1.anInt284 == 4032) {
+                            // The native black square has two uniformly shaded faces animated only by transparency.
+                            int transparency = class50_sub1_sub4_sub4.faceTransparency == null
+                                    ? 0 : class50_sub1_sub4_sub4.faceTransparency[0];
+                            int color = ThreeDimensionalCanvas.anIntArray1548[class50_sub1_sub4_sub4.faceColorsA[0]];
+                            Drawable.drawTransparentFullRect(0, 0, layout.viewport.width, layout.viewport.height,
+                                    color, 256 - transparency);
+                        } else {
+                            class50_sub1_sub4_sub4.viewportTransform(0, class13_1.anInt253, 0, class13_1.anInt252, 0, k5, j6);
+                        }
+                    }
                     ThreeDimensionalCanvas.halfParentWidth = k3;
                     ThreeDimensionalCanvas.halfParentHeight = k4;
                 } else {
