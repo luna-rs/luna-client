@@ -73,6 +73,8 @@ public class client extends JagApplet {
     private static boolean startupFailureReported;
     private int cameraShakeCycle = Integer.MIN_VALUE;
     private final int[] cameraShakeOffsets = new int[5];
+    private JagImageProducer contextMenuImage;
+    private boolean contextMenuOverlayDrawn;
 
     private static int PROCESS_PACKET_COUNT = 100;//5
 
@@ -4457,12 +4459,13 @@ public class client extends JagApplet {
             return;
         }
         int j = super.anInt28;
-        if (anInt1171 == 1 && super.anInt29 >= layout.tabIconsTop.x && super.anInt30 >= layout.tabIconsTop.y
+        if (!isContextMenuActive && anInt1171 == 1 && super.anInt29 >= layout.tabIconsTop.x && super.anInt30 >= layout.tabIconsTop.y
                 && super.anInt29 <= layout.tabIconsTop.x + layout.tabIconsTop.width
                 && super.anInt30 <= layout.tabIconsTop.y + layout.tabIconsTop.height) {
             j = 0;
         }
         if (isContextMenuActive) {
+            super.anInt28 = 0;
             if (j != 1) {
                 int k = super.mouseX - contextAreaX();
                 int j1 = super.mouseY - contextAreaY();
@@ -6075,6 +6078,10 @@ public class client extends JagApplet {
         // the login screen may have moved the origin to the centre of the window
         ((Graphics2D) super.graphics).setTransform(new AffineTransform());
         loginScreenCleared = false;
+        if (contextMenuOverlayDrawn) {
+            shouldRenderUI = true;
+            contextMenuOverlayDrawn = false;
+        }
         if (anInt1053 != -1 && (loadingStage == 2 || super.imageProducer != null)) {
             if (loadingStage == 2) {
                 updateInterfaceAnimations(anInt951, anInt1053);
@@ -6340,6 +6347,9 @@ public class client extends JagApplet {
         }
         if (resizableUi != null) {
             resizableUi.present((Graphics2D) super.graphics);
+        }
+        if (isContextMenuActive) {
+            drawContextMenuOverlay();
         }
         anInt951 = 0;
         ClientPerformance.end(ClientPerformance.UI, interfaceStarted);
@@ -7266,9 +7276,6 @@ public class client extends JagApplet {
             class50_sub1_sub1_sub2_1.drawString_474(line, 2245, 6 + class50_sub1_sub1_sub2_1.method472((byte) 35, s + ": "),
                     chatActive ? 255 : 0, 90);
             Drawable.drawHorizontalLine(0, 0, 77, 479);
-        }
-        if (isContextMenuActive && anInt1304 == 2) {
-            drawContextMenu();
         }
         drawPanel(chatboxImage_1159, layout.chatbox, ClientLayout.CHATBOX_ALPHA);
         gameViewportImage.pushPixels();
@@ -8740,8 +8747,7 @@ public class client extends JagApplet {
         if (!isContextMenuActive) {
             generateContextOptions(-521);
             method34((byte) -79);
-        } else if (anInt1304 == 0)
-            drawContextMenu();
+        }
         if (anInt1319 == 1) {
             java.awt.Point position = ViewportHudLayout.multicombatPosition(layout, walkableInterfaceId);
             aClass50_Sub1_Sub1_Sub1_1086.method461(position.y, position.x, -488);
@@ -10610,8 +10616,43 @@ public class client extends JagApplet {
     }
 
     public void drawContextMenu() {
-        int beginX = anInt1305;
-        int beginY = anInt1306;
+        drawContextMenu(anInt1305, anInt1306);
+    }
+
+    /**
+     * Presents the menu after every panel, outside their masks and opacity settings.
+     */
+    private void drawContextMenuOverlay() {
+        int[] previousPixels = Drawable.pixels;
+        int previousWidth = Drawable.width;
+        int previousHeight = Drawable.height;
+        int previousStartX = Drawable.startX;
+        int previousStartY = Drawable.startY;
+        int previousEndX = Drawable.endX;
+        int previousEndY = Drawable.endY;
+        try {
+            if (contextMenuImage == null || contextMenuImage.width != anInt1307 || contextMenuImage.height != anInt1308) {
+                contextMenuImage = new JagImageProducer(anInt1307, anInt1308, getParentComponent());
+            } else {
+                contextMenuImage.pushPixels();
+            }
+            drawContextMenu(0, 0);
+            Graphics2D graphics = (Graphics2D) super.graphics.create();
+            try {
+                graphics.setComposite(AlphaComposite.SrcOver);
+                contextMenuImage.drawImage(contextAreaX() + anInt1305, contextAreaY() + anInt1306, graphics);
+            } finally {
+                graphics.dispose();
+            }
+            // Fixed mode retains its frame pixels, including any area covered by an oversized menu.
+            contextMenuOverlayDrawn = !layout.resizable;
+        } finally {
+            Drawable.putPixels(previousWidth, previousHeight, previousPixels);
+            Drawable.recalcEdges(previousStartY, previousStartX, previousEndY, previousEndX, true);
+        }
+    }
+
+    private void drawContextMenu(int beginX, int beginY) {
         int k = anInt1307;
         int l = anInt1308;
         int i1 = 0x5d5447;
@@ -10619,8 +10660,8 @@ public class client extends JagApplet {
         Drawable.drawFullRect(beginX + 1, beginY + 1, k - 2, 16, 0);
         Drawable.drawRect(beginX + 1, beginY + 18, k - 2, l - 19, 0);
         loginScreenFont.drawString_474("Choose Option", 2245, beginX + 3, i1, beginY + 14);
-        int j1 = super.mouseX - contextAreaX();
-        int k1 = super.mouseY - contextAreaY();
+        int j1 = super.mouseX - contextAreaX() - anInt1305 + beginX;
+        int k1 = super.mouseY - contextAreaY() - anInt1306 + beginY;
         for (int optionCounter = 0; optionCounter < anInt1183; optionCounter++) {
             int i2 = beginY + 31 + (anInt1183 - 1 - optionCounter) * 15;
             int j2 = 0xffffff;
@@ -11238,8 +11279,6 @@ public class client extends JagApplet {
             drawInterface(0, 0, JagInterface.forId(anInt1089), 0, 8);
         else if (anIntArray1081[tabId] != -1)
             drawInterface(0, 0, JagInterface.forId(anIntArray1081[tabId]), 0, 8);
-        if (isContextMenuActive && anInt1304 == 1)
-            drawContextMenu();
         drawPanel(inventoryImage, layout.inventory, ClientLayout.INVENTORY_ALPHA);
         gameViewportImage.pushPixels();
         ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
