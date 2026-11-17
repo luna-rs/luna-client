@@ -10427,15 +10427,16 @@ public class client extends JagApplet {
         if (gameViewportImage != null) {
             gameViewportImage.pushPixels();
             ThreeDimensionalCanvas.lineOffsets = gameViewportOffsets;
-            int j = 151;
+            int centerX = layout.resizable ? gameViewportImage.width / 2 : 256;
+            int j = layout.resizable ? (gameViewportImage.height + fontChatboxButtons.anInt1506) / 2 : 151;
             if (s != null)
                 j -= 7;
-            fontChatboxButtons.drawHorizontallyCenteredString(257, j, 0, s1);
-            fontChatboxButtons.drawHorizontallyCenteredString(256, j - 1, 0xffffff, s1);
+            fontChatboxButtons.drawHorizontallyCenteredString(centerX + 1, j, 0, s1);
+            fontChatboxButtons.drawHorizontallyCenteredString(centerX, j - 1, 0xffffff, s1);
             j += 15;
             if (s != null) {
-                fontChatboxButtons.drawHorizontallyCenteredString(257, j, 0, s);
-                fontChatboxButtons.drawHorizontallyCenteredString(256, j - 1, 0xffffff, s);
+                fontChatboxButtons.drawHorizontallyCenteredString(centerX + 1, j, 0, s);
+                fontChatboxButtons.drawHorizontallyCenteredString(centerX, j - 1, 0xffffff, s);
             }
             gameViewportImage.drawImage(layout.viewport, super.graphics);
             presentBackBuffer();
