@@ -31,7 +31,7 @@ On Linux and macOS, use `./gradlew` in place of `.\gradlew.bat`.
 
 ### Supply a cache
 
-Use a ZIP of the same cache as your server. It must contain `main_file_cache.dat`
+You can find a cache in [releases](https://github.com/luna-rs/luna-client/releases) or on [OpenRS2](https://archive.openrs2.org/caches). Use a ZIP of the same cache as your server. It must contain `main_file_cache.dat`
 and `main_file_cache.idx0` through `main_file_cache.idx4`. Replace the example ZIP
 path below with yours.
 
@@ -74,8 +74,3 @@ This client targets revision 377 and is developed alongside the
 [Luna server](https://github.com/luna-rs/luna). Other revision 377 servers need
 compatible login encryption, packet handling and cache data; verify them with
 your chosen server.
-
-See [third-party notices](browser/web/legal/THIRD_PARTY_NOTICES.txt) for component
-licenses and asset provenance. These notices do not assign a blanket license to
-the inherited client or game assets. The original desktop README is retained in
-[DESKTOP-UPSTREAM.md](docs/DESKTOP-UPSTREAM.md).
