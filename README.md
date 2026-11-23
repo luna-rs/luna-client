@@ -10,6 +10,7 @@ The official client that connects locally to the [Luna game server](https://gith
 gameplay for yourself!
 
 - 5x experience for players, 1x experience for bots
+- Standard economy, no item spawns
 - No character/economy wipes or resets
 
 ![](data/resources/luna-2006-fullscreen.png)
