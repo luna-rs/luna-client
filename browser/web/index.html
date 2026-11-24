@@ -112,25 +112,24 @@
             logMessage(args.map(String).join(' '));
         };
     }
+    // These events can come from injected scripts. Only client-owned failures update the launch status.
     window.addEventListener('error', event => {
-        logMessage(event.error?.stack || event.message);
-        status.textContent = 'Something went wrong. Open Manual for details.';
+        logMessage(event.error?.stack || event.message || 'Unknown browser error');
     });
     window.addEventListener('unhandledrejection', event => {
         logMessage(event.reason?.stack || String(event.reason));
-        status.textContent = 'Something went wrong. Open Manual for details.';
     });
-    function startClient() {
+    async function startClient() {
         if (launching) return;
         try {
             launching = true;
             cacheStoresLoading = 0;
             document.getElementById('server').disabled = true;
             status.textContent = 'Loading game…';
-            main([]);
+            await main([]);
         } catch (error) {
             document.getElementById('launch-screen').hidden = false;
-            logMessage(error.stack || String(error));
+            logMessage(error?.stack || String(error));
             status.textContent = 'Unable to start the game. Open Manual for details.';
         }
     }
@@ -180,7 +179,7 @@
             world.textContent = configuration.clientName;
             document.getElementById('server').replaceChildren(world);
             document.getElementById('server').disabled = true;
-            startClient();
+            await startClient();
         } catch (error) {
             status.textContent = 'Unable to prepare the game. Open Manual for details.';
             logMessage(error.stack || String(error));
